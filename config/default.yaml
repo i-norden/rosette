@@ -1,0 +1,28 @@
+llm:
+  provider: claude
+  model_screen: claude-haiku-4-5-20251001
+  model_analyze: claude-sonnet-4-5-20250929
+  model_proof: claude-opus-4-6
+  use_batch_api: true
+  max_concurrent_requests: 5
+
+discovery:
+  scimago_csv_path: data/scimago.csv
+
+priority:
+  min_citations: 50
+  journal_quartile_filter: Q1
+  min_priority_score: 40
+
+analysis:
+  ela_quality: 95
+  clone_min_matches: 10
+  noise_block_size: 64
+  llm_screening_confidence_threshold: 0.5
+  convergence_required: true
+
+storage:
+  database_url: sqlite:///snoopy.db
+  pdf_dir: data/pdfs
+  figures_dir: data/figures
+  reports_dir: data/reports
