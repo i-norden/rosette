@@ -1,4 +1,4 @@
-# Sniffer
+# Snoopy
 
 LLM-powered academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and Claude-based analysis.
 
@@ -13,13 +13,13 @@ pip install -e ".[dev]"
 Run the demo (downloads test fixtures, runs forensics, prints results):
 
 ```bash
-sniffer demo
+snoopy demo
 ```
 
 ## Architecture
 
 ```
-sniffer/
+snoopy/
 ├── analysis/          # Detection methods
 │   ├── image_forensics.py   # ELA, clone detection, noise analysis
 │   ├── statistical.py       # GRIM test, Benford's law, p-value checks
@@ -39,30 +39,30 @@ sniffer/
 ## CLI Commands
 
 ```
-sniffer discover    Search academic APIs for papers to analyze
-sniffer analyze     Analyze a single paper by DOI or local PDF
-sniffer batch       Process top-priority pending papers
-sniffer report      Display a paper's analysis report
-sniffer status      Show pipeline status and queue depth
-sniffer demo        Run demo with test fixtures and pretty output
-sniffer config      Show current configuration
+snoopy discover    Search academic APIs for papers to analyze
+snoopy analyze     Analyze a single paper by DOI or local PDF
+snoopy batch       Process top-priority pending papers
+snoopy report      Display a paper's analysis report
+snoopy status      Show pipeline status and queue depth
+snoopy demo        Run demo with test fixtures and pretty output
+snoopy config      Show current configuration
 ```
 
-### sniffer demo
+### snoopy demo
 
 Runs the full demo pipeline: downloads test fixtures, runs image forensics on all test cases, prints Rich-formatted results, and generates HTML reports.
 
 ```bash
-sniffer demo                        # Full demo
-sniffer demo --download-only        # Only download fixtures
-sniffer demo --output-dir ./out     # Custom report output directory
+snoopy demo                        # Full demo
+snoopy demo --download-only        # Only download fixtures
+snoopy demo --output-dir ./out     # Custom report output directory
 ```
 
-### sniffer analyze
+### snoopy analyze
 
 ```bash
-sniffer analyze --doi 10.1234/example
-sniffer analyze --pdf path/to/paper.pdf
+snoopy analyze --doi 10.1234/example
+snoopy analyze --pdf path/to/paper.pdf
 ```
 
 ## Analysis Methods
@@ -85,8 +85,8 @@ Findings from multiple methods are aggregated in `evidence.py`. Converging evide
 Copy and edit `config/default.yaml`, or override with environment variables:
 
 ```bash
-export SNIFFER__LLM__PROVIDER=claude
-export SNIFFER__STORAGE__DATABASE_URL=sqlite:///my.db
+export SNOOPY__LLM__PROVIDER=claude
+export SNOOPY__STORAGE__DATABASE_URL=sqlite:///my.db
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -136,7 +136,7 @@ The script is idempotent -- it skips already-downloaded files.
 ## Project Layout
 
 ```
-sniffer/             # Main package (installed via pip)
+snoopy/             # Main package (installed via pip)
 scripts/             # Standalone scripts (demo, fixture download)
 tests/               # Test suite
   test_analysis/     #   Analysis method tests
