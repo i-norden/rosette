@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class TestStatistic:
     test_type: str
     statistic: float
     df: tuple[int, ...]
-    p_value: Optional[float]
+    p_value: float | None
     context: str
 
 
