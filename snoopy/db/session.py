@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Generator
+from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from snoopy.db.models import Base
@@ -13,6 +14,9 @@ from snoopy.db.models import Base
 
 _engine = None
 _SessionFactory = None
+
+_async_engine = None
+_AsyncSessionFactory = None
 
 
 def init_db(database_url: str = "sqlite:///snoopy.db") -> None:
@@ -26,6 +30,24 @@ def init_db(database_url: str = "sqlite:///snoopy.db") -> None:
     _engine = create_engine(database_url, connect_args=connect_args)
     _SessionFactory = sessionmaker(bind=_engine)
     Base.metadata.create_all(_engine)
+
+
+def init_async_db(database_url: str = "sqlite:///snoopy.db") -> None:
+    """Initialize the async database engine for use in async contexts.
+
+    Converts standard database URLs to their async equivalents
+    (e.g. sqlite:// -> sqlite+aiosqlite://).
+    """
+    global _async_engine, _AsyncSessionFactory
+
+    async_url = database_url
+    if async_url.startswith("sqlite://") and "+aiosqlite" not in async_url:
+        async_url = async_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    elif async_url.startswith("postgresql://") and "+asyncpg" not in async_url:
+        async_url = async_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    _async_engine = create_async_engine(async_url)
+    _AsyncSessionFactory = async_sessionmaker(bind=_async_engine, class_=AsyncSession)
 
 
 def get_engine():
@@ -49,3 +71,21 @@ def get_session() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+
+@asynccontextmanager
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a transactional async database session."""
+    if _AsyncSessionFactory is None:
+        raise RuntimeError(
+            "Async database not initialized. Call init_async_db() first."
+        )
+    session = _AsyncSessionFactory()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()

@@ -46,9 +46,14 @@ class Paper(Base):
     priority_score = Column(Float, nullable=True)
     pdf_path = Column(Text, nullable=True)
     pdf_sha256 = Column(Text, nullable=True)
+    full_text = Column(Text, nullable=True)
     source = Column(Text, nullable=True)  # 'openalex', 'pubmed', 'manual', etc.
     status = Column(Text, default="pending")
     error_message = Column(Text, nullable=True)
+    retraction_status = Column(Text, nullable=True)  # 'retracted', 'expression_of_concern', etc.
+    retraction_date = Column(DateTime, nullable=True)
+    retraction_reason = Column(Text, nullable=True)
+    pubpeer_comments = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
@@ -78,6 +83,8 @@ class Figure(Base):
     image_type = Column(Text, nullable=True)  # 'western_blot', 'microscopy', 'gel', etc.
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
+    phash = Column(Text, nullable=True)  # Perceptual hash for cross-reference
+    ahash = Column(Text, nullable=True)  # Average hash for cross-reference
     created_at = Column(DateTime, default=_utcnow)
 
     paper = relationship("Paper", back_populates="figures")
@@ -86,6 +93,7 @@ class Figure(Base):
     __table_args__ = (
         Index("idx_figures_paper", "paper_id"),
         Index("idx_figures_sha256", "image_sha256"),
+        Index("idx_figures_phash", "phash"),
     )
 
 
@@ -142,5 +150,41 @@ class ProcessingLog(Base):
     details = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
 
     paper = relationship("Paper", back_populates="processing_logs")
+
+
+class Author(Base):
+    __tablename__ = "authors"
+
+    id = Column(Text, primary_key=True, default=_uuid)
+    name = Column(Text, nullable=False)
+    orcid = Column(Text, nullable=True, unique=True)
+    institution = Column(Text, nullable=True)
+    h_index = Column(Integer, nullable=True)
+    total_papers = Column(Integer, default=0)
+    flagged_papers = Column(Integer, default=0)
+    retraction_count = Column(Integer, default=0)
+    risk_score = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    papers = relationship("AuthorPaperLink", back_populates="author", cascade="all, delete-orphan")
+
+
+class AuthorPaperLink(Base):
+    __tablename__ = "author_paper_links"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    author_id = Column(Text, ForeignKey("authors.id"), nullable=False)
+    paper_id = Column(Text, ForeignKey("papers.id"), nullable=False)
+    position = Column(Integer, nullable=True)  # Author position (1=first, -1=last)
+
+    author = relationship("Author", back_populates="papers")
+    paper = relationship("Paper")
+
+    __table_args__ = (
+        Index("idx_author_paper_author", "author_id"),
+        Index("idx_author_paper_paper", "paper_id"),
+    )
