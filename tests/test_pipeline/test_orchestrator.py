@@ -47,9 +47,7 @@ def seeded_db(orchestrator_config) -> str:
 
 class TestProcessPaperFullPipeline:
     @pytest.mark.asyncio
-    async def test_process_paper_full_pipeline(
-        self, orchestrator_config, seeded_db
-    ) -> None:
+    async def test_process_paper_full_pipeline(self, orchestrator_config, seeded_db) -> None:
         """Process a paper through all stages with all external calls mocked.
 
         Verifies that the orchestrator runs through its stages without error
@@ -85,9 +83,7 @@ class TestProcessPaperFullPipeline:
             patch.object(
                 PipelineOrchestrator, "_run_report", new_callable=AsyncMock
             ) as mock_report,
-            patch(
-                "snoopy.pipeline.orchestrator.ClaudeProvider"
-            ) as mock_claude,
+            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
 
@@ -118,36 +114,16 @@ class TestStageLogging:
         paper_id = seeded_db
 
         with (
-            patch.object(
-                PipelineOrchestrator, "_run_download", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_extract_text", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_extract_figures", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_extract_stats", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_classify_figures", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_analyze_images", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock
-            ),
-            patch.object(
-                PipelineOrchestrator, "_run_report", new_callable=AsyncMock
-            ),
-            patch(
-                "snoopy.pipeline.orchestrator.ClaudeProvider"
-            ) as mock_claude,
+            patch.object(PipelineOrchestrator, "_run_download", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_extract_text", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_extract_figures", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_extract_stats", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_classify_figures", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_images", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
+            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
@@ -156,11 +132,15 @@ class TestStageLogging:
         with get_session() as session:
             from sqlalchemy import select
 
-            logs = session.execute(
-                select(ProcessingLog)
-                .where(ProcessingLog.paper_id == paper_id)
-                .order_by(ProcessingLog.id)
-            ).scalars().all()
+            logs = (
+                session.execute(
+                    select(ProcessingLog)
+                    .where(ProcessingLog.paper_id == paper_id)
+                    .order_by(ProcessingLog.id)
+                )
+                .scalars()
+                .all()
+            )
 
             # Each stage should have a "started" and "completed" entry
             stages_logged = set()
@@ -170,9 +150,15 @@ class TestStageLogging:
 
             # All pipeline stages (minus discover/prioritize) should be logged
             expected_stages = {
-                "download", "extract_text", "extract_figures", "extract_stats",
-                "classify_figures", "analyze_images", "analyze_stats",
-                "aggregate", "report",
+                "download",
+                "extract_text",
+                "extract_figures",
+                "extract_stats",
+                "classify_figures",
+                "analyze_images",
+                "analyze_stats",
+                "aggregate",
+                "report",
             }
             assert expected_stages == stages_logged
 
@@ -180,9 +166,7 @@ class TestStageLogging:
 class TestBuildMethodWeights:
     def test_build_method_weights(self, orchestrator_config) -> None:
         """Verify the weights dict is built correctly from config."""
-        with patch(
-            "snoopy.pipeline.orchestrator.ClaudeProvider"
-        ) as mock_claude:
+        with patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude:
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
 

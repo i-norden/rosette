@@ -180,8 +180,8 @@ def _detect_splice_boundaries(
             continue
 
         # Background discontinuity: compare mean intensity on each side
-        left_border = gray[:, max(0, gap_start - 5):gap_start]
-        right_border = gray[:, gap_end:min(w, gap_end + 5)]
+        left_border = gray[:, max(0, gap_start - 5) : gap_start]
+        right_border = gray[:, gap_end : min(w, gap_end + 5)]
 
         if left_border.size == 0 or right_border.size == 0:
             continue
@@ -202,14 +202,16 @@ def _detect_splice_boundaries(
         )
 
         if confidence > 0.3:
-            boundaries.append(SpliceBoundary(
-                x_position=(gap_start + gap_end) // 2,
-                left_lane=i,
-                right_lane=i + 1,
-                background_discontinuity=bg_discontinuity,
-                noise_discontinuity=noise_disc,
-                confidence=confidence,
-            ))
+            boundaries.append(
+                SpliceBoundary(
+                    x_position=(gap_start + gap_end) // 2,
+                    left_lane=i,
+                    right_lane=i + 1,
+                    background_discontinuity=bg_discontinuity,
+                    noise_discontinuity=noise_disc,
+                    confidence=confidence,
+                )
+            )
 
     return boundaries
 
@@ -264,9 +266,7 @@ def analyze_western_blot(image_path: str) -> WesternBlotResult:
     for i in range(len(profiles)):
         for j in range(i + 1, len(profiles)):
             all_correlations.append(_compare_profiles(profiles[i], profiles[j]))
-    uniform_profiles = (
-        len(all_correlations) > 0 and np.mean(all_correlations) > 0.85
-    )
+    uniform_profiles = bool(len(all_correlations) > 0 and np.mean(all_correlations) > 0.85)
 
     # Step 5: Detect splice boundaries
     splice_boundaries = _detect_splice_boundaries(gray, lanes)
@@ -279,15 +279,12 @@ def analyze_western_blot(image_path: str) -> WesternBlotResult:
         suspicious = True
         for i, j, corr in duplicate_lanes:
             details_parts.append(
-                f"Lanes {i} and {j} have suspiciously similar profiles "
-                f"(correlation={corr:.3f})"
+                f"Lanes {i} and {j} have suspiciously similar profiles (correlation={corr:.3f})"
             )
 
     if uniform_profiles:
         suspicious = True
-        details_parts.append(
-            f"All {len(lanes)} lanes show suspiciously uniform intensity profiles"
-        )
+        details_parts.append(f"All {len(lanes)} lanes show suspiciously uniform intensity profiles")
 
     high_conf_splices = [s for s in splice_boundaries if s.confidence > 0.6]
     if high_conf_splices:

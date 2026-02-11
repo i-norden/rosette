@@ -71,10 +71,12 @@ class TestSeverity:
         assert result == "medium"
 
     def test_boosted_with_multiple_methods(self):
-        result = compute_figure_severity([
-            {"severity": "medium", "method": "ela"},
-            {"severity": "medium", "method": "clone"},
-        ])
+        result = compute_figure_severity(
+            [
+                {"severity": "medium", "method": "ela"},
+                {"severity": "medium", "method": "clone"},
+            ]
+        )
         assert result == "high"  # Boosted from medium
 
 
@@ -87,9 +89,11 @@ class TestConfidence:
         assert abs(result - 0.8) < 0.01
 
     def test_boost_with_convergence(self):
-        result = compute_overall_confidence([
-            {"confidence": 0.7, "method": "ela"},
-            {"confidence": 0.7, "method": "clone"},
-        ])
+        result = compute_overall_confidence(
+            [
+                {"confidence": 0.7, "method": "ela"},
+                {"confidence": 0.7, "method": "clone"},
+            ]
+        )
         # Average 0.7 + 0.1 boost = 0.8
         assert abs(result - 0.8) < 0.01

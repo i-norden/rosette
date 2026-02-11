@@ -76,13 +76,15 @@ class TestPrintPaperHeader:
     def test_full_metadata(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_paper_header({
-            "title": "Test Paper Title",
-            "doi": "10.1234/test",
-            "journal": "Nature",
-            "citation_count": 500,
-            "publication_year": 2023,
-        })
+        pretty.print_paper_header(
+            {
+                "title": "Test Paper Title",
+                "doi": "10.1234/test",
+                "journal": "Nature",
+                "citation_count": 500,
+                "publication_year": 2023,
+            }
+        )
         output = buf.getvalue()
         assert "Test Paper Title" in output
         assert "10.1234/test" in output
@@ -112,8 +114,11 @@ class TestPrintAssessment:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
         pretty.print_assessment(
-            risk="clean", confidence=0.0, converging=False,
-            total_findings=0, critical_count=0,
+            risk="clean",
+            confidence=0.0,
+            converging=False,
+            total_findings=0,
+            critical_count=0,
         )
         output = buf.getvalue()
         assert "CLEAN" in output
@@ -124,8 +129,11 @@ class TestPrintAssessment:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
         pretty.print_assessment(
-            risk="critical", confidence=0.95, converging=True,
-            total_findings=5, critical_count=2,
+            risk="critical",
+            confidence=0.95,
+            converging=True,
+            total_findings=5,
+            critical_count=2,
         )
         output = buf.getvalue()
         assert "CRITICAL" in output
@@ -137,8 +145,11 @@ class TestPrintAssessment:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
         pretty.print_assessment(
-            risk="low", confidence=0.3, converging=False,
-            total_findings=1, critical_count=0,
+            risk="low",
+            confidence=0.3,
+            converging=False,
+            total_findings=1,
+            critical_count=0,
         )
         output = buf.getvalue()
         assert "critical)" not in output
@@ -155,13 +166,17 @@ class TestPrintFindingsTable:
     def test_single_finding(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_findings_table([{
-            "severity": "high",
-            "analysis_type": "clone_detection",
-            "title": "Clone found",
-            "confidence": 0.85,
-            "figure_label": "Fig 1",
-        }])
+        pretty.print_findings_table(
+            [
+                {
+                    "severity": "high",
+                    "analysis_type": "clone_detection",
+                    "title": "Clone found",
+                    "confidence": 0.85,
+                    "figure_label": "Fig 1",
+                }
+            ]
+        )
         output = buf.getvalue()
         assert "HIGH" in output
         assert "clone_detection" in output
@@ -188,22 +203,30 @@ class TestPrintFindingsTable:
     def test_finding_with_method_fallback(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_findings_table([{
-            "severity": "info",
-            "method": "custom_method",
-            "title": "Info note",
-        }])
+        pretty.print_findings_table(
+            [
+                {
+                    "severity": "info",
+                    "method": "custom_method",
+                    "title": "Info note",
+                }
+            ]
+        )
         output = buf.getvalue()
         assert "custom_method" in output
 
     def test_finding_with_figure_id_fallback(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_findings_table([{
-            "severity": "low",
-            "title": "Test",
-            "figure_id": "img_001.png",
-        }])
+        pretty.print_findings_table(
+            [
+                {
+                    "severity": "low",
+                    "title": "Test",
+                    "figure_id": "img_001.png",
+                }
+            ]
+        )
         output = buf.getvalue()
         assert "img_001.png" in output
 
@@ -219,10 +242,12 @@ class TestPrintMethodsSummary:
     def test_methods_with_issues(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_methods_summary([
-            {"name": "ela", "figures_analyzed": 10, "issues_found": 3},
-            {"name": "clone_detection", "figures_analyzed": 10, "issues_found": 0},
-        ])
+        pretty.print_methods_summary(
+            [
+                {"name": "ela", "figures_analyzed": 10, "issues_found": 3},
+                {"name": "clone_detection", "figures_analyzed": 10, "issues_found": 0},
+            ]
+        )
         output = buf.getvalue()
         assert "ela" in output
         assert "clone_detection" in output
@@ -234,12 +259,17 @@ class TestPrintFigureDetail:
     def test_basic_detail(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_figure_detail("Figure_1.png", [{
-            "severity": "high",
-            "title": "Clone detected",
-            "description": "Suspicious region found",
-            "evidence": {"num_matches": 42, "inlier_ratio": 0.85},
-        }])
+        pretty.print_figure_detail(
+            "Figure_1.png",
+            [
+                {
+                    "severity": "high",
+                    "title": "Clone detected",
+                    "description": "Suspicious region found",
+                    "evidence": {"num_matches": 42, "inlier_ratio": 0.85},
+                }
+            ],
+        )
         output = buf.getvalue()
         assert "Figure_1.png" in output
         assert "HIGH" in output
@@ -251,10 +281,15 @@ class TestPrintFigureDetail:
     def test_finding_without_evidence(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_figure_detail("fig.png", [{
-            "severity": "low",
-            "title": "Minor issue",
-        }])
+        pretty.print_figure_detail(
+            "fig.png",
+            [
+                {
+                    "severity": "low",
+                    "title": "Minor issue",
+                }
+            ],
+        )
         output = buf.getvalue()
         assert "fig.png" in output
         assert "LOW" in output
@@ -263,11 +298,16 @@ class TestPrintFigureDetail:
         """Evidence that is not a dict should not crash."""
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_figure_detail("fig.png", [{
-            "severity": "info",
-            "title": "Test",
-            "evidence": "some string",
-        }])
+        pretty.print_figure_detail(
+            "fig.png",
+            [
+                {
+                    "severity": "info",
+                    "title": "Test",
+                    "evidence": "some string",
+                }
+            ],
+        )
         output = buf.getvalue()
         assert "fig.png" in output
 
@@ -297,7 +337,9 @@ class TestPrintFullReport:
         )
         output = buf.getvalue()
         assert "Bad Paper" in output
-        assert "HIGH" in output  # risk computed: critical findings -> "high" (the function uses "high" for critical>0)
+        assert (
+            "HIGH" in output
+        )  # risk computed: critical findings -> "high" (the function uses "high" for critical>0)
         assert "CRITICAL" in output  # the finding severity badge
         assert "Figure Details" in output
 
@@ -336,12 +378,26 @@ class TestPrintDemoSummary:
     def test_all_passing(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_demo_summary([
-            {"name": "test1.png", "category": "synthetic", "expected": "findings",
-             "actual_risk": "medium", "findings_count": 2, "pass_fail": True},
-            {"name": "test2.png", "category": "clean", "expected": "clean",
-             "actual_risk": "clean", "findings_count": 0, "pass_fail": True},
-        ])
+        pretty.print_demo_summary(
+            [
+                {
+                    "name": "test1.png",
+                    "category": "synthetic",
+                    "expected": "findings",
+                    "actual_risk": "medium",
+                    "findings_count": 2,
+                    "pass_fail": True,
+                },
+                {
+                    "name": "test2.png",
+                    "category": "clean",
+                    "expected": "clean",
+                    "actual_risk": "clean",
+                    "findings_count": 0,
+                    "pass_fail": True,
+                },
+            ]
+        )
         output = buf.getvalue()
         assert "PASS" in output
         assert "2/2 passed" in output
@@ -350,12 +406,26 @@ class TestPrintDemoSummary:
     def test_mixed_results(self, monkeypatch) -> None:
         con, buf = _capture_console()
         monkeypatch.setattr(pretty, "console", con)
-        pretty.print_demo_summary([
-            {"name": "good.png", "category": "synthetic", "expected": "findings",
-             "actual_risk": "medium", "findings_count": 1, "pass_fail": True},
-            {"name": "bad.png", "category": "synthetic", "expected": "findings",
-             "actual_risk": "clean", "findings_count": 0, "pass_fail": False},
-        ])
+        pretty.print_demo_summary(
+            [
+                {
+                    "name": "good.png",
+                    "category": "synthetic",
+                    "expected": "findings",
+                    "actual_risk": "medium",
+                    "findings_count": 1,
+                    "pass_fail": True,
+                },
+                {
+                    "name": "bad.png",
+                    "category": "synthetic",
+                    "expected": "findings",
+                    "actual_risk": "clean",
+                    "findings_count": 0,
+                    "pass_fail": False,
+                },
+            ]
+        )
         output = buf.getvalue()
         assert "1/2 passed" in output
         assert "1 failed" in output
@@ -379,5 +449,6 @@ class TestPrintDemoSummary:
 class TestCreateProgress:
     def test_returns_progress_instance(self) -> None:
         from rich.progress import Progress
+
         p = pretty.create_progress()
         assert isinstance(p, Progress)

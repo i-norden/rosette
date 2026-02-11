@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of iterations for the reconstruction search
 _MAX_ITERATIONS = 10_000
-_MAX_ATTEMPTS = 100
+_MAX_ATTEMPTS = 1000
 
 
 @dataclass
@@ -95,8 +95,8 @@ def sprite_test(
             details=f"Reported mean {reported_mean} outside possible range [{min_val}, {max_val}]",
         )
 
-    mean_tolerance = 0.5 / (10 ** mean_decimals)
-    sd_tolerance = 0.5 / (10 ** sd_decimals)
+    mean_tolerance = 0.5 / (10**mean_decimals)
+    sd_tolerance = 0.5 / (10**sd_decimals)
 
     rng = np.random.default_rng()
     mean_achievable = False

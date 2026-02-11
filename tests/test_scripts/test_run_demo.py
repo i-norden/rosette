@@ -329,6 +329,7 @@ class TestFullAnalysisPipeline:
 
         # Mock text extraction
         from snoopy.extraction.pdf_parser import PageText
+
         mock_extract_text.return_value = [
             PageText(page_number=1, text="M = 3.45, N = 120", word_count=5)
         ]
@@ -359,12 +360,12 @@ class TestFullAnalysisPipeline:
         mock_extract_figures.return_value = []
 
         from snoopy.extraction.pdf_parser import PageText
-        mock_extract_text.return_value = [
-            PageText(page_number=1, text="some text", word_count=2)
-        ]
+
+        mock_extract_text.return_value = [PageText(page_number=1, text="some text", word_count=2)]
 
         # Mock tables with suspicious duplicate values
         from snoopy.extraction.table_extractor import TableInfo
+
         mock_extract_tables.return_value = [
             TableInfo(
                 page_number=1,
@@ -429,9 +430,11 @@ class TestRunDemoGeneratesDashboard:
         # Point FIXTURES_DIR to our tmp fixtures
         report_dir = tmp_path / "reports"
 
-        with patch("snoopy.demo.runner.FIXTURES_DIR", fixtures_dir), \
-             patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path), \
-             patch("snoopy.demo.fixtures.download_all"):
+        with (
+            patch("snoopy.demo.runner.FIXTURES_DIR", fixtures_dir),
+            patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path),
+            patch("snoopy.demo.fixtures.download_all"),
+        ):
             results = run_demo(output_dir=str(report_dir))
 
         # Dashboard should exist
@@ -487,10 +490,15 @@ class TestRunDemoGeneratesDashboard:
 
         report_dir = tmp_path / "reports"
 
-        with patch("snoopy.demo.runner.FIXTURES_DIR", fixtures_dir), \
-             patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path), \
-             patch("snoopy.demo.fixtures.download_all"), \
-             patch("snoopy.demo.fixtures.sample_rsiil_images", return_value=(pristine_paths, tampered_paths)):
+        with (
+            patch("snoopy.demo.runner.FIXTURES_DIR", fixtures_dir),
+            patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path),
+            patch("snoopy.demo.fixtures.download_all"),
+            patch(
+                "snoopy.demo.fixtures.sample_rsiil_images",
+                return_value=(pristine_paths, tampered_paths),
+            ),
+        ):
             results = run_demo(output_dir=str(report_dir))
 
         # Should have results from both synthetic and RSIIL Zenodo

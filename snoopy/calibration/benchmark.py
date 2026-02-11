@@ -75,12 +75,14 @@ def load_labeled_samples(
             with open(labels_path) as f:
                 raw = json.load(f)
             for entry in raw:
-                samples.append(LabeledSample(
-                    path=str(fixtures / entry["path"]),
-                    label=entry["label"],
-                    category=entry.get("category", "unknown"),
-                    expected_methods=entry.get("expected_methods", []),
-                ))
+                samples.append(
+                    LabeledSample(
+                        path=str(fixtures / entry["path"]),
+                        label=entry["label"],
+                        category=entry.get("category", "unknown"),
+                        expected_methods=entry.get("expected_methods", []),
+                    )
+                )
             return samples
 
     # Infer labels from directory structure
@@ -91,11 +93,13 @@ def load_labeled_samples(
     if synthetic_dir.exists():
         for img in sorted(synthetic_dir.iterdir()):
             if img.suffix.lower() in image_extensions:
-                samples.append(LabeledSample(
-                    path=str(img),
-                    label=True,
-                    category="synthetic",
-                ))
+                samples.append(
+                    LabeledSample(
+                        path=str(img),
+                        label=True,
+                        category="synthetic",
+                    )
+                )
 
     # RSIIL benchmark
     rsiil_dir = fixtures / "rsiil"
@@ -104,25 +108,28 @@ def load_labeled_samples(
             if img.suffix.lower() in image_extensions:
                 # Convention: filenames with "pristine" or "authentic" are clean
                 is_clean = any(
-                    kw in img.stem.lower()
-                    for kw in ("pristine", "authentic", "original", "clean")
+                    kw in img.stem.lower() for kw in ("pristine", "authentic", "original", "clean")
                 )
-                samples.append(LabeledSample(
-                    path=str(img),
-                    label=not is_clean,
-                    category="rsiil_clean" if is_clean else "rsiil_forgery",
-                ))
+                samples.append(
+                    LabeledSample(
+                        path=str(img),
+                        label=not is_clean,
+                        category="rsiil_clean" if is_clean else "rsiil_forgery",
+                    )
+                )
 
     # Clean controls — should NOT be detected
     clean_dir = fixtures / "clean"
     if clean_dir.exists():
         for img in sorted(clean_dir.iterdir()):
             if img.suffix.lower() in image_extensions:
-                samples.append(LabeledSample(
-                    path=str(img),
-                    label=False,
-                    category="clean",
-                ))
+                samples.append(
+                    LabeledSample(
+                        path=str(img),
+                        label=False,
+                        category="clean",
+                    )
+                )
 
     return samples
 
@@ -170,14 +177,16 @@ def run_benchmark(
         evidence = aggregate_findings(findings)
         risk_level = evidence.paper_risk
 
-        results.append(BenchmarkResult(
-            sample=sample,
-            findings=findings,
-            detected=detected,
-            max_confidence=max_confidence,
-            methods_fired=methods_fired,
-            risk_level=risk_level,
-        ))
+        results.append(
+            BenchmarkResult(
+                sample=sample,
+                findings=findings,
+                detected=detected,
+                max_confidence=max_confidence,
+                methods_fired=methods_fired,
+                risk_level=risk_level,
+            )
+        )
 
         # Collect per-method data
         for finding in findings:

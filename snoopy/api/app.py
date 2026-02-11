@@ -47,6 +47,7 @@ def create_app(config: SnoopyConfig | None = None) -> FastAPI:
     """
     if config is None:
         from snoopy.config import load_config
+
         config = load_config()
 
     app = FastAPI(
@@ -67,6 +68,7 @@ def create_app(config: SnoopyConfig | None = None) -> FastAPI:
 
     # Include routes
     from snoopy.api.routes import router
+
     app.include_router(router)
 
     return app

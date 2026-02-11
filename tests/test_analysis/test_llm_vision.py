@@ -28,19 +28,23 @@ class TestScreenFigure:
     @pytest.mark.asyncio
     async def test_screen_figure_suspicious(self, sample_image: str) -> None:
         """Screening returns suspicious=True when the mock LLM says so."""
-        provider = _make_mock_provider({
-            "content": json.dumps({
-                "suspicious": True,
-                "brief_reason": "Duplicated band pattern detected",
-                "confidence": 0.85,
-            }),
-            "parsed": {
-                "suspicious": True,
-                "brief_reason": "Duplicated band pattern detected",
-                "confidence": 0.85,
-            },
-            "model": "test-model",
-        })
+        provider = _make_mock_provider(
+            {
+                "content": json.dumps(
+                    {
+                        "suspicious": True,
+                        "brief_reason": "Duplicated band pattern detected",
+                        "confidence": 0.85,
+                    }
+                ),
+                "parsed": {
+                    "suspicious": True,
+                    "brief_reason": "Duplicated band pattern detected",
+                    "confidence": 0.85,
+                },
+                "model": "test-model",
+            }
+        )
 
         result = await screen_figure(sample_image, provider)
         assert isinstance(result, ScreeningResult)
@@ -52,19 +56,23 @@ class TestScreenFigure:
     @pytest.mark.asyncio
     async def test_screen_figure_clean(self, sample_image: str) -> None:
         """Screening returns suspicious=False when the mock LLM says clean."""
-        provider = _make_mock_provider({
-            "content": json.dumps({
-                "suspicious": False,
-                "brief_reason": "No anomalies detected",
-                "confidence": 0.1,
-            }),
-            "parsed": {
-                "suspicious": False,
-                "brief_reason": "No anomalies detected",
-                "confidence": 0.1,
-            },
-            "model": "test-model",
-        })
+        provider = _make_mock_provider(
+            {
+                "content": json.dumps(
+                    {
+                        "suspicious": False,
+                        "brief_reason": "No anomalies detected",
+                        "confidence": 0.1,
+                    }
+                ),
+                "parsed": {
+                    "suspicious": False,
+                    "brief_reason": "No anomalies detected",
+                    "confidence": 0.1,
+                },
+                "model": "test-model",
+            }
+        )
 
         result = await screen_figure(sample_image, provider)
         assert isinstance(result, ScreeningResult)
@@ -76,45 +84,49 @@ class TestAnalyzeFigureDetailed:
     @pytest.mark.asyncio
     async def test_analyze_figure_detailed_with_findings(self, sample_image: str) -> None:
         """Detailed analysis returns findings from mock LLM response."""
-        provider = _make_mock_provider({
-            "content": json.dumps({
-                "findings": [
+        provider = _make_mock_provider(
+            {
+                "content": json.dumps(
                     {
-                        "type": "duplication",
-                        "description": "Lane 3 appears identical to lane 5",
-                        "location": "center of image",
-                        "confidence": 0.9,
-                    },
-                    {
-                        "type": "splice",
-                        "description": "Abrupt background change between panels",
-                        "location": "panel boundary",
-                        "confidence": 0.7,
-                    },
-                ],
-                "overall_assessment": "Likely manipulated",
-                "manipulation_likelihood": 0.85,
-            }),
-            "parsed": {
-                "findings": [
-                    {
-                        "type": "duplication",
-                        "description": "Lane 3 appears identical to lane 5",
-                        "location": "center of image",
-                        "confidence": 0.9,
-                    },
-                    {
-                        "type": "splice",
-                        "description": "Abrupt background change between panels",
-                        "location": "panel boundary",
-                        "confidence": 0.7,
-                    },
-                ],
-                "overall_assessment": "Likely manipulated",
-                "manipulation_likelihood": 0.85,
-            },
-            "model": "test-model",
-        })
+                        "findings": [
+                            {
+                                "type": "duplication",
+                                "description": "Lane 3 appears identical to lane 5",
+                                "location": "center of image",
+                                "confidence": 0.9,
+                            },
+                            {
+                                "type": "splice",
+                                "description": "Abrupt background change between panels",
+                                "location": "panel boundary",
+                                "confidence": 0.7,
+                            },
+                        ],
+                        "overall_assessment": "Likely manipulated",
+                        "manipulation_likelihood": 0.85,
+                    }
+                ),
+                "parsed": {
+                    "findings": [
+                        {
+                            "type": "duplication",
+                            "description": "Lane 3 appears identical to lane 5",
+                            "location": "center of image",
+                            "confidence": 0.9,
+                        },
+                        {
+                            "type": "splice",
+                            "description": "Abrupt background change between panels",
+                            "location": "panel boundary",
+                            "confidence": 0.7,
+                        },
+                    ],
+                    "overall_assessment": "Likely manipulated",
+                    "manipulation_likelihood": 0.85,
+                },
+                "model": "test-model",
+            }
+        )
 
         result = await analyze_figure_detailed(
             sample_image, provider, caption="Figure 1", figure_type="western_blot"
@@ -159,17 +171,21 @@ class TestClassifyFigure:
     @pytest.mark.asyncio
     async def test_classify_figure(self, sample_image: str) -> None:
         """Classify figure type from mock LLM response."""
-        provider = _make_mock_provider({
-            "content": json.dumps({
-                "figure_type": "western_blot",
-                "confidence": 0.92,
-            }),
-            "parsed": {
-                "figure_type": "western_blot",
-                "confidence": 0.92,
-            },
-            "model": "test-model",
-        })
+        provider = _make_mock_provider(
+            {
+                "content": json.dumps(
+                    {
+                        "figure_type": "western_blot",
+                        "confidence": 0.92,
+                    }
+                ),
+                "parsed": {
+                    "figure_type": "western_blot",
+                    "confidence": 0.92,
+                },
+                "model": "test-model",
+            }
+        )
 
         result = await classify_figure(sample_image, provider)
         assert result == "western_blot"

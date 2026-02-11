@@ -35,7 +35,9 @@ class TestRunImageForensics:
 
 
 class TestRunIntraPaperCrossRef:
-    def test_run_intra_paper_cross_ref_no_duplicates(self, sample_image: str, clean_image: str) -> None:
+    def test_run_intra_paper_cross_ref_no_duplicates(
+        self, sample_image: str, clean_image: str
+    ) -> None:
         """Distinct images within the same paper should find no duplicates."""
         hash1 = compute_phash(sample_image)
         hash2 = compute_phash(clean_image)

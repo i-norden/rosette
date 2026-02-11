@@ -31,11 +31,11 @@ async def get_pdf_url(
     # Strip any DOI URL prefix
     doi = doi.strip()
     if doi.startswith("https://doi.org/"):
-        doi = doi[len("https://doi.org/"):]
+        doi = doi[len("https://doi.org/") :]
     elif doi.startswith("http://doi.org/"):
-        doi = doi[len("http://doi.org/"):]
+        doi = doi[len("http://doi.org/") :]
     elif doi.startswith("http://dx.doi.org/"):
-        doi = doi[len("http://dx.doi.org/"):]
+        doi = doi[len("http://dx.doi.org/") :]
 
     url = f"{BASE_URL}/{doi}"
     params = {"email": email}

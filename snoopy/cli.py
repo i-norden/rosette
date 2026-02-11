@@ -97,24 +97,25 @@ def discover(
         added = 0
         with get_session() as session:
             for work in works:
-                doi = work.get("doi")
+                doi = work.doi
                 if doi:
                     from sqlalchemy import select
-                    existing = session.execute(
-                        select(Paper).where(Paper.doi == doi)
-                    ).scalars().first()
+
+                    existing = (
+                        session.execute(select(Paper).where(Paper.doi == doi)).scalars().first()
+                    )
                     if existing:
                         continue
 
                 metadata = PaperMetadata(
-                    citation_count=work.get("citation_count", 0),
-                    journal_quartile=work.get("journal_quartile", 2),
-                    influential_citations=work.get("influential_citation_count", 0),
-                    max_author_hindex=work.get("max_author_hindex", 0),
-                    institution_in_top100=work.get("institution_in_top100", False),
-                    has_retraction_concern=work.get("has_retraction_concern", False),
-                    year=work.get("publication_year", 2020),
-                    has_image_heavy_methods=work.get("has_image_heavy_methods", False),
+                    citation_count=work.citation_count,
+                    journal_quartile=getattr(work, "journal_quartile", 2),
+                    influential_citations=getattr(work, "influential_citation_count", 0),
+                    max_author_hindex=getattr(work, "max_author_hindex", 0),
+                    institution_in_top100=getattr(work, "institution_in_top100", False),
+                    has_retraction_concern=getattr(work, "has_retraction_concern", False),
+                    year=work.publication_year or 2020,
+                    has_image_heavy_methods=getattr(work, "has_image_heavy_methods", False),
                 )
                 priority = compute_priority(metadata)
 
@@ -125,14 +126,14 @@ def discover(
                 paper = Paper(
                     id=str(uuid.uuid4()),
                     doi=doi,
-                    title=work.get("title", "Unknown"),
-                    abstract=work.get("abstract"),
-                    authors_json=json.dumps(work.get("authors", [])),
-                    journal=work.get("journal"),
-                    journal_issn=work.get("issn"),
-                    publication_year=work.get("publication_year"),
-                    citation_count=work.get("citation_count"),
-                    influential_citation_count=work.get("influential_citation_count"),
+                    title=work.title or "Unknown",
+                    abstract=work.abstract,
+                    authors_json=json.dumps([a.name for a in work.authors]),
+                    journal=work.journal,
+                    journal_issn=work.issn,
+                    publication_year=work.publication_year,
+                    citation_count=work.citation_count,
+                    influential_citation_count=getattr(work, "influential_citation_count", None),
                     priority_score=priority,
                     source="openalex",
                     status="pending",
@@ -189,11 +190,10 @@ def analyze(
         with get_session() as session:
             if doi:
                 from sqlalchemy import select
-                existing = session.execute(
-                    select(Paper).where(Paper.doi == doi)
-                ).scalars().first()
+
+                existing = session.execute(select(Paper).where(Paper.doi == doi)).scalars().first()
                 if existing:
-                    paper_id = existing.id
+                    paper_id = str(existing.id)
                     click.echo(f"Paper already in database: {paper_id}")
                 else:
                     paper = Paper(
@@ -207,7 +207,8 @@ def analyze(
                     click.echo(f"Added paper {paper_id} for DOI {doi}")
             else:
                 import hashlib
-                pdf = Path(pdf_path)
+
+                pdf = Path(pdf_path)  # type: ignore[arg-type]
                 h = hashlib.sha256()
                 with open(pdf, "rb") as fh:
                     for chunk in iter(lambda: fh.read(8192), b""):
@@ -271,11 +272,13 @@ def report(ctx: click.Context, paper_id: str, fmt: str) -> None:
     from snoopy.db.models import Report
 
     with get_session() as session:
-        rpt = session.execute(
-            select(Report)
-            .where(Report.paper_id == paper_id)
-            .order_by(Report.created_at.desc())
-        ).scalars().first()
+        rpt = (
+            session.execute(
+                select(Report).where(Report.paper_id == paper_id).order_by(Report.created_at.desc())
+            )
+            .scalars()
+            .first()
+        )
 
         if not rpt:
             click.echo(f"No report found for paper {paper_id}", err=True)
@@ -307,12 +310,16 @@ def status(ctx: click.Context) -> None:
             click.echo(f"  {status_val}: {count}")
 
         # Show top priority pending
-        top = session.execute(
-            select(Paper)
-            .where(Paper.status == "pending")
-            .order_by(Paper.priority_score.desc())
-            .limit(5)
-        ).scalars().all()
+        top = (
+            session.execute(
+                select(Paper)
+                .where(Paper.status == "pending")
+                .order_by(Paper.priority_score.desc())
+                .limit(5)
+            )
+            .scalars()
+            .all()
+        )
 
         if top:
             click.echo("\nTop priority pending papers:")
@@ -381,6 +388,7 @@ def show_config(ctx: click.Context) -> None:
 # ---------------------------------------------------------------------------
 # db subcommand group  --  Alembic migration helpers
 # ---------------------------------------------------------------------------
+
 
 @main.group()
 @click.pass_context

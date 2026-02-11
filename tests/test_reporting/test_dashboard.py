@@ -18,8 +18,18 @@ def _make_results() -> list[dict]:
             "findings_count": 2,
             "pass_fail": True,
             "findings": [
-                {"title": "ELA anomaly", "analysis_type": "ela", "severity": "medium", "confidence": 0.7},
-                {"title": "Clone detected", "analysis_type": "clone_detection", "severity": "high", "confidence": 0.9},
+                {
+                    "title": "ELA anomaly",
+                    "analysis_type": "ela",
+                    "severity": "medium",
+                    "confidence": 0.7,
+                },
+                {
+                    "title": "Clone detected",
+                    "analysis_type": "clone_detection",
+                    "severity": "high",
+                    "confidence": 0.9,
+                },
             ],
         },
         {
@@ -48,7 +58,12 @@ def _make_results() -> list[dict]:
             "findings_count": 1,
             "pass_fail": True,
             "findings": [
-                {"title": "Noise anomaly", "analysis_type": "noise_analysis", "severity": "medium", "confidence": 0.5},
+                {
+                    "title": "Noise anomaly",
+                    "analysis_type": "noise_analysis",
+                    "severity": "medium",
+                    "confidence": 0.5,
+                },
             ],
         },
     ]

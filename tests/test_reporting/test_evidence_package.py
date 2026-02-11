@@ -145,22 +145,16 @@ class TestGenerateEvidencePackage:
         self, tmp_path, sample_paper, sample_evidence, sample_findings
     ):
         out = str(tmp_path / "evidence.zip")
-        generate_evidence_package(
-            sample_paper, sample_evidence, sample_findings, output_path=out
-        )
+        generate_evidence_package(sample_paper, sample_evidence, sample_findings, output_path=out)
         with zipfile.ZipFile(out, "r") as zf:
             names = zf.namelist()
             assert "executive_summary.md" in names
             assert "findings.json" in names
             assert "manifest.json" in names
 
-    def test_manifest_structure(
-        self, tmp_path, sample_paper, sample_evidence, sample_findings
-    ):
+    def test_manifest_structure(self, tmp_path, sample_paper, sample_evidence, sample_findings):
         out = str(tmp_path / "evidence.zip")
-        generate_evidence_package(
-            sample_paper, sample_evidence, sample_findings, output_path=out
-        )
+        generate_evidence_package(sample_paper, sample_evidence, sample_findings, output_path=out)
         with zipfile.ZipFile(out, "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
             assert manifest["paper"]["doi"] == "10.1234/test.paper"
@@ -204,13 +198,9 @@ class TestGenerateEvidencePackage:
                 assert "sha256" in ff
                 assert len(ff["sha256"]) == 64
 
-    def test_findings_json_content(
-        self, tmp_path, sample_paper, sample_evidence, sample_findings
-    ):
+    def test_findings_json_content(self, tmp_path, sample_paper, sample_evidence, sample_findings):
         out = str(tmp_path / "evidence.zip")
-        generate_evidence_package(
-            sample_paper, sample_evidence, sample_findings, output_path=out
-        )
+        generate_evidence_package(sample_paper, sample_evidence, sample_findings, output_path=out)
         with zipfile.ZipFile(out, "r") as zf:
             findings = json.loads(zf.read("findings.json"))
             assert len(findings) == 3
@@ -220,9 +210,7 @@ class TestGenerateEvidencePackage:
         self, tmp_path, sample_paper, sample_evidence, sample_findings, monkeypatch
     ):
         monkeypatch.chdir(tmp_path)
-        result = generate_evidence_package(
-            sample_paper, sample_evidence, sample_findings
-        )
+        result = generate_evidence_package(sample_paper, sample_evidence, sample_findings)
         assert result.exists()
         assert result.suffix == ".zip"
         assert "10.1234_test.paper" in result.name

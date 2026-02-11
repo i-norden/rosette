@@ -95,9 +95,7 @@ class TestMainGroup:
 
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
-    def test_config_command(
-        self, mock_load_config: MagicMock, mock_init_db: MagicMock
-    ) -> None:
+    def test_config_command(self, mock_load_config: MagicMock, mock_init_db: MagicMock) -> None:
         mock_cfg = MagicMock()
         mock_cfg.model_dump_json.return_value = '{"llm": {}}'
         mock_load_config.return_value = mock_cfg

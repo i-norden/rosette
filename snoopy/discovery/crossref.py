@@ -23,7 +23,7 @@ def _normalize_doi(doi: str) -> str:
         "http://dx.doi.org/",
     ):
         if doi.startswith(prefix):
-            doi = doi[len(prefix):]
+            doi = doi[len(prefix) :]
             break
     return doi
 
@@ -123,9 +123,7 @@ async def check_retraction(
     if isinstance(relation, dict):
         is_retraction_of = relation.get("is-retraction-of", [])
         if is_retraction_of:
-            logger.info(
-                "CrossRef: work DOI %s is itself a retraction notice", doi
-            )
+            logger.info("CrossRef: work DOI %s is itself a retraction notice", doi)
             return True
 
     return False

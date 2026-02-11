@@ -152,7 +152,7 @@ def _parse_article_xml(article_elem: ET.Element) -> Optional[PubMedArticle]:
             authors.append(
                 PubMedAuthor(
                     last_name=last_name_elem.text or "",
-                    first_name=(first_name_elem.text if first_name_elem is not None else ""),
+                    first_name=(first_name_elem.text or "" if first_name_elem is not None else ""),
                     affiliation=(affiliation_elem.text if affiliation_elem is not None else None),
                 )
             )

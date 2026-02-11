@@ -90,7 +90,7 @@ def grim_test(
     difference = abs(product - nearest_integer)
 
     # Tolerance based on precision of reported mean and sample size
-    tolerance = (1 / (10 ** decimals)) * n / 2
+    tolerance = (1 / (10**decimals)) * n / 2
 
     consistent = difference <= tolerance
 
@@ -158,11 +158,13 @@ def benford_test(values: list[float]) -> BenfordResult:
 
     # Chi-squared test
     observed_counts = np.array([digit_counts.get(d, 0) for d in range(1, 10)], dtype=np.float64)
-    expected_counts = np.array([expected_distribution[d] * n_values for d in range(1, 10)], dtype=np.float64)
+    expected_counts = np.array(
+        [expected_distribution[d] * n_values for d in range(1, 10)], dtype=np.float64
+    )
 
     chi2_stat, p_value = stats.chisquare(observed_counts, f_exp=expected_counts)
 
-    conforms = p_value >= 0.001
+    conforms = bool(p_value >= 0.001)
 
     return BenfordResult(
         conforms=conforms,

@@ -45,6 +45,7 @@ def _get_url() -> str:
 # Offline (SQL-script) migrations
 # ---------------------------------------------------------------------------
 
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -65,6 +66,7 @@ def run_migrations_offline() -> None:
 # ---------------------------------------------------------------------------
 # Online (synchronous engine) migrations
 # ---------------------------------------------------------------------------
+
 
 def run_migrations_online() -> None:
     """Run migrations against a live synchronous database connection."""
@@ -94,6 +96,7 @@ def run_migrations_online() -> None:
 # ---------------------------------------------------------------------------
 # Online (async engine) migrations
 # ---------------------------------------------------------------------------
+
 
 async def run_migrations_async() -> None:
     """Run migrations against a live asynchronous database connection."""

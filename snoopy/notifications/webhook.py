@@ -42,6 +42,7 @@ def _is_safe_url(url: str) -> bool:
 
     return True
 
+
 # Default retry configuration
 _DEFAULT_MAX_RETRIES = 3
 _DEFAULT_RETRY_DELAY = 2.0  # seconds
@@ -111,7 +112,7 @@ class WebhookNotifier:
                 results[url] = False
                 logger.error("Webhook delivery to %s raised exception: %s", url, outcome)
             else:
-                results[url] = outcome
+                results[url] = bool(outcome)
 
         return results
 
@@ -157,10 +158,8 @@ class WebhookNotifier:
 
                 # Exponential backoff before retry
                 if attempt < self.max_retries - 1:
-                    delay = self.retry_delay * (2 ** attempt)
+                    delay = self.retry_delay * (2**attempt)
                     await asyncio.sleep(delay)
 
-        logger.error(
-            "Webhook delivery to %s failed after %d attempts", url, self.max_retries
-        )
+        logger.error("Webhook delivery to %s failed after %d attempts", url, self.max_retries)
         return False

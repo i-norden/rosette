@@ -13,6 +13,7 @@ import logging
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from snoopy.analysis.evidence import AggregatedEvidence
 
@@ -70,17 +71,21 @@ def _generate_executive_summary(
                 lines.append(f"### {severity.title()} Severity ({len(by_severity[severity])})")
                 lines.append("")
                 for f in by_severity[severity]:
-                    lines.append(f"- **{f.get('title', 'Finding')}** (confidence: {f.get('confidence', 0):.2f})")
+                    lines.append(
+                        f"- **{f.get('title', 'Finding')}** (confidence: {f.get('confidence', 0):.2f})"
+                    )
                     desc = f.get("description", "")
                     if desc:
                         lines.append(f"  {desc}")
                     lines.append("")
 
-    lines.extend([
-        "",
-        "## Methods Used",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Methods Used",
+            "",
+        ]
+    )
 
     methods = set()
     for f in findings:
@@ -106,14 +111,16 @@ def _generate_executive_summary(
         desc = method_descriptions.get(m, m)
         lines.append(f"- {desc}")
 
-    lines.extend([
-        "",
-        "---",
-        "",
-        "*This evidence package was generated automatically by Snoopy, an open-source "
-        "academic integrity analysis tool. All findings should be independently verified "
-        "before taking any action.*",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "*This evidence package was generated automatically by Snoopy, an open-source "
+            "academic integrity analysis tool. All findings should be independently verified "
+            "before taking any action.*",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -156,7 +163,7 @@ def generate_evidence_package(
     output.parent.mkdir(parents=True, exist_ok=True)
 
     # Build manifest
-    manifest = {
+    manifest: dict[str, Any] = {
         "snoopy_version": _VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "paper": {
@@ -181,20 +188,24 @@ def generate_evidence_package(
         # Executive summary
         summary_md = _generate_executive_summary(paper, evidence, findings)
         zf.writestr("executive_summary.md", summary_md)
-        manifest["files"].append({
-            "path": "executive_summary.md",
-            "type": "executive_summary",
-            "format": "markdown",
-        })
+        manifest["files"].append(
+            {
+                "path": "executive_summary.md",
+                "type": "executive_summary",
+                "format": "markdown",
+            }
+        )
 
         # Raw findings
         findings_json = json.dumps(findings, indent=2, default=str)
         zf.writestr("findings.json", findings_json)
-        manifest["files"].append({
-            "path": "findings.json",
-            "type": "findings_data",
-            "format": "json",
-        })
+        manifest["files"].append(
+            {
+                "path": "findings.json",
+                "type": "findings_data",
+                "format": "json",
+            }
+        )
 
         # Figures
         if figures_dir:
@@ -202,15 +213,22 @@ def generate_evidence_package(
             if fig_dir.exists():
                 for fig_path in sorted(fig_dir.iterdir()):
                     if fig_path.is_file() and fig_path.suffix.lower() in (
-                        ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp",
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".tif",
+                        ".tiff",
+                        ".bmp",
                     ):
                         arcname = f"figures/{fig_path.name}"
                         zf.write(fig_path, arcname)
-                        manifest["files"].append({
-                            "path": arcname,
-                            "type": "figure",
-                            "sha256": _file_sha256(str(fig_path)),
-                        })
+                        manifest["files"].append(
+                            {
+                                "path": arcname,
+                                "type": "figure",
+                                "sha256": _file_sha256(str(fig_path)),
+                            }
+                        )
 
         # ELA artifacts
         ela_paths = set()
@@ -229,11 +247,13 @@ def generate_evidence_package(
             p = Path(ela_path)
             arcname = f"artifacts/{p.name}"
             zf.write(p, arcname)
-            manifest["files"].append({
-                "path": arcname,
-                "type": "ela_difference_image",
-                "sha256": _file_sha256(ela_path),
-            })
+            manifest["files"].append(
+                {
+                    "path": arcname,
+                    "type": "ela_difference_image",
+                    "sha256": _file_sha256(ela_path),
+                }
+            )
 
         # Write manifest last (after all files are added)
         manifest_json = json.dumps(manifest, indent=2, default=str)

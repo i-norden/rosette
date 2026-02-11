@@ -77,9 +77,7 @@ def get_session() -> Generator[Session, None, None]:
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """Provide a transactional async database session."""
     if _AsyncSessionFactory is None:
-        raise RuntimeError(
-            "Async database not initialized. Call init_async_db() first."
-        )
+        raise RuntimeError("Async database not initialized. Call init_async_db() first.")
     session = _AsyncSessionFactory()
     try:
         yield session

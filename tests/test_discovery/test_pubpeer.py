@@ -32,28 +32,31 @@ def _make_client(get_return=None, get_side_effect=None) -> AsyncMock:
 class TestCheckPubpeer:
     @pytest.mark.asyncio
     async def test_paper_with_comments(self):
-        response = _make_response(200, {
-            "data": [
-                {
-                    "total_comments": 3,
-                    "url": "https://pubpeer.com/publications/ABC123",
-                    "comments": [
-                        {
-                            "author": "Reviewer A",
-                            "content": "Concerns about Figure 2",
-                            "created_at": "2024-01-15",
-                            "url": "https://pubpeer.com/comment/1",
-                        },
-                        {
-                            "author": "Anonymous",
-                            "content": "Data inconsistency noted",
-                            "created_at": "2024-02-01",
-                            "url": "https://pubpeer.com/comment/2",
-                        },
-                    ],
-                }
-            ]
-        })
+        response = _make_response(
+            200,
+            {
+                "data": [
+                    {
+                        "total_comments": 3,
+                        "url": "https://pubpeer.com/publications/ABC123",
+                        "comments": [
+                            {
+                                "author": "Reviewer A",
+                                "content": "Concerns about Figure 2",
+                                "created_at": "2024-01-15",
+                                "url": "https://pubpeer.com/comment/1",
+                            },
+                            {
+                                "author": "Anonymous",
+                                "content": "Data inconsistency noted",
+                                "created_at": "2024-02-01",
+                                "url": "https://pubpeer.com/comment/2",
+                            },
+                        ],
+                    }
+                ]
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
@@ -113,9 +116,7 @@ class TestCheckPubpeer:
 
     @pytest.mark.asyncio
     async def test_http_error(self):
-        mock_client = _make_client(
-            get_side_effect=httpx.HTTPError("connection failed")
-        )
+        mock_client = _make_client(get_side_effect=httpx.HTTPError("connection failed"))
 
         with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
@@ -150,15 +151,18 @@ class TestCheckPubpeer:
             }
             for i in range(15)
         ]
-        response = _make_response(200, {
-            "data": [
-                {
-                    "total_comments": 15,
-                    "url": "https://pubpeer.com/publications/XYZ",
-                    "comments": comments,
-                }
-            ]
-        })
+        response = _make_response(
+            200,
+            {
+                "data": [
+                    {
+                        "total_comments": 15,
+                        "url": "https://pubpeer.com/publications/XYZ",
+                        "comments": comments,
+                    }
+                ]
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
@@ -173,21 +177,24 @@ class TestCheckPubpeer:
     @pytest.mark.asyncio
     async def test_content_snippet_truncated(self):
         long_content = "A" * 500
-        response = _make_response(200, {
-            "data": [
-                {
-                    "total_comments": 1,
-                    "comments": [
-                        {
-                            "author": "Test",
-                            "content": long_content,
-                            "created_at": "2024-01-01",
-                            "url": "https://pubpeer.com/comment/1",
-                        }
-                    ],
-                }
-            ]
-        })
+        response = _make_response(
+            200,
+            {
+                "data": [
+                    {
+                        "total_comments": 1,
+                        "comments": [
+                            {
+                                "author": "Test",
+                                "content": long_content,
+                                "created_at": "2024-01-01",
+                                "url": "https://pubpeer.com/comment/1",
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:

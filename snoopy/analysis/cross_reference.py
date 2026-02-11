@@ -99,8 +99,7 @@ def find_cross_paper_duplicates(
             return CrossReferenceResult()
 
         target_hashes = [
-            (row.id, row.paper_id, row.phash, row.figure_label or "")
-            for row in target_figures
+            (row.id, row.paper_id, row.phash, row.figure_label or "") for row in target_figures
         ]
 
         matches = []
@@ -128,15 +127,17 @@ def find_cross_paper_duplicates(
                     except ValueError:
                         continue
                     if dist <= max_distance:
-                        matches.append(DuplicateMatch(
-                            figure_id_a=target_id,
-                            figure_id_b=other_row.id,
-                            paper_id_a=paper_id,
-                            paper_id_b=other_row.paper_id,
-                            hash_distance=dist,
-                            figure_label_a=target_label,
-                            figure_label_b=other_row.figure_label or "",
-                        ))
+                        matches.append(
+                            DuplicateMatch(
+                                figure_id_a=target_id,
+                                figure_id_b=other_row.id,
+                                paper_id_a=paper_id,
+                                paper_id_b=other_row.paper_id,
+                                hash_distance=dist,
+                                figure_label_a=target_label,
+                                figure_label_b=other_row.figure_label or "",
+                            )
+                        )
 
             offset += _PAGE_SIZE
 

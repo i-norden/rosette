@@ -179,8 +179,10 @@ class TestExponentialBackoff:
         async def _mock_sleep(delay):
             delays_observed.append(delay)
 
-        with patch("httpx.AsyncClient") as mock_client_cls, \
-             patch("asyncio.sleep", side_effect=_mock_sleep):
+        with (
+            patch("httpx.AsyncClient") as mock_client_cls,
+            patch("asyncio.sleep", side_effect=_mock_sleep),
+        ):
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)

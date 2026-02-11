@@ -46,7 +46,9 @@ def run_image_forensics(
 
     # 1. ELA
     try:
-        ela: ELAResult = error_level_analysis(path_str, quality=cfg.ela_quality, output_dir=output_dir)
+        ela: ELAResult = error_level_analysis(
+            path_str, quality=cfg.ela_quality, output_dir=output_dir
+        )
         if ela.suspicious:
             max_diff = ela.max_difference
             mean_diff = ela.mean_difference
@@ -65,24 +67,26 @@ def run_image_forensics(
                 severity = "low"
                 confidence = min(max_diff / 255.0 * 0.3, 1.0)
 
-            findings.append({
-                "title": "ELA anomaly detected",
-                "analysis_type": "ela",
-                "method": "ela",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"Max diff={ela.max_difference:.1f}, "
-                    f"mean={ela.mean_difference:.1f}, std={ela.std_difference:.1f}"
-                ),
-                "figure_id": fig_id,
-                "evidence": {
-                    "max_difference": round(ela.max_difference, 2),
-                    "mean_difference": round(ela.mean_difference, 2),
-                    "std_difference": round(ela.std_difference, 2),
-                    "ela_image_path": ela.ela_image_path,
-                },
-            })
+            findings.append(
+                {
+                    "title": "ELA anomaly detected",
+                    "analysis_type": "ela",
+                    "method": "ela",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": (
+                        f"Max diff={ela.max_difference:.1f}, "
+                        f"mean={ela.mean_difference:.1f}, std={ela.std_difference:.1f}"
+                    ),
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "max_difference": round(ela.max_difference, 2),
+                        "mean_difference": round(ela.mean_difference, 2),
+                        "std_difference": round(ela.std_difference, 2),
+                        "ela_image_path": ela.ela_image_path,
+                    },
+                }
+            )
     except Exception as exc:
         logger.debug("ELA failed on %s: %s", fig_id, exc)
 
@@ -106,24 +110,26 @@ def run_image_forensics(
                 severity = "low"
                 confidence = min(ratio, 1.0) * 0.4
 
-            findings.append({
-                "title": "Copy-move cloning detected",
-                "analysis_type": "clone_detection",
-                "method": "clone_detection",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"{clone.num_matches} matches, "
-                    f"{len(clone.match_clusters)} clusters, "
-                    f"inlier ratio={clone.inlier_ratio:.2f}"
-                ),
-                "figure_id": fig_id,
-                "evidence": {
-                    "num_matches": clone.num_matches,
-                    "num_clusters": len(clone.match_clusters),
-                    "inlier_ratio": round(clone.inlier_ratio, 3),
-                },
-            })
+            findings.append(
+                {
+                    "title": "Copy-move cloning detected",
+                    "analysis_type": "clone_detection",
+                    "method": "clone_detection",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": (
+                        f"{clone.num_matches} matches, "
+                        f"{len(clone.match_clusters)} clusters, "
+                        f"inlier ratio={clone.inlier_ratio:.2f}"
+                    ),
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "num_matches": clone.num_matches,
+                        "num_clusters": len(clone.match_clusters),
+                        "inlier_ratio": round(clone.inlier_ratio, 3),
+                    },
+                }
+            )
     except Exception as exc:
         logger.debug("Clone detection failed on %s: %s", fig_id, exc)
 
@@ -150,23 +156,25 @@ def run_image_forensics(
                 severity = "low"
                 confidence = min(max_ratio / 20.0, 0.4)
 
-            findings.append({
-                "title": "Noise inconsistency detected",
-                "analysis_type": "noise_analysis",
-                "method": "noise_analysis",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"Max noise ratio={noise_result.max_ratio:.1f}, "
-                    f"mean={noise_result.mean_noise:.1f}, std={noise_result.noise_std:.1f}"
-                ),
-                "figure_id": fig_id,
-                "evidence": {
-                    "max_ratio": round(noise_result.max_ratio, 2),
-                    "mean_noise": round(noise_result.mean_noise, 2),
-                    "noise_std": round(noise_result.noise_std, 2),
-                },
-            })
+            findings.append(
+                {
+                    "title": "Noise inconsistency detected",
+                    "analysis_type": "noise_analysis",
+                    "method": "noise_analysis",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": (
+                        f"Max noise ratio={noise_result.max_ratio:.1f}, "
+                        f"mean={noise_result.mean_noise:.1f}, std={noise_result.noise_std:.1f}"
+                    ),
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "max_ratio": round(noise_result.max_ratio, 2),
+                        "mean_noise": round(noise_result.mean_noise, 2),
+                        "noise_std": round(noise_result.noise_std, 2),
+                    },
+                }
+            )
     except Exception as exc:
         logger.debug("Noise analysis failed on %s: %s", fig_id, exc)
 
@@ -177,19 +185,21 @@ def run_image_forensics(
         meta = analyze_metadata(path_str)
         if meta.suspicious:
             for mf in meta.findings:
-                findings.append({
-                    "title": f"Metadata: {mf.finding_type}",
-                    "analysis_type": "metadata_forensics",
-                    "method": "metadata_forensics",
-                    "severity": mf.severity,
-                    "confidence": mf.confidence,
-                    "description": mf.description,
-                    "figure_id": fig_id,
-                    "evidence": {
-                        "software": meta.software,
-                        "icc_profile": meta.icc_profile,
-                    },
-                })
+                findings.append(
+                    {
+                        "title": f"Metadata: {mf.finding_type}",
+                        "analysis_type": "metadata_forensics",
+                        "method": "metadata_forensics",
+                        "severity": mf.severity,
+                        "confidence": mf.confidence,
+                        "description": mf.description,
+                        "figure_id": fig_id,
+                        "evidence": {
+                            "software": meta.software,
+                            "icc_profile": meta.icc_profile,
+                        },
+                    }
+                )
     except Exception as exc:
         logger.debug("Metadata forensics failed on %s: %s", fig_id, exc)
 
@@ -233,23 +243,25 @@ def run_intra_paper_cross_ref(
                         severity = "medium"
                         confidence = 0.6
 
-                    findings.append({
-                        "title": f"Perceptual hash match: {res_a['image']} \u2194 {res_b['image']}",
-                        "analysis_type": "phash",
-                        "method": "phash",
-                        "severity": severity,
-                        "confidence": confidence,
-                        "description": (
-                            f"Figures '{res_a['image']}' and '{res_b['image']}' "
-                            f"have perceptual hash distance {dist} (possible duplicate/recycled)"
-                        ),
-                        "figure_id": res_a["image"],
-                        "evidence": {
-                            "figure_a": res_a["image"],
-                            "figure_b": res_b["image"],
-                            "hash_distance": dist,
-                        },
-                    })
+                    findings.append(
+                        {
+                            "title": f"Perceptual hash match: {res_a['image']} \u2194 {res_b['image']}",
+                            "analysis_type": "phash",
+                            "method": "phash",
+                            "severity": severity,
+                            "confidence": confidence,
+                            "description": (
+                                f"Figures '{res_a['image']}' and '{res_b['image']}' "
+                                f"have perceptual hash distance {dist} (possible duplicate/recycled)"
+                            ),
+                            "figure_id": res_a["image"],
+                            "evidence": {
+                                "figure_a": res_a["image"],
+                                "figure_b": res_b["image"],
+                                "hash_distance": dist,
+                            },
+                        }
+                    )
 
     return findings
 
@@ -272,60 +284,68 @@ def run_western_blot_analysis(
         if result.suspicious:
             # Duplicate lanes
             for lane_i, lane_j, corr in result.duplicate_lanes:
-                findings.append({
-                    "title": f"Duplicate lanes in western blot (lanes {lane_i}, {lane_j})",
-                    "analysis_type": "western_blot",
-                    "method": "western_blot",
-                    "severity": "high",
-                    "confidence": min(corr, 1.0),
-                    "description": (
-                        f"Lanes {lane_i} and {lane_j} have near-identical intensity profiles "
-                        f"(correlation={corr:.3f})"
-                    ),
-                    "figure_id": fig_id,
-                    "evidence": {
-                        "lane_a": lane_i,
-                        "lane_b": lane_j,
-                        "correlation": round(corr, 4),
-                    },
-                })
+                findings.append(
+                    {
+                        "title": f"Duplicate lanes in western blot (lanes {lane_i}, {lane_j})",
+                        "analysis_type": "western_blot",
+                        "method": "western_blot",
+                        "severity": "high",
+                        "confidence": min(corr, 1.0),
+                        "description": (
+                            f"Lanes {lane_i} and {lane_j} have near-identical intensity profiles "
+                            f"(correlation={corr:.3f})"
+                        ),
+                        "figure_id": fig_id,
+                        "evidence": {
+                            "lane_a": lane_i,
+                            "lane_b": lane_j,
+                            "correlation": round(corr, 4),
+                        },
+                    }
+                )
 
             # Splice boundaries
             for splice in result.splice_boundaries:
                 if splice.confidence > 0.5:
-                    findings.append({
-                        "title": "Splice boundary in western blot",
-                        "analysis_type": "western_blot",
-                        "method": "western_blot",
-                        "severity": "high" if splice.confidence > 0.7 else "medium",
-                        "confidence": splice.confidence,
-                        "description": (
-                            f"Splice boundary detected between lanes {splice.left_lane} and "
-                            f"{splice.right_lane} at x={splice.x_position}"
-                        ),
-                        "figure_id": fig_id,
-                        "evidence": {
-                            "x_position": splice.x_position,
-                            "background_discontinuity": round(splice.background_discontinuity, 2),
-                            "noise_discontinuity": round(splice.noise_discontinuity, 3),
-                        },
-                    })
+                    findings.append(
+                        {
+                            "title": "Splice boundary in western blot",
+                            "analysis_type": "western_blot",
+                            "method": "western_blot",
+                            "severity": "high" if splice.confidence > 0.7 else "medium",
+                            "confidence": splice.confidence,
+                            "description": (
+                                f"Splice boundary detected between lanes {splice.left_lane} and "
+                                f"{splice.right_lane} at x={splice.x_position}"
+                            ),
+                            "figure_id": fig_id,
+                            "evidence": {
+                                "x_position": splice.x_position,
+                                "background_discontinuity": round(
+                                    splice.background_discontinuity, 2
+                                ),
+                                "noise_discontinuity": round(splice.noise_discontinuity, 3),
+                            },
+                        }
+                    )
 
             # Uniform profiles
             if result.uniform_profiles and not result.duplicate_lanes:
-                findings.append({
-                    "title": "Suspiciously uniform western blot profiles",
-                    "analysis_type": "western_blot",
-                    "method": "western_blot",
-                    "severity": "medium",
-                    "confidence": 0.6,
-                    "description": (
-                        f"All {result.lane_count} lanes show suspiciously uniform "
-                        f"intensity profiles"
-                    ),
-                    "figure_id": fig_id,
-                    "evidence": {"lane_count": result.lane_count},
-                })
+                findings.append(
+                    {
+                        "title": "Suspiciously uniform western blot profiles",
+                        "analysis_type": "western_blot",
+                        "method": "western_blot",
+                        "severity": "medium",
+                        "confidence": 0.6,
+                        "description": (
+                            f"All {result.lane_count} lanes show suspiciously uniform "
+                            f"intensity profiles"
+                        ),
+                        "figure_id": fig_id,
+                        "evidence": {"lane_count": result.lane_count},
+                    }
+                )
     except Exception as exc:
         logger.debug("Western blot analysis failed on %s: %s", fig_id, exc)
 

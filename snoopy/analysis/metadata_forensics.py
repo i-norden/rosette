@@ -40,10 +40,24 @@ _EDITING_SOFTWARE = {
 
 # Scientific imaging software (expected, not suspicious)
 _SCIENTIFIC_SOFTWARE = {
-    "imagej", "fiji", "cellprofiler", "metamorph", "zeiss",
-    "leica", "nikon", "olympus", "keyence", "hamamatsu",
-    "biorad", "bio-rad", "chemidoc", "licor", "li-cor",
-    "azure biosystems", "syngene", "uvp",
+    "imagej",
+    "fiji",
+    "cellprofiler",
+    "metamorph",
+    "zeiss",
+    "leica",
+    "nikon",
+    "olympus",
+    "keyence",
+    "hamamatsu",
+    "biorad",
+    "bio-rad",
+    "chemidoc",
+    "licor",
+    "li-cor",
+    "azure biosystems",
+    "syngene",
+    "uvp",
 }
 
 # ICC profiles commonly associated with editing
@@ -117,8 +131,8 @@ def _check_icc_profile(image_path: str) -> str | None:
                 if idx != -1:
                     # Skip tag type + reserved
                     start = idx + 12
-                    length = int.from_bytes(icc[start - 4:start], "big")
-                    desc = icc[start:start + min(length, 100)]
+                    length = int.from_bytes(icc[start - 4 : start], "big")
+                    desc = icc[start : start + min(length, 100)]
                     return desc.decode("ascii", errors="ignore").strip("\x00").strip()
             except Exception:
                 pass
@@ -169,16 +183,18 @@ def analyze_metadata(image_path: str) -> MetadataForensicsResult:
                 # Check if it's also scientific software (some overlap)
                 is_scientific = any(s in software_lower for s in _SCIENTIFIC_SOFTWARE)
                 if not is_scientific:
-                    findings.append(MetadataFinding(
-                        finding_type="editing_software",
-                        description=(
-                            f"Image was processed with {name} ({software}). "
-                            f"This is an image editing tool not typically used for "
-                            f"scientific image acquisition."
-                        ),
-                        confidence=0.6,
-                        severity="medium",
-                    ))
+                    findings.append(
+                        MetadataFinding(
+                            finding_type="editing_software",
+                            description=(
+                                f"Image was processed with {name} ({software}). "
+                                f"This is an image editing tool not typically used for "
+                                f"scientific image acquisition."
+                            ),
+                            confidence=0.6,
+                            severity="medium",
+                        )
+                    )
                 break
 
     # Check for date mismatches
@@ -190,16 +206,18 @@ def analyze_metadata(image_path: str) -> MetadataForensicsResult:
             delta = abs((dt_modify - dt_create).total_seconds())
 
             if delta > 86400:  # More than 1 day apart
-                findings.append(MetadataFinding(
-                    finding_type="date_mismatch",
-                    description=(
-                        f"Creation date ({create_date}) and modification date "
-                        f"({modify_date}) differ by {delta / 86400:.1f} days. "
-                        f"This may indicate post-acquisition editing."
-                    ),
-                    confidence=0.4,
-                    severity="low",
-                ))
+                findings.append(
+                    MetadataFinding(
+                        finding_type="date_mismatch",
+                        description=(
+                            f"Creation date ({create_date}) and modification date "
+                            f"({modify_date}) differ by {delta / 86400:.1f} days. "
+                            f"This may indicate post-acquisition editing."
+                        ),
+                        confidence=0.4,
+                        severity="low",
+                    )
+                )
         except (ValueError, IndexError):
             pass
 
@@ -210,44 +228,50 @@ def analyze_metadata(image_path: str) -> MetadataForensicsResult:
         # Check for editing-associated profiles
         for edit_profile in _EDITING_ICC_PROFILES:
             if edit_profile in icc_lower:
-                findings.append(MetadataFinding(
-                    finding_type="icc_profile",
-                    description=(
-                        f"ICC color profile '{icc_profile}' is typically associated "
-                        f"with edited images, not scientific instrument output."
-                    ),
-                    confidence=0.35,
-                    severity="low",
-                ))
+                findings.append(
+                    MetadataFinding(
+                        finding_type="icc_profile",
+                        description=(
+                            f"ICC color profile '{icc_profile}' is typically associated "
+                            f"with edited images, not scientific instrument output."
+                        ),
+                        confidence=0.35,
+                        severity="low",
+                    )
+                )
                 break
 
     # Check for XMP metadata
     has_xmp = _check_xmp(image_path)
     if has_xmp:
-        findings.append(MetadataFinding(
-            finding_type="xmp_metadata",
-            description=(
-                "Image contains XMP metadata, commonly added by image editing "
-                "software like Adobe Photoshop or Lightroom."
-            ),
-            confidence=0.3,
-            severity="low",
-        ))
+        findings.append(
+            MetadataFinding(
+                finding_type="xmp_metadata",
+                description=(
+                    "Image contains XMP metadata, commonly added by image editing "
+                    "software like Adobe Photoshop or Lightroom."
+                ),
+                confidence=0.3,
+                severity="low",
+            )
+        )
 
     # Check for stripped metadata (suspicious if image is large but has no EXIF)
     if not exif:
         try:
             file_size = Path(image_path).stat().st_size
             if file_size > 100_000:  # > 100KB
-                findings.append(MetadataFinding(
-                    finding_type="stripped_metadata",
-                    description=(
-                        f"Image ({file_size / 1024:.0f} KB) contains no EXIF metadata. "
-                        f"Metadata stripping can be a sign of image editing."
-                    ),
-                    confidence=0.2,
-                    severity="low",
-                ))
+                findings.append(
+                    MetadataFinding(
+                        finding_type="stripped_metadata",
+                        description=(
+                            f"Image ({file_size / 1024:.0f} KB) contains no EXIF metadata. "
+                            f"Metadata stripping can be a sign of image editing."
+                        ),
+                        confidence=0.2,
+                        severity="low",
+                    )
+                )
         except OSError:
             pass
 

@@ -80,12 +80,14 @@ async def check_pubpeer(doi: str) -> PubPeerResult:
             comments = []
             raw_comments = pub.get("comments", [])
             for c in raw_comments[:10]:  # Limit to 10 most recent
-                comments.append(PubPeerComment(
-                    author=c.get("author", "Anonymous"),
-                    content_snippet=str(c.get("content", ""))[:300],
-                    created_at=c.get("created_at", ""),
-                    url=c.get("url", ""),
-                ))
+                comments.append(
+                    PubPeerComment(
+                        author=c.get("author", "Anonymous"),
+                        content_snippet=str(c.get("content", ""))[:300],
+                        created_at=c.get("created_at", ""),
+                        url=c.get("url", ""),
+                    )
+                )
 
             return PubPeerResult(
                 has_comments=total_comments > 0,

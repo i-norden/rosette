@@ -189,7 +189,7 @@ def extract_test_statistics(text: str) -> list[TestStatistic]:
     for m in _T_TEST_RE.finditer(text):
         try:
             stat = _parse_float(m.group("stat"))
-            df = (int(m.group("df")),)
+            df: tuple[int, ...] = (int(m.group("df")),)
             p_val: float | None = None
             if m.group("pval"):
                 p_val = _parse_float(m.group("pval"))

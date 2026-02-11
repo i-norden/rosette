@@ -105,9 +105,7 @@ async def check_retraction_status(doi: str) -> RetractionInfo:
     return RetractionInfo(is_retracted=False)
 
 
-async def check_author_retractions(
-    author_name: str, limit: int = 50
-) -> AuthorRetractionHistory:
+async def check_author_retractions(author_name: str, limit: int = 50) -> AuthorRetractionHistory:
     """Search for retractions associated with an author name.
 
     Args:
@@ -126,10 +124,10 @@ async def check_author_retractions(
     ) as client:
         try:
             # Search for retraction notices by this author
-            params = {
+            params: dict[str, str] = {
                 "query.author": author_name,
                 "filter": "type:retraction",
-                "rows": limit,
+                "rows": str(limit),
                 "select": "DOI,title,type",
             }
             resp = await client.get(f"{_CROSSREF_API}/works", params=params)

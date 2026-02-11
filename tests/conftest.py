@@ -42,9 +42,7 @@ def db_session(test_config):
 @pytest.fixture
 def sample_image(tmp_path) -> str:
     """Create a simple test image and return its path."""
-    img = Image.fromarray(
-        np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8)
-    )
+    img = Image.fromarray(np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8))
     path = str(tmp_path / "test_image.png")
     img.save(path)
     return path
@@ -53,9 +51,7 @@ def sample_image(tmp_path) -> str:
 @pytest.fixture
 def sample_jpeg(tmp_path) -> str:
     """Create a test JPEG image and return its path."""
-    img = Image.fromarray(
-        np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8)
-    )
+    img = Image.fromarray(np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8))
     path = str(tmp_path / "test_image.jpg")
     img.save(path, "JPEG", quality=95)
     return path

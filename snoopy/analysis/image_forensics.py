@@ -116,9 +116,7 @@ def error_level_analysis(
         else:
             # Write to a managed temp directory that is cleaned up on process exit
             base_name = os.path.splitext(os.path.basename(image_path))[0]
-            ela_image_path = os.path.join(
-                _get_temp_dir(), f"{base_name}_ela.png"
-            )
+            ela_image_path = os.path.join(_get_temp_dir(), f"{base_name}_ela.png")
             ela_img.save(ela_image_path)
 
     return ELAResult(
@@ -131,7 +129,9 @@ def error_level_analysis(
 
 
 def clone_detection(
-    image_path: str, min_matches: int = 30, min_inlier_ratio: float = 0.15,
+    image_path: str,
+    min_matches: int = 30,
+    min_inlier_ratio: float = 0.15,
 ) -> CloneResult:
     """Detect copy-move (clone) regions within an image using ORB features.
 
@@ -155,7 +155,7 @@ def clone_detection(
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    orb = cv2.ORB_create(nfeatures=5000)
+    orb = cv2.ORB_create(nfeatures=5000)  # type: ignore[attr-defined]
     keypoints, descriptors = orb.detectAndCompute(gray, None)
 
     if descriptors is None or len(keypoints) < 2:
@@ -225,13 +225,19 @@ def clone_detection(
                     used[j] = True
             cluster_arr = np.array(cluster_pts)
             center = np.mean(cluster_arr, axis=0)
-            max_dist = float(np.max(np.linalg.norm(cluster_arr - center, axis=1))) if len(cluster_arr) > 1 else 0.0
-            match_clusters.append({
-                "center_x": float(center[0]),
-                "center_y": float(center[1]),
-                "radius": max_dist,
-                "num_points": len(cluster_pts),
-            })
+            max_dist = (
+                float(np.max(np.linalg.norm(cluster_arr - center, axis=1)))
+                if len(cluster_arr) > 1
+                else 0.0
+            )
+            match_clusters.append(
+                {
+                    "center_x": float(center[0]),
+                    "center_y": float(center[1]),
+                    "radius": max_dist,
+                    "num_points": len(cluster_pts),
+                }
+            )
 
     suspicious = inlier_count >= min_matches and inlier_ratio >= min_inlier_ratio
     return CloneResult(
@@ -242,7 +248,9 @@ def clone_detection(
     )
 
 
-def noise_analysis(image_path: str, block_size: int = 64, intensity_bin_width: int = 32) -> NoiseResult:
+def noise_analysis(
+    image_path: str, block_size: int = 64, intensity_bin_width: int = 32
+) -> NoiseResult:
     """Analyse noise level inconsistencies across image blocks.
 
     Divides the image into blocks and computes the variance of the Laplacian
@@ -258,7 +266,9 @@ def noise_analysis(image_path: str, block_size: int = 64, intensity_bin_width: i
     """
     img = cv2.imread(image_path)
     if img is None:
-        return NoiseResult(suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0)
+        return NoiseResult(
+            suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0
+        )
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
@@ -274,16 +284,20 @@ def noise_analysis(image_path: str, block_size: int = 64, intensity_bin_width: i
             noise_level = float(np.var(laplacian))
             mean_intensity = float(np.mean(block))
 
-            noise_map.append({
-                "block_x": x,
-                "block_y": y,
-                "noise_level": noise_level,
-            })
+            noise_map.append(
+                {
+                    "block_x": x,
+                    "block_y": y,
+                    "noise_level": noise_level,
+                }
+            )
             noise_values.append(noise_level)
             block_info.append((mean_intensity, noise_level))
 
     if not noise_values:
-        return NoiseResult(suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0)
+        return NoiseResult(
+            suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0
+        )
 
     noise_arr = np.array(noise_values)
     mean_noise = float(np.mean(noise_arr))

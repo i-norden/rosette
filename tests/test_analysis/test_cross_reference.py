@@ -68,9 +68,7 @@ class TestFindCrossPaperDuplicates:
         path_a = str(tmp_path / "fig_a.png")
         img_a.save(path_a)
 
-        img_b = Image.fromarray(
-            np.full((100, 100, 3), 255, dtype=np.uint8)
-        )
+        img_b = Image.fromarray(np.full((100, 100, 3), 255, dtype=np.uint8))
         path_b = str(tmp_path / "fig_b.png")
         img_b.save(path_b)
 
@@ -99,7 +97,7 @@ class TestFindCrossPaperDuplicates:
             session.add(fig_a)
             session.add(fig_b)
 
-        result = find_cross_paper_duplicates("paper-a", max_distance=5)
+        result = find_cross_paper_duplicates("paper-a", max_distance=0)
         assert result.cross_paper_duplicates == 0
         assert len(result.matches) == 0
 

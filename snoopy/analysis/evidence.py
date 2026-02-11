@@ -234,9 +234,7 @@ def aggregate_findings(
     else:
         paper_risk = "clean"
 
-    overall_confidence = compute_overall_confidence(
-        findings, method_weights=method_weights
-    )
+    overall_confidence = compute_overall_confidence(findings, method_weights=method_weights)
 
     return AggregatedEvidence(
         paper_risk=paper_risk,

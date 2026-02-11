@@ -144,9 +144,7 @@ class TestClaudeProviderRetry:
             provider.client.messages.create = mock_create
 
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await provider.analyze_text(
-                    text="test", prompt="analyze this"
-                )
+                result = await provider.analyze_text(text="test", prompt="analyze this")
 
             assert result["content"] == '{"result": "ok"}'
             assert mock_create.call_count == 2
@@ -176,9 +174,7 @@ class TestClaudeProviderRetry:
             provider.client.messages.create = mock_create
 
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await provider.analyze_text(
-                    text="test", prompt="analyze this"
-                )
+                result = await provider.analyze_text(text="test", prompt="analyze this")
 
             assert result["content"] == "ok"
 
@@ -245,9 +241,7 @@ class TestClaudeProviderAnalyze:
 
             provider.client.messages.create = AsyncMock(return_value=mock_message)
 
-            result = await provider.analyze_image(
-                image_path=path, prompt="describe this image"
-            )
+            result = await provider.analyze_image(image_path=path, prompt="describe this image")
 
         assert result["content"] == "analysis result"
         # Verify the messages were constructed with image content
@@ -274,10 +268,12 @@ class TestClaudeProviderAnalyze:
 
             provider.client.messages.create = AsyncMock(return_value=mock_message)
 
-            results = await provider.analyze_images_batch([
-                {"image_path": path, "prompt": "analyze 1"},
-                {"image_path": path, "prompt": "analyze 2"},
-            ])
+            results = await provider.analyze_images_batch(
+                [
+                    {"image_path": path, "prompt": "analyze 1"},
+                    {"image_path": path, "prompt": "analyze 2"},
+                ]
+            )
 
         assert len(results) == 2
         assert all(r["content"] == "batch result" for r in results)

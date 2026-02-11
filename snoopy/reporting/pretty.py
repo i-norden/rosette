@@ -120,7 +120,9 @@ def print_findings_table(findings: list[dict]) -> None:
         return
 
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-    sorted_findings = sorted(findings, key=lambda f: severity_order.get(f.get("severity", "info"), 5))
+    sorted_findings = sorted(
+        findings, key=lambda f: severity_order.get(f.get("severity", "info"), 5)
+    )
 
     table = Table(title="Findings", border_style="bright_blue")
     table.add_column("#", style="dim", width=3)
@@ -226,7 +228,9 @@ def print_full_report(
         # Compute basic stats from findings
         critical = sum(1 for f in findings if f.get("severity") == "critical")
         has_high = any(f.get("severity") in ("critical", "high") for f in findings)
-        risk = "high" if critical > 0 else ("medium" if has_high else ("low" if findings else "clean"))
+        risk = (
+            "high" if critical > 0 else ("medium" if has_high else ("low" if findings else "clean"))
+        )
         print_assessment(
             risk=risk,
             confidence=0.5 if findings else 0.0,
@@ -306,7 +310,9 @@ def print_demo_summary(results: list[dict]) -> None:
 
     total = passed + failed
     summary = Text()
-    summary.append(f"  {passed}/{total} passed", style="bold green" if failed == 0 else "bold yellow")
+    summary.append(
+        f"  {passed}/{total} passed", style="bold green" if failed == 0 else "bold yellow"
+    )
     if failed > 0:
         summary.append(f"  |  {failed} failed", style="bold red")
     console.print(Panel(summary, title="[bold]Summary[/bold]", border_style="green"))

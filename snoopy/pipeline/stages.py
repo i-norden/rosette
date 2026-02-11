@@ -56,6 +56,6 @@ def get_remaining_stages(last_completed: str | None) -> list[str]:
         return list(PIPELINE_STAGES)
     try:
         idx = PIPELINE_STAGES.index(last_completed)
-        return PIPELINE_STAGES[idx + 1:]
+        return PIPELINE_STAGES[idx + 1 :]
     except ValueError:
         return list(PIPELINE_STAGES)

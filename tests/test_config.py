@@ -1,6 +1,5 @@
 """Tests for configuration loading."""
 
-
 from snoopy.config import SnoopyConfig, load_config
 
 

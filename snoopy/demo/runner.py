@@ -172,9 +172,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
             for ts in test_stats:
                 if ts.p_value is not None and ts.df:
                     try:
-                        pv_result = pvalue_check(
-                            ts.test_type, ts.statistic, ts.df, ts.p_value
-                        )
+                        pv_result = pvalue_check(ts.test_type, ts.statistic, ts.df, ts.p_value)
                         if not pv_result.consistent:
                             if pv_result.difference > 0.05 and pv_result.significance_changed:
                                 severity = "high"
@@ -212,7 +210,9 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                     except Exception as exc:
                         logger.debug(
                             "P-value check failed for %s stat on %s: %s",
-                            ts.test_type, pdf_path.name, exc,
+                            ts.test_type,
+                            pdf_path.name,
+                            exc,
                         )
         except Exception as exc:
             logger.debug("P-value extraction failed on %s: %s", pdf_path.name, exc)
@@ -290,8 +290,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                 dup_result = duplicate_value_check(table.rows)
                 if dup_result.suspicious:
                     both_flags = (
-                        dup_result.duplicate_ratio > 0.3
-                        and dup_result.round_number_ratio > 0.8
+                        dup_result.duplicate_ratio > 0.3 and dup_result.round_number_ratio > 0.8
                     )
                     if both_flags:
                         severity = "medium"
@@ -326,12 +325,14 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         all_findings.extend(cross_ref_findings)
         for f in cross_ref_findings:
             evidence = f.get("evidence", {})
-            phash_matches.append({
-                "figure_a": evidence.get("figure_a", ""),
-                "figure_b": evidence.get("figure_b", ""),
-                "distance": evidence.get("hash_distance", 0),
-                "severity": f.get("severity", ""),
-            })
+            phash_matches.append(
+                {
+                    "figure_a": evidence.get("figure_a", ""),
+                    "figure_b": evidence.get("figure_b", ""),
+                    "distance": evidence.get("hash_distance", 0),
+                    "severity": f.get("severity", ""),
+                }
+            )
     except Exception as exc:
         logger.debug("Hash cross-reference failed on %s: %s", pdf_path.name, exc)
 
@@ -452,42 +453,48 @@ async def _run_llm_analysis(
             try:
                 screening = await screen_figure(img_path, provider)
                 if screening.suspicious and screening.confidence > 0.5:
-                    findings.append({
-                        "title": f"LLM screening flagged: {screening.reason}",
-                        "analysis_type": "llm_screening",
-                        "method": "llm_screening",
-                        "severity": "medium" if screening.confidence > 0.7 else "low",
-                        "confidence": screening.confidence,
-                        "description": screening.reason,
-                        "figure_id": fig_id,
-                        "evidence": {
-                            "model": screening.model_used,
+                    findings.append(
+                        {
+                            "title": f"LLM screening flagged: {screening.reason}",
+                            "analysis_type": "llm_screening",
+                            "method": "llm_screening",
+                            "severity": "medium" if screening.confidence > 0.7 else "low",
                             "confidence": screening.confidence,
-                        },
-                    })
+                            "description": screening.reason,
+                            "figure_id": fig_id,
+                            "evidence": {
+                                "model": screening.model_used,
+                                "confidence": screening.confidence,
+                            },
+                        }
+                    )
 
                     # Detailed analysis for flagged figures
                     try:
                         detailed = await analyze_figure_detailed(img_path, provider)
                         for vf in detailed.findings:
-                            findings.append({
-                                "title": f"LLM vision: {vf.finding_type}",
-                                "analysis_type": "llm_vision",
-                                "method": "llm_vision",
-                                "severity": (
-                                    "high" if vf.confidence > 0.8
-                                    else "medium" if vf.confidence > 0.5
-                                    else "low"
-                                ),
-                                "confidence": vf.confidence,
-                                "description": vf.description,
-                                "figure_id": fig_id,
-                                "evidence": {
-                                    "location": vf.location,
-                                    "model": detailed.model_used,
-                                    "manipulation_likelihood": detailed.manipulation_likelihood,
-                                },
-                            })
+                            findings.append(
+                                {
+                                    "title": f"LLM vision: {vf.finding_type}",
+                                    "analysis_type": "llm_vision",
+                                    "method": "llm_vision",
+                                    "severity": (
+                                        "high"
+                                        if vf.confidence > 0.8
+                                        else "medium"
+                                        if vf.confidence > 0.5
+                                        else "low"
+                                    ),
+                                    "confidence": vf.confidence,
+                                    "description": vf.description,
+                                    "figure_id": fig_id,
+                                    "evidence": {
+                                        "location": vf.location,
+                                        "model": detailed.model_used,
+                                        "manipulation_likelihood": detailed.manipulation_likelihood,
+                                    },
+                                }
+                            )
                     except Exception as exc:
                         logger.debug("LLM detailed analysis failed for %s: %s", fig_id, exc)
 
@@ -578,7 +585,9 @@ def run_demo(
         ) as client:
             zenodo_counts = download_rsiil_zenodo(client)
         total_files = sum(zenodo_counts.values())
-        console.print(f"[bold green]RSIIL Zenodo dataset: {total_files} files across {len(zenodo_counts)} splits.[/bold green]")
+        console.print(
+            f"[bold green]RSIIL Zenodo dataset: {total_files} files across {len(zenodo_counts)} splits.[/bold green]"
+        )
         console.print()
 
     if download_only:
@@ -600,16 +609,18 @@ def run_demo(
             task = progress.add_task("Synthetic images", total=len(synthetic_images))
             for img_path in synthetic_images:
                 result = _analyze_image(img_path)
-                demo_results.append(_build_result(
-                    name=img_path.name,
-                    category="synthetic",
-                    expected="findings",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_findings(
-                        aggregate_findings(result["findings"]).paper_risk,
-                        result["findings"],
-                    ),
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=img_path.name,
+                        category="synthetic",
+                        expected="findings",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_findings(
+                            aggregate_findings(result["findings"]).paper_risk,
+                            result["findings"],
+                        ),
+                    )
+                )
                 progress.advance(task)
     console.print()
 
@@ -625,24 +636,28 @@ def run_demo(
             for img_path in rsiil_images:
                 result = _analyze_image(img_path)
                 if img_path.name in rsiil_forgery_names:
-                    demo_results.append(_build_result(
-                        name=img_path.name,
-                        category="rsiil",
-                        expected="findings",
-                        findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_findings(
-                            aggregate_findings(result["findings"]).paper_risk,
-                            result["findings"],
-                        ),
-                    ))
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="rsiil",
+                            expected="findings",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_findings(
+                                aggregate_findings(result["findings"]).paper_risk,
+                                result["findings"],
+                            ),
+                        )
+                    )
                 elif img_path.name in rsiil_clean_names:
-                    demo_results.append(_build_result(
-                        name=img_path.name,
-                        category="clean",
-                        expected="clean",
-                        findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                    ))
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="clean",
+                            expected="clean",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        )
+                    )
                 progress.advance(task)
     else:
         console.print("[dim]No RSIIL images found (download may have failed). Skipping.[/dim]")
@@ -659,26 +674,30 @@ def run_demo(
             task = progress.add_task("RSIIL Zenodo samples", total=total_zenodo)
             for img_path in tampered_sample:
                 result = _analyze_image(img_path)
-                demo_results.append(_build_result(
-                    name=img_path.name,
-                    category="rsiil",
-                    expected="findings",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_findings(
-                        aggregate_findings(result["findings"]).paper_risk,
-                        result["findings"],
-                    ),
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=img_path.name,
+                        category="rsiil",
+                        expected="findings",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_findings(
+                            aggregate_findings(result["findings"]).paper_risk,
+                            result["findings"],
+                        ),
+                    )
+                )
                 progress.advance(task)
             for img_path in pristine_sample:
                 result = _analyze_image(img_path)
-                demo_results.append(_build_result(
-                    name=img_path.name,
-                    category="rsiil_clean",
-                    expected="clean",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=img_path.name,
+                        category="rsiil_clean",
+                        expected="clean",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                    )
+                )
                 progress.advance(task)
         console.print()
 
@@ -690,20 +709,22 @@ def run_demo(
             task = progress.add_task("Retracted papers", total=len(retracted_pdfs))
             for pdf_path in retracted_pdfs:
                 result = _analyze_pdf(pdf_path, figures_dir)
-                demo_results.append(_build_result(
-                    name=pdf_path.name,
-                    category="retracted",
-                    expected="findings",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_findings(
-                        aggregate_findings(result["findings"]).paper_risk,
-                        result["findings"],
-                    ),
-                    extra={
-                        "statistical_summary": result.get("statistical_summary", {}),
-                        "phash_matches": result.get("phash_matches", []),
-                    },
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=pdf_path.name,
+                        category="retracted",
+                        expected="findings",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_findings(
+                            aggregate_findings(result["findings"]).paper_risk,
+                            result["findings"],
+                        ),
+                        extra={
+                            "statistical_summary": result.get("statistical_summary", {}),
+                            "phash_matches": result.get("phash_matches", []),
+                        },
+                    )
+                )
                 progress.advance(task)
     else:
         console.print("[dim]No retracted papers found. Skipping.[/dim]")
@@ -713,37 +734,41 @@ def run_demo(
     console.print("[bold]Analyzing Bik survey paper...[/bold]")
     for pdf_path in _find_pdfs(FIXTURES_DIR / "survey"):
         result = _analyze_pdf(pdf_path, figures_dir)
-        demo_results.append(_build_result(
-            name=pdf_path.name,
-            category="survey",
-            expected="informational",
-            findings=result["findings"],
-            pass_fail=True,
-            extra={
-                "statistical_summary": result.get("statistical_summary", {}),
-                "phash_matches": result.get("phash_matches", []),
-            },
-        ))
+        demo_results.append(
+            _build_result(
+                name=pdf_path.name,
+                category="survey",
+                expected="informational",
+                findings=result["findings"],
+                pass_fail=True,
+                extra={
+                    "statistical_summary": result.get("statistical_summary", {}),
+                    "phash_matches": result.get("phash_matches", []),
+                },
+            )
+        )
     console.print()
 
     # 2e) Retraction Watch papers
     console.print("[bold]Analyzing Retraction Watch papers...[/bold]")
     for pdf_path in _find_pdfs(FIXTURES_DIR / "retraction_watch"):
         result = _analyze_pdf(pdf_path, figures_dir)
-        demo_results.append(_build_result(
-            name=pdf_path.name,
-            category="retraction_watch",
-            expected="findings",
-            findings=result["findings"],
-            pass_fail=_determine_pass_fail_expected_findings(
-                aggregate_findings(result["findings"]).paper_risk,
-                result["findings"],
-            ),
-            extra={
-                "statistical_summary": result.get("statistical_summary", {}),
-                "phash_matches": result.get("phash_matches", []),
-            },
-        ))
+        demo_results.append(
+            _build_result(
+                name=pdf_path.name,
+                category="retraction_watch",
+                expected="findings",
+                findings=result["findings"],
+                pass_fail=_determine_pass_fail_expected_findings(
+                    aggregate_findings(result["findings"]).paper_risk,
+                    result["findings"],
+                ),
+                extra={
+                    "statistical_summary": result.get("statistical_summary", {}),
+                    "phash_matches": result.get("phash_matches", []),
+                },
+            )
+        )
     console.print()
 
     # 2f) Clean control papers (false positive check)
@@ -754,17 +779,19 @@ def run_demo(
             task = progress.add_task("Clean papers", total=len(clean_pdfs))
             for pdf_path in clean_pdfs:
                 result = _analyze_pdf(pdf_path, figures_dir)
-                demo_results.append(_build_result(
-                    name=pdf_path.name,
-                    category="clean",
-                    expected="clean",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                    extra={
-                        "statistical_summary": result.get("statistical_summary", {}),
-                        "phash_matches": result.get("phash_matches", []),
-                    },
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=pdf_path.name,
+                        category="clean",
+                        expected="clean",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        extra={
+                            "statistical_summary": result.get("statistical_summary", {}),
+                            "phash_matches": result.get("phash_matches", []),
+                        },
+                    )
+                )
                 progress.advance(task)
     else:
         console.print("[dim]No clean papers found. Skipping.[/dim]")
@@ -792,9 +819,16 @@ def run_demo(
 
         for result in demo_results:
             if result["findings"]:
-                paper = {"title": result["name"], "doi": "N/A", "journal": result["category"], "citation_count": 0}
+                paper = {
+                    "title": result["name"],
+                    "doi": "N/A",
+                    "journal": result["category"],
+                    "citation_count": 0,
+                }
                 html = generate_html_report(
-                    paper=paper, findings=result["findings"], figures={},
+                    paper=paper,
+                    findings=result["findings"],
+                    figures={},
                     summary=f"Demo analysis of {result['name']}",
                     overall_risk=result["actual_risk"],
                     overall_confidence=result.get("overall_confidence", 0.5),

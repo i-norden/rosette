@@ -6,6 +6,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -110,9 +111,9 @@ class SnoopyConfig(BaseSettings):
     model_config = {"env_prefix": "SNOOPY_", "env_nested_delimiter": "__"}
 
 
-def _resolve_env_vars(data: dict) -> dict:
+def _resolve_env_vars(data: dict[str, Any]) -> dict[str, Any]:
     """Recursively resolve ${ENV_VAR} and ${ENV_VAR:-default} references in config values."""
-    resolved = {}
+    resolved: dict[str, Any] = {}
     for key, value in data.items():
         if isinstance(value, dict):
             resolved[key] = _resolve_env_vars(value)

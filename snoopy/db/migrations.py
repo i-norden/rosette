@@ -34,7 +34,5 @@ def get_paper_counts() -> dict[str, int]:
     """Get paper counts by status for monitoring."""
     engine = get_engine()
     with engine.connect() as conn:
-        result = conn.execute(
-            text("SELECT status, COUNT(*) FROM papers GROUP BY status")
-        )
+        result = conn.execute(text("SELECT status, COUNT(*) FROM papers GROUP BY status"))
         return dict(result.fetchall())

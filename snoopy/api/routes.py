@@ -62,9 +62,7 @@ async def submit_paper(
     Returns 202 Accepted with the paper_id for tracking.
     """
     if not body.doi and not body.pdf_upload:
-        raise HTTPException(
-            status_code=422, detail="Provide either a DOI or PDF upload"
-        )
+        raise HTTPException(status_code=422, detail="Provide either a DOI or PDF upload")
 
     if body.doi:
         try:
@@ -77,14 +75,14 @@ async def submit_paper(
     async with get_async_session() as session:
         if body.doi:
             existing = (
-                await session.execute(
-                    select(Paper).where(Paper.doi == body.doi)
-                )
-            ).scalars().first()
+                (await session.execute(select(Paper).where(Paper.doi == body.doi)))
+                .scalars()
+                .first()
+            )
             if existing:
                 return PaperStatusResponse(
-                    paper_id=existing.id,
-                    status=existing.status,
+                    paper_id=existing.id,  # type: ignore[arg-type]
+                    status=existing.status,  # type: ignore[arg-type]
                     risk_level=None,
                     overall_confidence=None,
                     num_findings=None,
@@ -122,29 +120,29 @@ async def get_paper_status(
 ) -> PaperStatusResponse:
     """Get the current status and summary for a paper."""
     async with get_async_session() as session:
-        paper = (
-            await session.execute(
-                select(Paper).where(Paper.id == paper_id)
-            )
-        ).scalars().first()
+        paper = (await session.execute(select(Paper).where(Paper.id == paper_id))).scalars().first()
 
         if not paper:
             raise HTTPException(status_code=404, detail="Paper not found")
 
         report = (
-            await session.execute(
-                select(Report)
-                .where(Report.paper_id == paper_id)
-                .order_by(Report.created_at.desc())
+            (
+                await session.execute(
+                    select(Report)
+                    .where(Report.paper_id == paper_id)
+                    .order_by(Report.created_at.desc())
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
         return PaperStatusResponse(
-            paper_id=paper.id,
-            status=paper.status,
-            risk_level=report.overall_risk if report else None,
-            overall_confidence=report.overall_confidence if report else None,
-            num_findings=report.num_findings if report else None,
+            paper_id=paper.id,  # type: ignore[arg-type]
+            status=paper.status,  # type: ignore[arg-type]
+            risk_level=report.overall_risk if report else None,  # type: ignore[arg-type]
+            overall_confidence=report.overall_confidence if report else None,  # type: ignore[arg-type]
+            num_findings=report.num_findings if report else None,  # type: ignore[arg-type]
         )
 
 
@@ -155,53 +153,51 @@ async def get_paper_report(
 ) -> ReportResponse:
     """Get the full analysis report for a paper."""
     async with get_async_session() as session:
-        paper = (
-            await session.execute(
-                select(Paper).where(Paper.id == paper_id)
-            )
-        ).scalars().first()
+        paper = (await session.execute(select(Paper).where(Paper.id == paper_id))).scalars().first()
 
         if not paper:
             raise HTTPException(status_code=404, detail="Paper not found")
 
         report = (
-            await session.execute(
-                select(Report)
-                .where(Report.paper_id == paper_id)
-                .order_by(Report.created_at.desc())
+            (
+                await session.execute(
+                    select(Report)
+                    .where(Report.paper_id == paper_id)
+                    .order_by(Report.created_at.desc())
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
         if not report:
-            raise HTTPException(
-                status_code=404, detail="Report not yet available for this paper"
-            )
+            raise HTTPException(status_code=404, detail="Report not yet available for this paper")
 
         findings = (
-            await session.execute(
-                select(Finding).where(Finding.paper_id == paper_id)
-            )
-        ).scalars().all()
+            (await session.execute(select(Finding).where(Finding.paper_id == paper_id)))
+            .scalars()
+            .all()
+        )
 
         finding_responses = [
             FindingResponse(
-                id=f.id,
-                analysis_type=f.analysis_type,
-                severity=f.severity,
-                confidence=f.confidence,
-                title=f.title,
-                description=f.description,
+                id=f.id,  # type: ignore[arg-type]
+                analysis_type=f.analysis_type,  # type: ignore[arg-type]
+                severity=f.severity,  # type: ignore[arg-type]
+                confidence=f.confidence,  # type: ignore[arg-type]
+                title=f.title,  # type: ignore[arg-type]
+                description=f.description,  # type: ignore[arg-type]
             )
             for f in findings
         ]
 
         return ReportResponse(
             paper_id=paper_id,
-            overall_risk=report.overall_risk,
-            overall_confidence=report.overall_confidence,
-            summary=report.summary,
+            overall_risk=report.overall_risk,  # type: ignore[arg-type]
+            overall_confidence=report.overall_confidence,  # type: ignore[arg-type]
+            summary=report.summary,  # type: ignore[arg-type]
             findings=finding_responses,
-            converging_evidence=report.converging_evidence,
+            converging_evidence=report.converging_evidence,  # type: ignore[arg-type]
         )
 
 
@@ -228,16 +224,14 @@ async def submit_batch(
     async with get_async_session() as session:
         for doi in validated_dois:
             existing = (
-                await session.execute(
-                    select(Paper).where(Paper.doi == doi)
-                )
-            ).scalars().first()
+                (await session.execute(select(Paper).where(Paper.doi == doi))).scalars().first()
+            )
 
             if existing:
                 papers.append(
                     PaperStatusResponse(
-                        paper_id=existing.id,
-                        status=existing.status,
+                        paper_id=existing.id,  # type: ignore[arg-type]
+                        status=existing.status,  # type: ignore[arg-type]
                     )
                 )
                 continue
@@ -270,19 +264,17 @@ async def get_author_risk(
     """Get the risk profile for an author."""
     async with get_async_session() as session:
         author = (
-            await session.execute(
-                select(Author).where(Author.id == author_id)
-            )
-        ).scalars().first()
+            (await session.execute(select(Author).where(Author.id == author_id))).scalars().first()
+        )
 
         if not author:
             raise HTTPException(status_code=404, detail="Author not found")
 
         return AuthorRiskResponse(
-            author_id=author.id,
-            name=author.name,
-            risk_score=author.risk_score,
-            total_papers=author.total_papers or 0,
-            flagged_papers=author.flagged_papers or 0,
-            retraction_count=author.retraction_count or 0,
+            author_id=author.id,  # type: ignore[arg-type]
+            name=author.name,  # type: ignore[arg-type]
+            risk_score=author.risk_score,  # type: ignore[arg-type]
+            total_papers=author.total_papers or 0,  # type: ignore[arg-type]
+            flagged_papers=author.flagged_papers or 0,  # type: ignore[arg-type]
+            retraction_count=author.retraction_count or 0,  # type: ignore[arg-type]
         )

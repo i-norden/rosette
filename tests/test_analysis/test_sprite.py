@@ -15,6 +15,7 @@ class TestSpriteConsistent:
             n=30,
             min_val=1,
             max_val=7,
+            sd_decimals=1,
         )
         assert isinstance(result, SPRITEResult)
         assert result.consistent is True

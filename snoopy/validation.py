@@ -26,7 +26,7 @@ def validate_doi(doi: str) -> str:
     """
     for prefix in _DOI_PREFIXES:
         if doi.startswith(prefix):
-            doi = doi[len(prefix):]
+            doi = doi[len(prefix) :]
     doi = doi.strip()
     if not _DOI_PATTERN.match(doi):
         raise ValueError(f"Invalid DOI format: {doi!r}. Expected 10.XXXX/...")

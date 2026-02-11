@@ -35,17 +35,20 @@ def _make_client(get_return=None, get_side_effect=None) -> AsyncMock:
 class TestCheckRetractionStatus:
     @pytest.mark.asyncio
     async def test_retracted_paper(self):
-        response = _make_response(200, {
-            "message": {
-                "update-to": [
-                    {
-                        "type": "retraction",
-                        "DOI": "10.1234/retraction.notice",
-                        "updated": {"date-time": "2024-03-15"},
-                    }
-                ],
-            }
-        })
+        response = _make_response(
+            200,
+            {
+                "message": {
+                    "update-to": [
+                        {
+                            "type": "retraction",
+                            "DOI": "10.1234/retraction.notice",
+                            "updated": {"date-time": "2024-03-15"},
+                        }
+                    ],
+                }
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
@@ -60,16 +63,19 @@ class TestCheckRetractionStatus:
 
     @pytest.mark.asyncio
     async def test_expression_of_concern(self):
-        response = _make_response(200, {
-            "message": {
-                "update-to": [
-                    {
-                        "type": "expression_of_concern",
-                        "DOI": "10.1234/eoc.notice",
-                    }
-                ],
-            }
-        })
+        response = _make_response(
+            200,
+            {
+                "message": {
+                    "update-to": [
+                        {
+                            "type": "expression_of_concern",
+                            "DOI": "10.1234/eoc.notice",
+                        }
+                    ],
+                }
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
@@ -84,16 +90,19 @@ class TestCheckRetractionStatus:
 
     @pytest.mark.asyncio
     async def test_correction(self):
-        response = _make_response(200, {
-            "message": {
-                "update-to": [
-                    {
-                        "type": "correction",
-                        "DOI": "10.1234/correction",
-                    }
-                ],
-            }
-        })
+        response = _make_response(
+            200,
+            {
+                "message": {
+                    "update-to": [
+                        {
+                            "type": "correction",
+                            "DOI": "10.1234/correction",
+                        }
+                    ],
+                }
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
@@ -107,11 +116,14 @@ class TestCheckRetractionStatus:
 
     @pytest.mark.asyncio
     async def test_clean_paper(self):
-        response = _make_response(200, {
-            "message": {
-                "type": "journal-article",
-            }
-        })
+        response = _make_response(
+            200,
+            {
+                "message": {
+                    "type": "journal-article",
+                }
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
@@ -126,11 +138,14 @@ class TestCheckRetractionStatus:
 
     @pytest.mark.asyncio
     async def test_retraction_notice_type(self):
-        response = _make_response(200, {
-            "message": {
-                "type": "retraction",
-            }
-        })
+        response = _make_response(
+            200,
+            {
+                "message": {
+                    "type": "retraction",
+                }
+            },
+        )
         mock_client = _make_client(get_return=response)
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
@@ -157,9 +172,7 @@ class TestCheckRetractionStatus:
 
     @pytest.mark.asyncio
     async def test_http_error(self):
-        mock_client = _make_client(
-            get_side_effect=httpx.HTTPError("timeout")
-        )
+        mock_client = _make_client(get_side_effect=httpx.HTTPError("timeout"))
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
@@ -179,22 +192,28 @@ class TestCheckAuthorRetractions:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return _make_response(200, {
-                    "message": {
-                        "items": [
-                            {"DOI": "10.1234/retracted.1", "title": "Retracted Paper 1"},
-                            {"DOI": "10.1234/retracted.2", "title": "Retracted Paper 2"},
-                        ]
-                    }
-                })
+                return _make_response(
+                    200,
+                    {
+                        "message": {
+                            "items": [
+                                {"DOI": "10.1234/retracted.1", "title": "Retracted Paper 1"},
+                                {"DOI": "10.1234/retracted.2", "title": "Retracted Paper 2"},
+                            ]
+                        }
+                    },
+                )
             else:
-                return _make_response(200, {
-                    "message": {
-                        "items": [
-                            {"DOI": "10.1234/eoc.1"},
-                        ]
-                    }
-                })
+                return _make_response(
+                    200,
+                    {
+                        "message": {
+                            "items": [
+                                {"DOI": "10.1234/eoc.1"},
+                            ]
+                        }
+                    },
+                )
 
         mock_client = _make_client(get_side_effect=_mock_get)
 
@@ -225,9 +244,7 @@ class TestCheckAuthorRetractions:
 
     @pytest.mark.asyncio
     async def test_http_error_returns_empty(self):
-        mock_client = _make_client(
-            get_side_effect=httpx.HTTPError("network error")
-        )
+        mock_client = _make_client(get_side_effect=httpx.HTTPError("network error"))
 
         with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)

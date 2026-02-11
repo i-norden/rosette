@@ -79,7 +79,7 @@ def compute_author_risk(author_id: str) -> AuthorRisk | None:
         if total_papers == 0:
             return AuthorRisk(
                 author_id=author_id,
-                name=author.name,
+                name=author.name,  # type: ignore[arg-type]
                 risk_score=0.0,
                 total_papers=0,
                 flagged_papers=0,
@@ -96,19 +96,26 @@ def compute_author_risk(author_id: str) -> AuthorRisk | None:
 
         # Check for co-authors with flagged papers
         coauthor_risk = 0.0
-        coauthor_paper_ids = session.execute(
-            select(AuthorPaperLink.paper_id)
-            .where(AuthorPaperLink.author_id == author_id)
-        ).scalars().all()
+        coauthor_paper_ids = (
+            session.execute(
+                select(AuthorPaperLink.paper_id).where(AuthorPaperLink.author_id == author_id)
+            )
+            .scalars()
+            .all()
+        )
 
         if coauthor_paper_ids:
             # Find co-authors on these papers
-            coauthor_ids = session.execute(
-                select(AuthorPaperLink.author_id)
-                .where(AuthorPaperLink.paper_id.in_(coauthor_paper_ids))
-                .where(AuthorPaperLink.author_id != author_id)
-                .distinct()
-            ).scalars().all()
+            coauthor_ids = (
+                session.execute(
+                    select(AuthorPaperLink.author_id)
+                    .where(AuthorPaperLink.paper_id.in_(coauthor_paper_ids))
+                    .where(AuthorPaperLink.author_id != author_id)
+                    .distinct()
+                )
+                .scalars()
+                .all()
+            )
 
             flagged_coauthors = 0
             for ca_id in coauthor_ids:
@@ -117,9 +124,7 @@ def compute_author_risk(author_id: str) -> AuthorRisk | None:
                     flagged_coauthors += 1
 
             if coauthor_ids:
-                coauthor_risk = min(
-                    (flagged_coauthors / len(coauthor_ids)) * 30, 15.0
-                )
+                coauthor_risk = min((flagged_coauthors / len(coauthor_ids)) * 30, 15.0)
 
         risk_score = flagged_score + retraction_score + coauthor_risk
 
@@ -133,12 +138,12 @@ def compute_author_risk(author_id: str) -> AuthorRisk | None:
 
         return AuthorRisk(
             author_id=author_id,
-            name=author.name,
-            risk_score=min(risk_score, 100.0),
-            total_papers=total_papers,
-            flagged_papers=flagged_papers,
-            retraction_count=retraction_count,
-            flagged_ratio=flagged_ratio,
+            name=author.name,  # type: ignore[arg-type]
+            risk_score=min(risk_score, 100.0),  # type: ignore[arg-type]
+            total_papers=total_papers,  # type: ignore[arg-type]
+            flagged_papers=flagged_papers,  # type: ignore[arg-type]
+            retraction_count=retraction_count,  # type: ignore[arg-type]
+            flagged_ratio=flagged_ratio,  # type: ignore[arg-type]
             details="; ".join(details_parts) if details_parts else "No risk factors",
         )
 
@@ -162,9 +167,7 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
         # Build co-authorship graph from paper links
         # Group authors by paper
         paper_authors: dict[str, list[str]] = {}
-        links = session.execute(
-            select(AuthorPaperLink.paper_id, AuthorPaperLink.author_id)
-        ).all()
+        links = session.execute(select(AuthorPaperLink.paper_id, AuthorPaperLink.author_id)).all()
 
         for paper_id, author_id in links:
             paper_authors.setdefault(paper_id, []).append(author_id)
@@ -175,7 +178,7 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
                 if not G.has_node(a):
                     author = session.get(Author, a)
                     G.add_node(a, name=author.name if author else a)
-                for b in authors[i + 1:]:
+                for b in authors[i + 1 :]:
                     if not G.has_node(b):
                         author = session.get(Author, b)
                         G.add_node(b, name=author.name if author else b)
@@ -214,33 +217,33 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
             for author_id in members:
                 author = session.get(Author, author_id)
                 if author:
-                    author_names.append(author.name)
-                    total_papers += author.total_papers or 0
-                    total_flagged += author.flagged_papers or 0
-                    total_retractions += author.retraction_count or 0
+                    author_names.append(str(author.name))
+                    total_papers += int(author.total_papers or 0)
+                    total_flagged += int(author.flagged_papers or 0)
+                    total_retractions += int(author.retraction_count or 0)
 
             if total_papers == 0:
                 continue
 
             flagged_ratio = total_flagged / total_papers
-            cluster_risk = min(
-                flagged_ratio * 50 + total_retractions * 10, 100.0
-            )
+            cluster_risk = min(flagged_ratio * 50 + total_retractions * 10, 100.0)
 
             if cluster_risk > 10:  # Only report non-trivial clusters
-                clusters.append(FraudCluster(
-                    cluster_id=comm_id,
-                    authors=author_names,
-                    total_papers=total_papers,
-                    total_flagged=total_flagged,
-                    total_retractions=total_retractions,
-                    cluster_risk=cluster_risk,
-                    details=(
-                        f"Cluster of {len(members)} authors: "
-                        f"{total_flagged}/{total_papers} papers flagged, "
-                        f"{total_retractions} retraction(s)"
-                    ),
-                ))
+                clusters.append(
+                    FraudCluster(
+                        cluster_id=comm_id,
+                        authors=author_names,
+                        total_papers=total_papers,
+                        total_flagged=total_flagged,
+                        total_retractions=total_retractions,
+                        cluster_risk=cluster_risk,
+                        details=(
+                            f"Cluster of {len(members)} authors: "
+                            f"{total_flagged}/{total_papers} papers flagged, "
+                            f"{total_retractions} retraction(s)"
+                        ),
+                    )
+                )
 
     clusters.sort(key=lambda c: c.cluster_risk, reverse=True)
     return clusters
@@ -261,7 +264,7 @@ def run_network_analysis() -> NetworkAnalysisResult:
         total_authors = len(authors)
 
     for author in authors:
-        risk = compute_author_risk(author.id)
+        risk = compute_author_risk(str(author.id))
         if risk and risk.risk_score > 20:
             high_risk_authors.append(risk)
 

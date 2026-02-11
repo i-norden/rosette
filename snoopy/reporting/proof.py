@@ -56,16 +56,18 @@ def _prepare_findings(findings: list[dict], figures: dict[str, dict]) -> list[di
             except (json.JSONDecodeError, TypeError):
                 evidence_details = str(f.get("evidence_json", ""))
 
-        prepared.append({
-            "title": f.get("title", "Untitled finding"),
-            "severity": f.get("severity", "info"),
-            "analysis_type": f.get("analysis_type", "unknown"),
-            "confidence": f.get("confidence", 0.0),
-            "description": f.get("description", ""),
-            "figure_label": fig.get("figure_label", ""),
-            "model_used": f.get("model_used", ""),
-            "evidence_details": evidence_details,
-        })
+        prepared.append(
+            {
+                "title": f.get("title", "Untitled finding"),
+                "severity": f.get("severity", "info"),
+                "analysis_type": f.get("analysis_type", "unknown"),
+                "confidence": f.get("confidence", 0.0),
+                "description": f.get("description", ""),
+                "figure_label": fig.get("figure_label", ""),
+                "model_used": f.get("model_used", ""),
+                "evidence_details": evidence_details,
+            }
+        )
 
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
     prepared.sort(key=lambda x: severity_order.get(x["severity"], 5))
@@ -85,13 +87,15 @@ def _compute_methods_summary(findings: list[dict], total_figures: int) -> list[d
 
     methods = []
     for method_name in sorted(method_counts.keys()):
-        methods.append({
-            "name": method_name,
-            "figures_analyzed": total_figures if method_name in (
-                "ela", "clone_detection", "noise_analysis", "llm_vision"
-            ) else method_counts[method_name],
-            "issues_found": method_issues.get(method_name, 0),
-        })
+        methods.append(
+            {
+                "name": method_name,
+                "figures_analyzed": total_figures
+                if method_name in ("ela", "clone_detection", "noise_analysis", "llm_vision")
+                else method_counts[method_name],
+                "issues_found": method_issues.get(method_name, 0),
+            }
+        )
     return methods
 
 

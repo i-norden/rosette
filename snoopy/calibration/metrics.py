@@ -181,8 +181,7 @@ def compute_method_metrics(
         severity_thresholds = [0.3, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     classification_metrics = [
-        compute_metrics_at_threshold(confidences, labels, t)
-        for t in severity_thresholds
+        compute_metrics_at_threshold(confidences, labels, t) for t in severity_thresholds
     ]
 
     roc_curve, auc = compute_roc_curve(confidences, labels)
@@ -213,45 +212,60 @@ def export_metrics_csv(
 
     with open(output, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "method", "threshold", "sensitivity", "specificity",
-            "precision", "recall", "f1", "auc",
-            "tp", "tn", "fp", "fn",
-        ])
+        writer.writerow(
+            [
+                "method",
+                "threshold",
+                "sensitivity",
+                "specificity",
+                "precision",
+                "recall",
+                "f1",
+                "auc",
+                "tp",
+                "tn",
+                "fp",
+                "fn",
+            ]
+        )
 
         for method_metrics in report.per_method:
             for cm in method_metrics.classification_metrics:
-                writer.writerow([
-                    method_metrics.method_name,
-                    f"{cm.threshold:.2f}",
-                    f"{cm.sensitivity:.4f}",
-                    f"{cm.specificity:.4f}",
-                    f"{cm.precision:.4f}",
-                    f"{cm.recall:.4f}",
-                    f"{cm.f1:.4f}",
-                    f"{method_metrics.auc:.4f}",
-                    cm.confusion.true_positives,
-                    cm.confusion.true_negatives,
-                    cm.confusion.false_positives,
-                    cm.confusion.false_negatives,
-                ])
+                writer.writerow(
+                    [
+                        method_metrics.method_name,
+                        f"{cm.threshold:.2f}",
+                        f"{cm.sensitivity:.4f}",
+                        f"{cm.specificity:.4f}",
+                        f"{cm.precision:.4f}",
+                        f"{cm.recall:.4f}",
+                        f"{cm.f1:.4f}",
+                        f"{method_metrics.auc:.4f}",
+                        cm.confusion.true_positives,
+                        cm.confusion.true_negatives,
+                        cm.confusion.false_positives,
+                        cm.confusion.false_negatives,
+                    ]
+                )
 
         if report.overall:
             for cm in report.overall.classification_metrics:
-                writer.writerow([
-                    "overall",
-                    f"{cm.threshold:.2f}",
-                    f"{cm.sensitivity:.4f}",
-                    f"{cm.specificity:.4f}",
-                    f"{cm.precision:.4f}",
-                    f"{cm.recall:.4f}",
-                    f"{cm.f1:.4f}",
-                    f"{report.overall.auc:.4f}",
-                    cm.confusion.true_positives,
-                    cm.confusion.true_negatives,
-                    cm.confusion.false_positives,
-                    cm.confusion.false_negatives,
-                ])
+                writer.writerow(
+                    [
+                        "overall",
+                        f"{cm.threshold:.2f}",
+                        f"{cm.sensitivity:.4f}",
+                        f"{cm.specificity:.4f}",
+                        f"{cm.precision:.4f}",
+                        f"{cm.recall:.4f}",
+                        f"{cm.f1:.4f}",
+                        f"{report.overall.auc:.4f}",
+                        cm.confusion.true_positives,
+                        cm.confusion.true_negatives,
+                        cm.confusion.false_positives,
+                        cm.confusion.false_negatives,
+                    ]
+                )
 
     logger.info("Metrics CSV written to %s", output)
     return output

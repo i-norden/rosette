@@ -76,11 +76,14 @@ def _report_filename(name: str) -> str:
 
 def _build_category(cat_key: str, results: list[dict]) -> dict:
     """Build a category context dict for template rendering."""
-    meta = CATEGORY_META.get(cat_key, {
-        "display_name": cat_key.replace("_", " ").title(),
-        "description": "",
-        "expected": "findings",
-    })
+    meta = CATEGORY_META.get(
+        cat_key,
+        {
+            "display_name": cat_key.replace("_", " ").title(),
+            "description": "",
+            "expected": "findings",
+        },
+    )
 
     total = len(results)
     expected = meta["expected"]
@@ -88,11 +91,15 @@ def _build_category(cat_key: str, results: list[dict]) -> dict:
     # Enrich each result with methods list and report link
     enriched: list[dict] = []
     for r in results:
-        enriched.append({
-            **r,
-            "methods": _methods_for_result(r),
-            "report_link": "./" + _report_filename(r["name"]) if r.get("findings_count", 0) > 0 else "",
-        })
+        enriched.append(
+            {
+                **r,
+                "methods": _methods_for_result(r),
+                "report_link": "./" + _report_filename(r["name"])
+                if r.get("findings_count", 0) > 0
+                else "",
+            }
+        )
 
     # Per-method breakdown across all results in this category
     method_counts: dict[str, int] = {}
