@@ -8,16 +8,9 @@ import os
 import webbrowser
 from pathlib import Path
 
-from snoopy.analysis.cross_reference import compute_ahash, compute_phash, hash_distance
-from snoopy.analysis.evidence import AggregatedEvidence, aggregate_findings
-from snoopy.analysis.image_forensics import (
-    CloneResult,
-    ELAResult,
-    NoiseResult,
-    clone_detection,
-    error_level_analysis,
-    noise_analysis,
-)
+from snoopy.analysis.cross_reference import compute_ahash, compute_phash
+from snoopy.analysis.evidence import aggregate_findings
+from snoopy.analysis.run_analysis import run_image_forensics, run_intra_paper_cross_ref
 from snoopy.reporting.dashboard import generate_dashboard
 from snoopy.reporting.pretty import (
     console,
@@ -50,132 +43,15 @@ def _analyze_image(image_path: Path) -> dict:
     """Run all non-AI image analyses on a single image.
 
     Returns a result dict with findings, perceptual hashes, and metadata.
+    Uses the shared run_image_forensics() from run_analysis.py for config-driven
+    thresholds, eliminating duplication with the production pipeline.
     """
     path_str = str(image_path)
-    findings: list[dict] = []
 
-    # 1. ELA — tiered severity based on research thresholds
-    try:
-        ela: ELAResult = error_level_analysis(path_str)
-        if ela.suspicious:
-            max_diff = ela.max_difference
-            mean_diff = ela.mean_difference
-            std_diff = ela.std_difference
+    # Use shared analysis function with default config
+    findings = run_image_forensics(path_str, figure_id=image_path.name)
 
-            if max_diff >= 60 and max_diff > mean_diff + 3 * std_diff:
-                severity = "high"
-                confidence = min(max_diff / 255.0 * 0.6, 1.0)
-            elif max_diff >= 40 and max_diff > mean_diff + 3 * std_diff:
-                severity = "medium"
-                confidence = min(max_diff / 255.0 * 0.5, 1.0)
-            elif max_diff >= 25 and max_diff > mean_diff + 2 * std_diff:
-                severity = "low"
-                confidence = min(max_diff / 255.0 * 0.4, 1.0)
-            else:
-                severity = "low"
-                confidence = min(max_diff / 255.0 * 0.3, 1.0)
-
-            findings.append({
-                "title": "ELA anomaly detected",
-                "analysis_type": "ela",
-                "method": "ela",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"Max diff={ela.max_difference:.1f}, "
-                    f"mean={ela.mean_difference:.1f}, std={ela.std_difference:.1f}"
-                ),
-                "figure_id": image_path.name,
-                "evidence": {
-                    "max_difference": round(ela.max_difference, 2),
-                    "mean_difference": round(ela.mean_difference, 2),
-                    "std_difference": round(ela.std_difference, 2),
-                },
-            })
-    except Exception as exc:
-        logger.debug("ELA failed on %s: %s", image_path.name, exc)
-
-    # 2. Clone detection — tiered severity based on inlier count and ratio
-    try:
-        clone: CloneResult = clone_detection(path_str)
-        if clone.suspicious:
-            inliers = clone.num_matches
-            ratio = clone.inlier_ratio
-
-            if inliers >= 60 and ratio >= 0.35:
-                severity = "high"
-                confidence = min(ratio, 1.0) * 0.85
-            elif inliers >= 40 and ratio >= 0.25:
-                severity = "medium"
-                confidence = min(ratio, 1.0) * 0.7
-            elif inliers >= 20 and ratio >= 0.15:
-                severity = "low"
-                confidence = min(ratio, 1.0) * 0.5
-            else:
-                severity = "low"
-                confidence = min(ratio, 1.0) * 0.4
-
-            findings.append({
-                "title": "Copy-move cloning detected",
-                "analysis_type": "clone_detection",
-                "method": "clone_detection",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"{clone.num_matches} matches, "
-                    f"{len(clone.match_clusters)} clusters, "
-                    f"inlier ratio={clone.inlier_ratio:.2f}"
-                ),
-                "figure_id": image_path.name,
-                "evidence": {
-                    "num_matches": clone.num_matches,
-                    "num_clusters": len(clone.match_clusters),
-                    "inlier_ratio": round(clone.inlier_ratio, 3),
-                },
-            })
-    except Exception as exc:
-        logger.debug("Clone detection failed on %s: %s", image_path.name, exc)
-
-    # 3. Noise analysis — tiered severity based on max ratio
-    try:
-        noise: NoiseResult = noise_analysis(path_str)
-        if noise.suspicious:
-            max_ratio = noise.max_ratio
-
-            if max_ratio > 20.0:
-                severity = "high"
-                confidence = min(max_ratio / 30.0, 0.85)
-            elif max_ratio > 10.0:
-                severity = "medium"
-                confidence = min(max_ratio / 20.0, 0.7)
-            elif max_ratio > 5.0:
-                severity = "low"
-                confidence = min(max_ratio / 20.0, 0.5)
-            else:
-                severity = "low"
-                confidence = min(max_ratio / 20.0, 0.4)
-
-            findings.append({
-                "title": "Noise inconsistency detected",
-                "analysis_type": "noise_analysis",
-                "method": "noise_analysis",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"Max noise ratio={noise.max_ratio:.1f}, "
-                    f"mean={noise.mean_noise:.1f}, std={noise.noise_std:.1f}"
-                ),
-                "figure_id": image_path.name,
-                "evidence": {
-                    "max_ratio": round(noise.max_ratio, 2),
-                    "mean_noise": round(noise.mean_noise, 2),
-                    "noise_std": round(noise.noise_std, 2),
-                },
-            })
-    except Exception as exc:
-        logger.debug("Noise analysis failed on %s: %s", image_path.name, exc)
-
-    # 4. Perceptual hash computation for cross-reference
+    # Compute perceptual hashes for cross-reference
     phash_value = None
     ahash_value = None
     try:
@@ -444,53 +320,18 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
     except Exception as exc:
         logger.debug("Table extraction failed on %s: %s", pdf_path.name, exc)
 
-    # 4. Intra-paper cross-reference: compare figure hashes within the same PDF
+    # 4. Intra-paper cross-reference using shared function
     try:
-        for i, res_a in enumerate(figure_results):
-            for j, res_b in enumerate(figure_results):
-                if j <= i:
-                    continue
-                phash_a = res_a.get("phash")
-                phash_b = res_b.get("phash")
-                if phash_a and phash_b:
-                    dist = hash_distance(phash_a, phash_b)
-                    if dist <= 15:
-                        if dist <= 5:
-                            severity = "critical"
-                            confidence = 0.95
-                        elif dist <= 10:
-                            severity = "high"
-                            confidence = 0.8
-                        else:
-                            severity = "medium"
-                            confidence = 0.6
-
-                        match_info = {
-                            "figure_a": res_a["image"],
-                            "figure_b": res_b["image"],
-                            "distance": dist,
-                            "severity": severity,
-                        }
-                        phash_matches.append(match_info)
-
-                        finding = {
-                            "title": f"Perceptual hash match: {res_a['image']} ↔ {res_b['image']}",
-                            "analysis_type": "phash",
-                            "method": "phash",
-                            "severity": severity,
-                            "confidence": confidence,
-                            "description": (
-                                f"Figures '{res_a['image']}' and '{res_b['image']}' "
-                                f"have perceptual hash distance {dist} (possible duplicate/recycled)"
-                            ),
-                            "figure_id": res_a["image"],
-                            "evidence": {
-                                "figure_a": res_a["image"],
-                                "figure_b": res_b["image"],
-                                "hash_distance": dist,
-                            },
-                        }
-                        all_findings.append(finding)
+        cross_ref_findings = run_intra_paper_cross_ref(figure_results)
+        all_findings.extend(cross_ref_findings)
+        for f in cross_ref_findings:
+            evidence = f.get("evidence", {})
+            phash_matches.append({
+                "figure_a": evidence.get("figure_a", ""),
+                "figure_b": evidence.get("figure_b", ""),
+                "distance": evidence.get("hash_distance", 0),
+                "severity": f.get("severity", ""),
+            })
     except Exception as exc:
         logger.debug("Hash cross-reference failed on %s: %s", pdf_path.name, exc)
 

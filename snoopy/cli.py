@@ -15,22 +15,47 @@ from snoopy.config import load_config
 from snoopy.db.session import get_session, init_db
 
 
-def setup_logging(verbose: bool) -> None:
+def setup_logging(verbose: bool, json_logs: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    if json_logs:
+        import json as _json
+
+        class _JsonFormatter(logging.Formatter):
+            def format(self, record: logging.LogRecord) -> str:
+                log_entry: dict = {
+                    "timestamp": self.formatTime(record, self.datefmt),
+                    "level": record.levelname,
+                    "logger": record.name,
+                    "message": record.getMessage(),
+                }
+                # Include structured context fields if present
+                for field in ("paper_id", "stage", "figure_id"):
+                    val = getattr(record, field, None)
+                    if val is not None:
+                        log_entry[field] = val
+                return _json.dumps(log_entry)
+
+        handler = logging.StreamHandler()
+        handler.setFormatter(_JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S"))
+        logging.root.handlers.clear()
+        logging.root.addHandler(handler)
+        logging.root.setLevel(level)
+    else:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
 
 
 @click.group()
 @click.option("--config", "-c", "config_path", default=None, help="Path to config YAML file")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+@click.option("--json-logs", is_flag=True, help="Output logs in JSON format")
 @click.pass_context
-def main(ctx: click.Context, config_path: str | None, verbose: bool) -> None:
+def main(ctx: click.Context, config_path: str | None, verbose: bool, json_logs: bool) -> None:
     """Snoopy: LLM-powered academic integrity analyzer."""
-    setup_logging(verbose)
+    setup_logging(verbose, json_logs=json_logs)
     ctx.ensure_object(dict)
     cfg = load_config(config_path)
     ctx.obj["config"] = cfg
@@ -120,17 +145,40 @@ def discover(
     asyncio.run(_run())
 
 
+def _validate_doi(doi: str) -> str:
+    """Validate and normalize a DOI string."""
+    from snoopy.validation import validate_doi
+
+    try:
+        return validate_doi(doi)
+    except ValueError as e:
+        raise click.BadParameter(str(e))
+
+
 @main.command()
 @click.option("--doi", default=None, help="DOI of paper to analyze")
 @click.option("--pdf", "pdf_path", default=None, type=click.Path(exists=True), help="Path to PDF")
+@click.option("--from-stage", default=None, help="Start from this pipeline stage")
+@click.option("--to-stage", default=None, help="Stop after this pipeline stage")
+@click.option("--force-stage", multiple=True, help="Force re-run of specific stage(s)")
 @click.pass_context
-def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
+def analyze(
+    ctx: click.Context,
+    doi: str | None,
+    pdf_path: str | None,
+    from_stage: str | None,
+    to_stage: str | None,
+    force_stage: tuple[str, ...],
+) -> None:
     """Analyze a single paper by DOI or local PDF path."""
     config = ctx.obj["config"]
 
     if not doi and not pdf_path:
         click.echo("Error: provide either --doi or --pdf", err=True)
         sys.exit(1)
+
+    if doi:
+        doi = _validate_doi(doi)
 
     async def _run() -> None:
         from snoopy.db.models import Paper
@@ -160,7 +208,11 @@ def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
             else:
                 import hashlib
                 pdf = Path(pdf_path)
-                sha256 = hashlib.sha256(pdf.read_bytes()).hexdigest()
+                h = hashlib.sha256()
+                with open(pdf, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(8192), b""):
+                        h.update(chunk)
+                sha256 = h.hexdigest()
                 paper = Paper(
                     id=paper_id,
                     title=pdf.stem,
@@ -174,7 +226,15 @@ def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
 
         orchestrator = PipelineOrchestrator(config)
         click.echo("Starting analysis pipeline...")
-        await orchestrator.process_paper(paper_id)
+        if force_stage or from_stage or to_stage:
+            await orchestrator.process_paper_stages(
+                paper_id,
+                from_stage=from_stage,
+                to_stage=to_stage,
+                force_stages=list(force_stage) if force_stage else None,
+            )
+        else:
+            await orchestrator.process_paper(paper_id)
         click.echo(f"Analysis complete. Paper ID: {paper_id}")
         click.echo(f"Run 'snoopy report --paper-id {paper_id}' to view the report.")
 
@@ -296,12 +356,100 @@ def demo(
     )
 
 
+@main.command()
+@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option("--port", default=8000, help="Port to bind to")
+@click.pass_context
+def serve(ctx: click.Context, host: str, port: int) -> None:
+    """Start the API server."""
+    import uvicorn
+
+    from snoopy.api.app import create_app
+
+    app = create_app(ctx.obj["config"])
+    uvicorn.run(app, host=host, port=port)
+
+
 @main.command("config")
 @click.pass_context
 def show_config(ctx: click.Context) -> None:
     """Show current configuration."""
     config = ctx.obj["config"]
     click.echo(config.model_dump_json(indent=2))
+
+
+# ---------------------------------------------------------------------------
+# db subcommand group  --  Alembic migration helpers
+# ---------------------------------------------------------------------------
+
+@main.group()
+@click.pass_context
+def db(ctx: click.Context) -> None:
+    """Database migration commands (powered by Alembic)."""
+
+
+@db.command()
+@click.option(
+    "--revision",
+    default="head",
+    show_default=True,
+    help="Revision target (default: head).",
+)
+@click.pass_context
+def upgrade(ctx: click.Context, revision: str) -> None:
+    """Run migrations forward to the target revision (default: head)."""
+    from alembic import command as alembic_cmd
+    from alembic.config import Config as AlembicConfig
+
+    cfg = ctx.obj["config"]
+    alembic_cfg = _make_alembic_config(cfg.storage.database_url)
+    click.echo(f"Upgrading database to revision '{revision}' ...")
+    alembic_cmd.upgrade(alembic_cfg, revision)
+    click.echo("Done.")
+
+
+@db.command()
+@click.option(
+    "--revision",
+    default="-1",
+    show_default=True,
+    help="Revision target (default: -1, i.e. rollback one step).",
+)
+@click.pass_context
+def downgrade(ctx: click.Context, revision: str) -> None:
+    """Rollback migrations to the target revision (default: one step back)."""
+    from alembic import command as alembic_cmd
+    from alembic.config import Config as AlembicConfig
+
+    cfg = ctx.obj["config"]
+    alembic_cfg = _make_alembic_config(cfg.storage.database_url)
+    click.echo(f"Downgrading database to revision '{revision}' ...")
+    alembic_cmd.downgrade(alembic_cfg, revision)
+    click.echo("Done.")
+
+
+@db.command()
+@click.pass_context
+def current(ctx: click.Context) -> None:
+    """Show the current migration revision stamped in the database."""
+    from alembic import command as alembic_cmd
+    from alembic.config import Config as AlembicConfig
+
+    cfg = ctx.obj["config"]
+    alembic_cfg = _make_alembic_config(cfg.storage.database_url)
+    alembic_cmd.current(alembic_cfg, verbose=True)
+
+
+def _make_alembic_config(database_url: str) -> "AlembicConfig":
+    """Build an :class:`alembic.config.Config` pointing at the project ini."""
+    from pathlib import Path as _Path
+
+    from alembic.config import Config as AlembicConfig
+
+    ini_path = _Path(__file__).resolve().parent.parent / "alembic.ini"
+    alembic_cfg = AlembicConfig(str(ini_path))
+    alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+    return alembic_cfg
 
 
 if __name__ == "__main__":
