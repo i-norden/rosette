@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
-
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -16,7 +14,7 @@ DEFAULT_TIMEOUT = 30.0
 async def get_pdf_url(
     doi: str,
     email: str,
-) -> Optional[str]:
+) -> str | None:
     """Look up an open-access PDF URL for a given DOI via Unpaywall.
 
     Args:
