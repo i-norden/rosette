@@ -1,7 +1,5 @@
 """Tests for statistical integrity checks."""
 
-import math
-
 from snoopy.analysis.statistical import (
     benford_test,
     duplicate_value_check,
@@ -36,20 +34,21 @@ class TestBenford:
     def test_benford_conforming_data(self):
         # Generate Benford-conforming data
         import random
+
         random.seed(42)
         values = []
         for _ in range(1000):
             # Logarithmic distribution follows Benford's law
             values.append(10 ** (random.random() * 4))
         result = benford_test(values)
-        assert result.conforms == True
+        assert result.conforms is True
         assert result.n_values == 1000
 
     def test_uniform_leading_digits_fail(self):
         # All values starting with 5 - definitely not Benford
         values = [50 + i * 0.1 for i in range(500)]
         result = benford_test(values)
-        assert result.conforms == False
+        assert result.conforms is False
 
     def test_empty_values(self):
         result = benford_test([])
@@ -61,6 +60,7 @@ class TestPValueCheck:
     def test_consistent_t_test(self):
         # t(30) = 2.042 → p ≈ 0.05
         from scipy import stats
+
         expected_p = float(stats.t.sf(2.042, 30) * 2)
         result = pvalue_check("t", 2.042, (30,), expected_p)
         assert result.consistent is True
@@ -73,12 +73,14 @@ class TestPValueCheck:
 
     def test_f_test(self):
         from scipy import stats
+
         expected_p = float(stats.f.sf(4.0, 2, 50))
         result = pvalue_check("F", 4.0, (2, 50), expected_p)
         assert result.consistent is True
 
     def test_chi2_test(self):
         from scipy import stats
+
         expected_p = float(stats.chi2.sf(10.0, 3))
         result = pvalue_check("chi2", 10.0, (3,), expected_p)
         assert result.consistent is True

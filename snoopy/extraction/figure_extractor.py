@@ -5,10 +5,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
 import fitz  # PyMuPDF
 
 logger = logging.getLogger(__name__)
@@ -37,8 +35,8 @@ class FigureInfo:
     image_sha256: str
     width: int
     height: int
-    figure_label: Optional[str] = None
-    caption: Optional[str] = None
+    figure_label: str | None = None
+    caption: str | None = None
 
 
 def _sha256_file(path: str) -> str:

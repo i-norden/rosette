@@ -8,7 +8,7 @@ single-method flags are appropriately downgraded.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -35,7 +35,19 @@ class AggregatedEvidence:
     critical_count: int
 
 
-def compute_figure_severity(findings: list[dict]) -> str:
+def _get_method(finding: dict) -> str:
+    """Extract the method name from a finding dict.
+
+    Handles both 'method' and 'analysis_type' keys for compatibility
+    between production orchestrator and demo runner.
+    """
+    return finding.get("method") or finding.get("analysis_type", "")
+
+
+def compute_figure_severity(
+    findings: list[dict],
+    method_weights: dict[str, float] | None = None,
+) -> str:
     """Compute the severity level for a set of findings about a single figure.
 
     Looks at the maximum severity among findings and boosts it if there is
@@ -43,7 +55,10 @@ def compute_figure_severity(findings: list[dict]) -> str:
 
     Args:
         findings: List of finding dicts, each expected to have at least
-            'severity' and 'method' keys.
+            'severity' and 'method' or 'analysis_type' keys.
+        method_weights: Optional mapping of method name to weight (0.0-1.0).
+            When provided, only methods with weight > 0.3 contribute to
+            severity boosting from convergence.
 
     Returns:
         A severity string: 'critical', 'high', 'medium', 'low', or 'clean'.
@@ -59,9 +74,11 @@ def compute_figure_severity(findings: list[dict]) -> str:
     for f in findings:
         sev = f.get("severity", "low")
         max_severity = max(max_severity, severity_order.get(sev, 0))
-        method = f.get("method", "")
+        method = _get_method(f)
         if method:
-            methods.add(method)
+            # Only count methods with sufficient weight for convergence
+            if method_weights is None or method_weights.get(method, 0.5) > 0.3:
+                methods.add(method)
 
     # Boost severity if multiple independent methods agree
     if len(methods) >= 2 and max_severity < 4:
@@ -70,16 +87,20 @@ def compute_figure_severity(findings: list[dict]) -> str:
     return reverse_order.get(max_severity, "low")
 
 
-def compute_overall_confidence(findings: list[dict]) -> float:
+def compute_overall_confidence(
+    findings: list[dict],
+    method_weights: dict[str, float] | None = None,
+) -> float:
     """Compute overall confidence score from individual finding confidences.
 
-    Uses a weighted average of individual confidences, boosted by 0.1 if
-    there is converging evidence from multiple methods. The result is capped
-    at 1.0.
+    When method_weights are provided, uses a weighted average instead of a
+    simple average. The result is boosted by 0.1 if there is converging
+    evidence from multiple methods, and capped at 1.0.
 
     Args:
         findings: List of finding dicts, each expected to have at least
-            'confidence' and 'method' keys.
+            'confidence' and 'method' or 'analysis_type' keys.
+        method_weights: Optional mapping of method name to weight (0.0-1.0).
 
     Returns:
         Overall confidence score between 0.0 and 1.0.
@@ -87,10 +108,25 @@ def compute_overall_confidence(findings: list[dict]) -> float:
     if not findings:
         return 0.0
 
-    confidences = [float(f.get("confidence", 0.0)) for f in findings]
-    methods = {f.get("method", "") for f in findings if f.get("method")}
+    methods = set()
+    for f in findings:
+        m = _get_method(f)
+        if m:
+            methods.add(m)
 
-    weighted_avg = sum(confidences) / len(confidences)
+    if method_weights:
+        total_weight = 0.0
+        weighted_sum = 0.0
+        for f in findings:
+            conf = float(f.get("confidence", 0.0))
+            method = _get_method(f)
+            weight = method_weights.get(method, 0.5)
+            weighted_sum += conf * weight
+            total_weight += weight
+        weighted_avg = weighted_sum / total_weight if total_weight > 0 else 0.0
+    else:
+        confidences = [float(f.get("confidence", 0.0)) for f in findings]
+        weighted_avg = sum(confidences) / len(confidences)
 
     # Boost if converging evidence
     if len(methods) >= 2:
@@ -99,7 +135,10 @@ def compute_overall_confidence(findings: list[dict]) -> float:
     return min(weighted_avg, 1.0)
 
 
-def aggregate_findings(findings: list[dict]) -> AggregatedEvidence:
+def aggregate_findings(
+    findings: list[dict],
+    method_weights: dict[str, float] | None = None,
+) -> AggregatedEvidence:
     """Aggregate findings across all analysis methods into a unified assessment.
 
     Groups findings by figure, determines convergence, computes severity and
@@ -107,12 +146,14 @@ def aggregate_findings(findings: list[dict]) -> AggregatedEvidence:
 
     Each finding dict is expected to contain at least:
         - figure_id (str): Identifier for the figure.
-        - method (str): Analysis method that produced the finding.
+        - method or analysis_type (str): Analysis method that produced the finding.
         - confidence (float): Confidence in this finding (0.0 to 1.0).
         - severity (str): Severity level of the finding.
 
     Args:
         findings: List of finding dictionaries from all analysis methods.
+        method_weights: Optional mapping of method name to weight (0.0-1.0).
+            Used for weighted confidence averaging.
 
     Returns:
         AggregatedEvidence with per-figure and overall assessments.
@@ -145,7 +186,7 @@ def aggregate_findings(findings: list[dict]) -> AggregatedEvidence:
         methods_flagged: set[str] = set()
         for f in fig_findings:
             confidence = float(f.get("confidence", 0.0))
-            method = f.get("method", "")
+            method = _get_method(f)
             if confidence > 0.6 and method:
                 methods_flagged.add(method)
 
@@ -153,8 +194,8 @@ def aggregate_findings(findings: list[dict]) -> AggregatedEvidence:
         if converging:
             any_converging = True
 
-        severity = compute_figure_severity(fig_findings)
-        confidence = compute_overall_confidence(fig_findings)
+        severity = compute_figure_severity(fig_findings, method_weights=method_weights)
+        confidence = compute_overall_confidence(fig_findings, method_weights=method_weights)
 
         # Downgrade single-method flags
         if not converging and methods_flagged:
@@ -193,7 +234,7 @@ def aggregate_findings(findings: list[dict]) -> AggregatedEvidence:
     else:
         paper_risk = "clean"
 
-    overall_confidence = compute_overall_confidence(findings)
+    overall_confidence = compute_overall_confidence(findings, method_weights=method_weights)
 
     return AggregatedEvidence(
         paper_risk=paper_risk,

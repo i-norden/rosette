@@ -11,7 +11,6 @@ from pathlib import Path
 
 import anthropic
 
-from .base import LLMResponse
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +38,7 @@ def _detect_media_type(image_path: str) -> str:
     media_type = _MEDIA_TYPES.get(ext)
     if media_type is None:
         raise ValueError(
-            f"Unsupported image extension '{ext}'. "
-            f"Supported: {', '.join(_MEDIA_TYPES)}"
+            f"Unsupported image extension '{ext}'. Supported: {', '.join(_MEDIA_TYPES)}"
         )
     return media_type
 
@@ -65,7 +63,7 @@ def _try_parse_json(text: str) -> dict | None:
         first_newline = cleaned.index("\n")
         cleaned = cleaned[first_newline + 1 :]
         if cleaned.endswith("```"):
-            cleaned = cleaned[: -3].strip()
+            cleaned = cleaned[:-3].strip()
 
     try:
         return json.loads(cleaned)
@@ -133,7 +131,7 @@ class ClaudeProvider:
                     return await self.client.messages.create(**kwargs)
             except anthropic.RateLimitError as exc:
                 last_exc = exc
-                delay = _RETRY_BASE_DELAY_S * (2 ** attempt)
+                delay = _RETRY_BASE_DELAY_S * (2**attempt)
                 logger.warning(
                     "Rate-limited (attempt %d/%d). Retrying in %.1fs ...",
                     attempt + 1,
@@ -144,7 +142,7 @@ class ClaudeProvider:
             except anthropic.APIStatusError as exc:
                 if exc.status_code >= 500:
                     last_exc = exc
-                    delay = _RETRY_BASE_DELAY_S * (2 ** attempt)
+                    delay = _RETRY_BASE_DELAY_S * (2**attempt)
                     logger.warning(
                         "Server error %d (attempt %d/%d). Retrying in %.1fs ...",
                         exc.status_code,
@@ -165,7 +163,7 @@ class ClaudeProvider:
         response_schema: dict | None = None,
     ) -> dict:
         """Convert an Anthropic ``Message`` to the standard response dict."""
-        raw_content = message.content[0].text if message.content else ""
+        raw_content = message.content[0].text if message.content else ""  # type: ignore[union-attr]
         parsed = _try_parse_json(raw_content) if response_schema else None
         return {
             "content": raw_content,

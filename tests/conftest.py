@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.config import SnoopyConfig, load_config
-from snoopy.db.models import Base
+from snoopy.config import SnoopyConfig
 from snoopy.db.session import init_db, get_session
 
 
@@ -46,9 +42,7 @@ def db_session(test_config):
 @pytest.fixture
 def sample_image(tmp_path) -> str:
     """Create a simple test image and return its path."""
-    img = Image.fromarray(
-        np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8)
-    )
+    img = Image.fromarray(np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8))
     path = str(tmp_path / "test_image.png")
     img.save(path)
     return path
@@ -57,9 +51,7 @@ def sample_image(tmp_path) -> str:
 @pytest.fixture
 def sample_jpeg(tmp_path) -> str:
     """Create a test JPEG image and return its path."""
-    img = Image.fromarray(
-        np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8)
-    )
+    img = Image.fromarray(np.random.randint(0, 255, (200, 300, 3), dtype=np.uint8))
     path = str(tmp_path / "test_image.jpg")
     img.save(path, "JPEG", quality=95)
     return path

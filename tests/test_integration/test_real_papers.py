@@ -107,9 +107,7 @@ class TestSyntheticForgeries:
             if ela.suspicious or noise.suspicious:
                 detected += 1
 
-        assert detected > 0, (
-            f"None of {len(retouched_images)} retouched images were detected"
-        )
+        assert detected > 0, f"None of {len(retouched_images)} retouched images were detected"
 
     def test_all_synthetic_images_are_analyzable(self) -> None:
         """All synthetic images should be processable without errors."""
@@ -209,8 +207,8 @@ class TestCleanControls:
             except Exception:
                 pass  # PDF extraction issues are OK in this context
 
-        assert len(false_positives) == 0, (
-            f"False positives on clean papers:\n" + "\n".join(false_positives)
+        assert len(false_positives) == 0, "False positives on clean papers:\n" + "\n".join(
+            false_positives
         )
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -113,7 +113,7 @@ def extract_metadata(pdf_path: str) -> dict:
     return metadata
 
 
-def download_pdf(url: str, output_path: str) -> str:
+async def download_pdf(url: str, output_path: str) -> str:
     """Download a PDF from a URL and compute its SHA-256 hash.
 
     The file is written to *output_path*.  Intermediate directories are
@@ -129,19 +129,27 @@ def download_pdf(url: str, output_path: str) -> str:
     Raises:
         httpx.HTTPStatusError: If the HTTP response indicates an error.
         RuntimeError: If the download fails for any other reason.
+        ValueError: If the URL scheme is not HTTPS.
     """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https",):
+        raise ValueError(f"Only HTTPS URLs are allowed for PDF download, got: {parsed.scheme}")
+
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
     sha256 = hashlib.sha256()
 
     try:
-        with httpx.stream("GET", url, follow_redirects=True, timeout=60.0) as response:
-            response.raise_for_status()
-            with open(out, "wb") as fh:
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    fh.write(chunk)
-                    sha256.update(chunk)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            async with client.stream("GET", url, follow_redirects=True) as response:
+                response.raise_for_status()
+                with open(out, "wb") as fh:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        fh.write(chunk)
+                        sha256.update(chunk)
     except httpx.HTTPStatusError:
         raise
     except Exception as exc:

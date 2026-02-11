@@ -1,8 +1,5 @@
 """Tests for configuration loading."""
 
-import os
-from pathlib import Path
-
 from snoopy.config import SnoopyConfig, load_config
 
 

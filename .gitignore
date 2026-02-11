@@ -21,6 +21,9 @@ data/
 .ruff_cache/
 .idea/
 
+# Environment variables (secrets)
+.env
+
 # OS
 .DS_Store
 

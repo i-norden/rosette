@@ -8,16 +8,9 @@ import os
 import webbrowser
 from pathlib import Path
 
-from snoopy.analysis.cross_reference import compute_ahash, compute_phash, hash_distance
-from snoopy.analysis.evidence import AggregatedEvidence, aggregate_findings
-from snoopy.analysis.image_forensics import (
-    CloneResult,
-    ELAResult,
-    NoiseResult,
-    clone_detection,
-    error_level_analysis,
-    noise_analysis,
-)
+from snoopy.analysis.cross_reference import compute_ahash, compute_phash
+from snoopy.analysis.evidence import aggregate_findings
+from snoopy.analysis.run_analysis import run_image_forensics, run_intra_paper_cross_ref
 from snoopy.reporting.dashboard import generate_dashboard
 from snoopy.reporting.pretty import (
     console,
@@ -50,132 +43,15 @@ def _analyze_image(image_path: Path) -> dict:
     """Run all non-AI image analyses on a single image.
 
     Returns a result dict with findings, perceptual hashes, and metadata.
+    Uses the shared run_image_forensics() from run_analysis.py for config-driven
+    thresholds, eliminating duplication with the production pipeline.
     """
     path_str = str(image_path)
-    findings: list[dict] = []
 
-    # 1. ELA — tiered severity based on research thresholds
-    try:
-        ela: ELAResult = error_level_analysis(path_str)
-        if ela.suspicious:
-            max_diff = ela.max_difference
-            mean_diff = ela.mean_difference
-            std_diff = ela.std_difference
+    # Use shared analysis function with default config
+    findings = run_image_forensics(path_str, figure_id=image_path.name)
 
-            if max_diff >= 60 and max_diff > mean_diff + 3 * std_diff:
-                severity = "high"
-                confidence = min(max_diff / 255.0 * 0.6, 1.0)
-            elif max_diff >= 40 and max_diff > mean_diff + 3 * std_diff:
-                severity = "medium"
-                confidence = min(max_diff / 255.0 * 0.5, 1.0)
-            elif max_diff >= 25 and max_diff > mean_diff + 2 * std_diff:
-                severity = "low"
-                confidence = min(max_diff / 255.0 * 0.4, 1.0)
-            else:
-                severity = "low"
-                confidence = min(max_diff / 255.0 * 0.3, 1.0)
-
-            findings.append({
-                "title": "ELA anomaly detected",
-                "analysis_type": "ela",
-                "method": "ela",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"Max diff={ela.max_difference:.1f}, "
-                    f"mean={ela.mean_difference:.1f}, std={ela.std_difference:.1f}"
-                ),
-                "figure_id": image_path.name,
-                "evidence": {
-                    "max_difference": round(ela.max_difference, 2),
-                    "mean_difference": round(ela.mean_difference, 2),
-                    "std_difference": round(ela.std_difference, 2),
-                },
-            })
-    except Exception as exc:
-        logger.debug("ELA failed on %s: %s", image_path.name, exc)
-
-    # 2. Clone detection — tiered severity based on inlier count and ratio
-    try:
-        clone: CloneResult = clone_detection(path_str)
-        if clone.suspicious:
-            inliers = clone.num_matches
-            ratio = clone.inlier_ratio
-
-            if inliers >= 60 and ratio >= 0.35:
-                severity = "high"
-                confidence = min(ratio, 1.0) * 0.85
-            elif inliers >= 40 and ratio >= 0.25:
-                severity = "medium"
-                confidence = min(ratio, 1.0) * 0.7
-            elif inliers >= 20 and ratio >= 0.15:
-                severity = "low"
-                confidence = min(ratio, 1.0) * 0.5
-            else:
-                severity = "low"
-                confidence = min(ratio, 1.0) * 0.4
-
-            findings.append({
-                "title": "Copy-move cloning detected",
-                "analysis_type": "clone_detection",
-                "method": "clone_detection",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"{clone.num_matches} matches, "
-                    f"{len(clone.match_clusters)} clusters, "
-                    f"inlier ratio={clone.inlier_ratio:.2f}"
-                ),
-                "figure_id": image_path.name,
-                "evidence": {
-                    "num_matches": clone.num_matches,
-                    "num_clusters": len(clone.match_clusters),
-                    "inlier_ratio": round(clone.inlier_ratio, 3),
-                },
-            })
-    except Exception as exc:
-        logger.debug("Clone detection failed on %s: %s", image_path.name, exc)
-
-    # 3. Noise analysis — tiered severity based on max ratio
-    try:
-        noise: NoiseResult = noise_analysis(path_str)
-        if noise.suspicious:
-            max_ratio = noise.max_ratio
-
-            if max_ratio > 20.0:
-                severity = "high"
-                confidence = min(max_ratio / 30.0, 0.85)
-            elif max_ratio > 10.0:
-                severity = "medium"
-                confidence = min(max_ratio / 20.0, 0.7)
-            elif max_ratio > 5.0:
-                severity = "low"
-                confidence = min(max_ratio / 20.0, 0.5)
-            else:
-                severity = "low"
-                confidence = min(max_ratio / 20.0, 0.4)
-
-            findings.append({
-                "title": "Noise inconsistency detected",
-                "analysis_type": "noise_analysis",
-                "method": "noise_analysis",
-                "severity": severity,
-                "confidence": confidence,
-                "description": (
-                    f"Max noise ratio={noise.max_ratio:.1f}, "
-                    f"mean={noise.mean_noise:.1f}, std={noise.noise_std:.1f}"
-                ),
-                "figure_id": image_path.name,
-                "evidence": {
-                    "max_ratio": round(noise.max_ratio, 2),
-                    "mean_noise": round(noise.mean_noise, 2),
-                    "noise_std": round(noise.noise_std, 2),
-                },
-            })
-    except Exception as exc:
-        logger.debug("Noise analysis failed on %s: %s", image_path.name, exc)
-
-    # 4. Perceptual hash computation for cross-reference
+    # Compute perceptual hashes for cross-reference
     phash_value = None
     ahash_value = None
     try:
@@ -296,9 +172,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
             for ts in test_stats:
                 if ts.p_value is not None and ts.df:
                     try:
-                        pv_result = pvalue_check(
-                            ts.test_type, ts.statistic, ts.df, ts.p_value
-                        )
+                        pv_result = pvalue_check(ts.test_type, ts.statistic, ts.df, ts.p_value)
                         if not pv_result.consistent:
                             if pv_result.difference > 0.05 and pv_result.significance_changed:
                                 severity = "high"
@@ -336,7 +210,9 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                     except Exception as exc:
                         logger.debug(
                             "P-value check failed for %s stat on %s: %s",
-                            ts.test_type, pdf_path.name, exc,
+                            ts.test_type,
+                            pdf_path.name,
+                            exc,
                         )
         except Exception as exc:
             logger.debug("P-value extraction failed on %s: %s", pdf_path.name, exc)
@@ -414,8 +290,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                 dup_result = duplicate_value_check(table.rows)
                 if dup_result.suspicious:
                     both_flags = (
-                        dup_result.duplicate_ratio > 0.3
-                        and dup_result.round_number_ratio > 0.8
+                        dup_result.duplicate_ratio > 0.3 and dup_result.round_number_ratio > 0.8
                     )
                     if both_flags:
                         severity = "medium"
@@ -444,53 +319,20 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
     except Exception as exc:
         logger.debug("Table extraction failed on %s: %s", pdf_path.name, exc)
 
-    # 4. Intra-paper cross-reference: compare figure hashes within the same PDF
+    # 4. Intra-paper cross-reference using shared function
     try:
-        for i, res_a in enumerate(figure_results):
-            for j, res_b in enumerate(figure_results):
-                if j <= i:
-                    continue
-                phash_a = res_a.get("phash")
-                phash_b = res_b.get("phash")
-                if phash_a and phash_b:
-                    dist = hash_distance(phash_a, phash_b)
-                    if dist <= 15:
-                        if dist <= 5:
-                            severity = "critical"
-                            confidence = 0.95
-                        elif dist <= 10:
-                            severity = "high"
-                            confidence = 0.8
-                        else:
-                            severity = "medium"
-                            confidence = 0.6
-
-                        match_info = {
-                            "figure_a": res_a["image"],
-                            "figure_b": res_b["image"],
-                            "distance": dist,
-                            "severity": severity,
-                        }
-                        phash_matches.append(match_info)
-
-                        finding = {
-                            "title": f"Perceptual hash match: {res_a['image']} ↔ {res_b['image']}",
-                            "analysis_type": "phash",
-                            "method": "phash",
-                            "severity": severity,
-                            "confidence": confidence,
-                            "description": (
-                                f"Figures '{res_a['image']}' and '{res_b['image']}' "
-                                f"have perceptual hash distance {dist} (possible duplicate/recycled)"
-                            ),
-                            "figure_id": res_a["image"],
-                            "evidence": {
-                                "figure_a": res_a["image"],
-                                "figure_b": res_b["image"],
-                                "hash_distance": dist,
-                            },
-                        }
-                        all_findings.append(finding)
+        cross_ref_findings = run_intra_paper_cross_ref(figure_results)
+        all_findings.extend(cross_ref_findings)
+        for f in cross_ref_findings:
+            evidence = f.get("evidence", {})
+            phash_matches.append(
+                {
+                    "figure_a": evidence.get("figure_a", ""),
+                    "figure_b": evidence.get("figure_b", ""),
+                    "distance": evidence.get("hash_distance", 0),
+                    "severity": f.get("severity", ""),
+                }
+            )
     except Exception as exc:
         logger.debug("Hash cross-reference failed on %s: %s", pdf_path.name, exc)
 
@@ -600,7 +442,6 @@ async def _run_llm_analysis(
             fig_id = f.get("figure_id", "")
             if fig_id and fig_id not in image_paths:
                 # Try to find the actual image path
-                evidence = f.get("evidence", {})
                 # Look for image files in the figures_dir
                 for candidate in figures_dir.rglob(fig_id):
                     if candidate.is_file():
@@ -612,42 +453,48 @@ async def _run_llm_analysis(
             try:
                 screening = await screen_figure(img_path, provider)
                 if screening.suspicious and screening.confidence > 0.5:
-                    findings.append({
-                        "title": f"LLM screening flagged: {screening.reason}",
-                        "analysis_type": "llm_screening",
-                        "method": "llm_screening",
-                        "severity": "medium" if screening.confidence > 0.7 else "low",
-                        "confidence": screening.confidence,
-                        "description": screening.reason,
-                        "figure_id": fig_id,
-                        "evidence": {
-                            "model": screening.model_used,
+                    findings.append(
+                        {
+                            "title": f"LLM screening flagged: {screening.reason}",
+                            "analysis_type": "llm_screening",
+                            "method": "llm_screening",
+                            "severity": "medium" if screening.confidence > 0.7 else "low",
                             "confidence": screening.confidence,
-                        },
-                    })
+                            "description": screening.reason,
+                            "figure_id": fig_id,
+                            "evidence": {
+                                "model": screening.model_used,
+                                "confidence": screening.confidence,
+                            },
+                        }
+                    )
 
                     # Detailed analysis for flagged figures
                     try:
                         detailed = await analyze_figure_detailed(img_path, provider)
                         for vf in detailed.findings:
-                            findings.append({
-                                "title": f"LLM vision: {vf.finding_type}",
-                                "analysis_type": "llm_vision",
-                                "method": "llm_vision",
-                                "severity": (
-                                    "high" if vf.confidence > 0.8
-                                    else "medium" if vf.confidence > 0.5
-                                    else "low"
-                                ),
-                                "confidence": vf.confidence,
-                                "description": vf.description,
-                                "figure_id": fig_id,
-                                "evidence": {
-                                    "location": vf.location,
-                                    "model": detailed.model_used,
-                                    "manipulation_likelihood": detailed.manipulation_likelihood,
-                                },
-                            })
+                            findings.append(
+                                {
+                                    "title": f"LLM vision: {vf.finding_type}",
+                                    "analysis_type": "llm_vision",
+                                    "method": "llm_vision",
+                                    "severity": (
+                                        "high"
+                                        if vf.confidence > 0.8
+                                        else "medium"
+                                        if vf.confidence > 0.5
+                                        else "low"
+                                    ),
+                                    "confidence": vf.confidence,
+                                    "description": vf.description,
+                                    "figure_id": fig_id,
+                                    "evidence": {
+                                        "location": vf.location,
+                                        "model": detailed.model_used,
+                                        "manipulation_likelihood": detailed.manipulation_likelihood,
+                                    },
+                                }
+                            )
                     except Exception as exc:
                         logger.debug("LLM detailed analysis failed for %s: %s", fig_id, exc)
 
@@ -738,7 +585,9 @@ def run_demo(
         ) as client:
             zenodo_counts = download_rsiil_zenodo(client)
         total_files = sum(zenodo_counts.values())
-        console.print(f"[bold green]RSIIL Zenodo dataset: {total_files} files across {len(zenodo_counts)} splits.[/bold green]")
+        console.print(
+            f"[bold green]RSIIL Zenodo dataset: {total_files} files across {len(zenodo_counts)} splits.[/bold green]"
+        )
         console.print()
 
     if download_only:
@@ -760,16 +609,18 @@ def run_demo(
             task = progress.add_task("Synthetic images", total=len(synthetic_images))
             for img_path in synthetic_images:
                 result = _analyze_image(img_path)
-                demo_results.append(_build_result(
-                    name=img_path.name,
-                    category="synthetic",
-                    expected="findings",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_findings(
-                        aggregate_findings(result["findings"]).paper_risk,
-                        result["findings"],
-                    ),
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=img_path.name,
+                        category="synthetic",
+                        expected="findings",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_findings(
+                            aggregate_findings(result["findings"]).paper_risk,
+                            result["findings"],
+                        ),
+                    )
+                )
                 progress.advance(task)
     console.print()
 
@@ -785,24 +636,28 @@ def run_demo(
             for img_path in rsiil_images:
                 result = _analyze_image(img_path)
                 if img_path.name in rsiil_forgery_names:
-                    demo_results.append(_build_result(
-                        name=img_path.name,
-                        category="rsiil",
-                        expected="findings",
-                        findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_findings(
-                            aggregate_findings(result["findings"]).paper_risk,
-                            result["findings"],
-                        ),
-                    ))
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="rsiil",
+                            expected="findings",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_findings(
+                                aggregate_findings(result["findings"]).paper_risk,
+                                result["findings"],
+                            ),
+                        )
+                    )
                 elif img_path.name in rsiil_clean_names:
-                    demo_results.append(_build_result(
-                        name=img_path.name,
-                        category="clean",
-                        expected="clean",
-                        findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                    ))
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="clean",
+                            expected="clean",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        )
+                    )
                 progress.advance(task)
     else:
         console.print("[dim]No RSIIL images found (download may have failed). Skipping.[/dim]")
@@ -819,26 +674,30 @@ def run_demo(
             task = progress.add_task("RSIIL Zenodo samples", total=total_zenodo)
             for img_path in tampered_sample:
                 result = _analyze_image(img_path)
-                demo_results.append(_build_result(
-                    name=img_path.name,
-                    category="rsiil",
-                    expected="findings",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_findings(
-                        aggregate_findings(result["findings"]).paper_risk,
-                        result["findings"],
-                    ),
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=img_path.name,
+                        category="rsiil",
+                        expected="findings",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_findings(
+                            aggregate_findings(result["findings"]).paper_risk,
+                            result["findings"],
+                        ),
+                    )
+                )
                 progress.advance(task)
             for img_path in pristine_sample:
                 result = _analyze_image(img_path)
-                demo_results.append(_build_result(
-                    name=img_path.name,
-                    category="rsiil_clean",
-                    expected="clean",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=img_path.name,
+                        category="rsiil_clean",
+                        expected="clean",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                    )
+                )
                 progress.advance(task)
         console.print()
 
@@ -850,20 +709,22 @@ def run_demo(
             task = progress.add_task("Retracted papers", total=len(retracted_pdfs))
             for pdf_path in retracted_pdfs:
                 result = _analyze_pdf(pdf_path, figures_dir)
-                demo_results.append(_build_result(
-                    name=pdf_path.name,
-                    category="retracted",
-                    expected="findings",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_findings(
-                        aggregate_findings(result["findings"]).paper_risk,
-                        result["findings"],
-                    ),
-                    extra={
-                        "statistical_summary": result.get("statistical_summary", {}),
-                        "phash_matches": result.get("phash_matches", []),
-                    },
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=pdf_path.name,
+                        category="retracted",
+                        expected="findings",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_findings(
+                            aggregate_findings(result["findings"]).paper_risk,
+                            result["findings"],
+                        ),
+                        extra={
+                            "statistical_summary": result.get("statistical_summary", {}),
+                            "phash_matches": result.get("phash_matches", []),
+                        },
+                    )
+                )
                 progress.advance(task)
     else:
         console.print("[dim]No retracted papers found. Skipping.[/dim]")
@@ -873,37 +734,41 @@ def run_demo(
     console.print("[bold]Analyzing Bik survey paper...[/bold]")
     for pdf_path in _find_pdfs(FIXTURES_DIR / "survey"):
         result = _analyze_pdf(pdf_path, figures_dir)
-        demo_results.append(_build_result(
-            name=pdf_path.name,
-            category="survey",
-            expected="informational",
-            findings=result["findings"],
-            pass_fail=True,
-            extra={
-                "statistical_summary": result.get("statistical_summary", {}),
-                "phash_matches": result.get("phash_matches", []),
-            },
-        ))
+        demo_results.append(
+            _build_result(
+                name=pdf_path.name,
+                category="survey",
+                expected="informational",
+                findings=result["findings"],
+                pass_fail=True,
+                extra={
+                    "statistical_summary": result.get("statistical_summary", {}),
+                    "phash_matches": result.get("phash_matches", []),
+                },
+            )
+        )
     console.print()
 
     # 2e) Retraction Watch papers
     console.print("[bold]Analyzing Retraction Watch papers...[/bold]")
     for pdf_path in _find_pdfs(FIXTURES_DIR / "retraction_watch"):
         result = _analyze_pdf(pdf_path, figures_dir)
-        demo_results.append(_build_result(
-            name=pdf_path.name,
-            category="retraction_watch",
-            expected="findings",
-            findings=result["findings"],
-            pass_fail=_determine_pass_fail_expected_findings(
-                aggregate_findings(result["findings"]).paper_risk,
-                result["findings"],
-            ),
-            extra={
-                "statistical_summary": result.get("statistical_summary", {}),
-                "phash_matches": result.get("phash_matches", []),
-            },
-        ))
+        demo_results.append(
+            _build_result(
+                name=pdf_path.name,
+                category="retraction_watch",
+                expected="findings",
+                findings=result["findings"],
+                pass_fail=_determine_pass_fail_expected_findings(
+                    aggregate_findings(result["findings"]).paper_risk,
+                    result["findings"],
+                ),
+                extra={
+                    "statistical_summary": result.get("statistical_summary", {}),
+                    "phash_matches": result.get("phash_matches", []),
+                },
+            )
+        )
     console.print()
 
     # 2f) Clean control papers (false positive check)
@@ -914,17 +779,19 @@ def run_demo(
             task = progress.add_task("Clean papers", total=len(clean_pdfs))
             for pdf_path in clean_pdfs:
                 result = _analyze_pdf(pdf_path, figures_dir)
-                demo_results.append(_build_result(
-                    name=pdf_path.name,
-                    category="clean",
-                    expected="clean",
-                    findings=result["findings"],
-                    pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                    extra={
-                        "statistical_summary": result.get("statistical_summary", {}),
-                        "phash_matches": result.get("phash_matches", []),
-                    },
-                ))
+                demo_results.append(
+                    _build_result(
+                        name=pdf_path.name,
+                        category="clean",
+                        expected="clean",
+                        findings=result["findings"],
+                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        extra={
+                            "statistical_summary": result.get("statistical_summary", {}),
+                            "phash_matches": result.get("phash_matches", []),
+                        },
+                    )
+                )
                 progress.advance(task)
     else:
         console.print("[dim]No clean papers found. Skipping.[/dim]")
@@ -952,9 +819,16 @@ def run_demo(
 
         for result in demo_results:
             if result["findings"]:
-                paper = {"title": result["name"], "doi": "N/A", "journal": result["category"], "citation_count": 0}
+                paper = {
+                    "title": result["name"],
+                    "doi": "N/A",
+                    "journal": result["category"],
+                    "citation_count": 0,
+                }
                 html = generate_html_report(
-                    paper=paper, findings=result["findings"], figures={},
+                    paper=paper,
+                    findings=result["findings"],
+                    figures={},
                     summary=f"Demo analysis of {result['name']}",
                     overall_risk=result["actual_risk"],
                     overall_confidence=result.get("overall_confidence", 0.5),

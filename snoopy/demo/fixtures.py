@@ -62,25 +62,77 @@ _ZENODO_FILES = {
 # Papers retracted for image manipulation, figure duplication, or data fabrication.
 # Includes papers from Bik's MCB study and other well-documented retractions.
 RETRACTED_PAPERS = [
-    {"pmcid": "PMC3838194", "desc": "Retracted MCB paper with known image duplication", "filename": "PMC3838194.pdf"},
-    {"pmcid": "PMC3911491", "desc": "Retracted paper with Western blot manipulation", "filename": "PMC3911491.pdf"},
-    {"pmcid": "PMC4230661", "desc": "Retracted paper with figure re-use", "filename": "PMC4230661.pdf"},
-    {"pmcid": "PMC10574276", "desc": "Retracted: RGX365 myogenesis effects (Nutrients, 2023)", "filename": "PMC10574276.pdf"},
-    {"pmcid": "PMC10336160", "desc": "Retracted: PRC2/NANOG suppression of differentiation (iScience, 2023)", "filename": "PMC10336160.pdf"},
-    {"pmcid": "PMC10428593", "desc": "Retracted: LDHD biomarker in lung adenocarcinoma (BMC Cancer, 2023)", "filename": "PMC10428593.pdf"},
-    {"pmcid": "PMC9750160", "desc": "Retracted: COL10A1-DDR2 in pancreatic cancer (Front Oncol, 2022)", "filename": "PMC9750160.pdf"},
-    {"pmcid": "PMC10802042", "desc": "Retracted: BTG1 prediction in AML (Clin Epigenetics, 2024)", "filename": "PMC10802042.pdf"},
-    {"pmcid": "PMC10945082", "desc": "Retracted: Genetic mutations in STAD (J Cell Mol Med, 2024)", "filename": "PMC10945082.pdf"},
-    {"pmcid": "PMC10808764", "desc": "Retracted: Dual-phenotype HCC MRI features (Front Oncol, 2023)", "filename": "PMC10808764.pdf"},
+    {
+        "pmcid": "PMC3838194",
+        "desc": "Retracted MCB paper with known image duplication",
+        "filename": "PMC3838194.pdf",
+    },
+    {
+        "pmcid": "PMC3911491",
+        "desc": "Retracted paper with Western blot manipulation",
+        "filename": "PMC3911491.pdf",
+    },
+    {
+        "pmcid": "PMC4230661",
+        "desc": "Retracted paper with figure re-use",
+        "filename": "PMC4230661.pdf",
+    },
+    {
+        "pmcid": "PMC10574276",
+        "desc": "Retracted: RGX365 myogenesis effects (Nutrients, 2023)",
+        "filename": "PMC10574276.pdf",
+    },
+    {
+        "pmcid": "PMC10336160",
+        "desc": "Retracted: PRC2/NANOG suppression of differentiation (iScience, 2023)",
+        "filename": "PMC10336160.pdf",
+    },
+    {
+        "pmcid": "PMC10428593",
+        "desc": "Retracted: LDHD biomarker in lung adenocarcinoma (BMC Cancer, 2023)",
+        "filename": "PMC10428593.pdf",
+    },
+    {
+        "pmcid": "PMC9750160",
+        "desc": "Retracted: COL10A1-DDR2 in pancreatic cancer (Front Oncol, 2022)",
+        "filename": "PMC9750160.pdf",
+    },
+    {
+        "pmcid": "PMC10802042",
+        "desc": "Retracted: BTG1 prediction in AML (Clin Epigenetics, 2024)",
+        "filename": "PMC10802042.pdf",
+    },
+    {
+        "pmcid": "PMC10945082",
+        "desc": "Retracted: Genetic mutations in STAD (J Cell Mol Med, 2024)",
+        "filename": "PMC10945082.pdf",
+    },
+    {
+        "pmcid": "PMC10808764",
+        "desc": "Retracted: Dual-phenotype HCC MRI features (Front Oncol, 2023)",
+        "filename": "PMC10808764.pdf",
+    },
 ]
 
 # ---- d) Bik's 20K Survey Paper ----
-SURVEY_PAPER = {"pmcid": "PMC4941872", "desc": "Bik et al. 2016 - The prevalence of inappropriate image duplication", "filename": "PMC4941872.pdf"}
+SURVEY_PAPER = {
+    "pmcid": "PMC4941872",
+    "desc": "Bik et al. 2016 - The prevalence of inappropriate image duplication",
+    "filename": "PMC4941872.pdf",
+}
 
 # ---- e) Retraction Watch Flagged Papers ----
 RETRACTION_WATCH_PAPERS = [
-    {"pmcid": "PMC5428407", "desc": "Retracted for figure duplication/manipulation", "filename": "PMC5428407.pdf"},
-    {"pmcid": "PMC4148020", "desc": "Retracted paper with data fabrication and image issues", "filename": "PMC4148020.pdf"},
+    {
+        "pmcid": "PMC5428407",
+        "desc": "Retracted for figure duplication/manipulation",
+        "filename": "PMC5428407.pdf",
+    },
+    {
+        "pmcid": "PMC4148020",
+        "desc": "Retracted paper with data fabrication and image issues",
+        "filename": "PMC4148020.pdf",
+    },
 ]
 
 # ---- f) Clean Control Papers ----
@@ -88,27 +140,107 @@ RETRACTION_WATCH_PAPERS = [
 # Diverse subjects: genome editing, structural biology, single-cell, immunotherapy,
 # epigenetics, computational biology, microbiome, neuroscience, cancer genomics.
 CLEAN_PAPERS = [
-    {"pmcid": "PMC7095418", "desc": "SARS-CoV-2 structure (Nature, 2020)", "filename": "PMC7095418.pdf"},
-    {"pmcid": "PMC7228219", "desc": "COVID-19 clinical features (Lancet, 2020)", "filename": "PMC7228219.pdf"},
+    {
+        "pmcid": "PMC7095418",
+        "desc": "SARS-CoV-2 structure (Nature, 2020)",
+        "filename": "PMC7095418.pdf",
+    },
+    {
+        "pmcid": "PMC7228219",
+        "desc": "COVID-19 clinical features (Lancet, 2020)",
+        "filename": "PMC7228219.pdf",
+    },
     {"pmcid": "PMC3624763", "desc": "CRISPR review (Science, 2013)", "filename": "PMC3624763.pdf"},
-    {"pmcid": "PMC6599654", "desc": "Deep learning in medicine review", "filename": "PMC6599654.pdf"},
-    {"pmcid": "PMC5766781", "desc": "Single-cell RNA-seq (Nature Methods)", "filename": "PMC5766781.pdf"},
-    {"pmcid": "PMC3795411", "desc": "Cong et al. - CRISPR/Cas genome engineering (Science, 2013)", "filename": "PMC3795411.pdf"},
-    {"pmcid": "PMC6286148", "desc": "Jinek et al. - RNA-guided DNA endonuclease (Science, 2012)", "filename": "PMC6286148.pdf"},
-    {"pmcid": "PMC4873371", "desc": "Komor et al. - Programmable base editing (Nature, 2016)", "filename": "PMC4873371.pdf"},
-    {"pmcid": "PMC6907074", "desc": "Anzalone et al. - Prime editing (Nature, 2019)", "filename": "PMC6907074.pdf"},
-    {"pmcid": "PMC4481139", "desc": "Macosko et al. - Drop-seq single-cell profiling (Cell, 2015)", "filename": "PMC4481139.pdf"},
-    {"pmcid": "PMC7433347", "desc": "June & Sadelain - CAR-T therapy review (NEJM, 2018)", "filename": "PMC7433347.pdf"},
-    {"pmcid": "PMC4015143", "desc": "Horvath - DNA methylation age / epigenetic clock (Genome Biology, 2013)", "filename": "PMC4015143.pdf"},
-    {"pmcid": "PMC8371605", "desc": "Jumper et al. - AlphaFold protein structure prediction (Nature, 2021)", "filename": "PMC8371605.pdf"},
-    {"pmcid": "PMC3564958", "desc": "Human Microbiome Project Consortium (Nature, 2012)", "filename": "PMC3564958.pdf"},
-    {"pmcid": "PMC4078027", "desc": "Liao et al. - TRPV1 cryo-EM structure (Nature, 2013)", "filename": "PMC4078027.pdf"},
-    {"pmcid": "PMC4139937", "desc": "Nishimasu et al. - Cas9 crystal structure (Cell, 2014)", "filename": "PMC4139937.pdf"},
-    {"pmcid": "PMC3439153", "desc": "ENCODE Consortium - Encyclopedia of DNA elements (Nature, 2012)", "filename": "PMC3439153.pdf"},
-    {"pmcid": "PMC4790845", "desc": "Deisseroth - Optogenetics 10 years review (Nat Neurosci, 2015)", "filename": "PMC4790845.pdf"},
-    {"pmcid": "PMC5394987", "desc": "Saxton & Sabatini - mTOR signaling review (Cell, 2017)", "filename": "PMC5394987.pdf"},
-    {"pmcid": "PMC4845755", "desc": "Sirohi et al. - Zika virus cryo-EM structure (Science, 2016)", "filename": "PMC4845755.pdf"},
-    {"pmcid": "PMC3776390", "desc": "Alexandrov et al. - Mutational signatures in cancer (Nature, 2013)", "filename": "PMC3776390.pdf"},
+    {
+        "pmcid": "PMC6599654",
+        "desc": "Deep learning in medicine review",
+        "filename": "PMC6599654.pdf",
+    },
+    {
+        "pmcid": "PMC5766781",
+        "desc": "Single-cell RNA-seq (Nature Methods)",
+        "filename": "PMC5766781.pdf",
+    },
+    {
+        "pmcid": "PMC3795411",
+        "desc": "Cong et al. - CRISPR/Cas genome engineering (Science, 2013)",
+        "filename": "PMC3795411.pdf",
+    },
+    {
+        "pmcid": "PMC6286148",
+        "desc": "Jinek et al. - RNA-guided DNA endonuclease (Science, 2012)",
+        "filename": "PMC6286148.pdf",
+    },
+    {
+        "pmcid": "PMC4873371",
+        "desc": "Komor et al. - Programmable base editing (Nature, 2016)",
+        "filename": "PMC4873371.pdf",
+    },
+    {
+        "pmcid": "PMC6907074",
+        "desc": "Anzalone et al. - Prime editing (Nature, 2019)",
+        "filename": "PMC6907074.pdf",
+    },
+    {
+        "pmcid": "PMC4481139",
+        "desc": "Macosko et al. - Drop-seq single-cell profiling (Cell, 2015)",
+        "filename": "PMC4481139.pdf",
+    },
+    {
+        "pmcid": "PMC7433347",
+        "desc": "June & Sadelain - CAR-T therapy review (NEJM, 2018)",
+        "filename": "PMC7433347.pdf",
+    },
+    {
+        "pmcid": "PMC4015143",
+        "desc": "Horvath - DNA methylation age / epigenetic clock (Genome Biology, 2013)",
+        "filename": "PMC4015143.pdf",
+    },
+    {
+        "pmcid": "PMC8371605",
+        "desc": "Jumper et al. - AlphaFold protein structure prediction (Nature, 2021)",
+        "filename": "PMC8371605.pdf",
+    },
+    {
+        "pmcid": "PMC3564958",
+        "desc": "Human Microbiome Project Consortium (Nature, 2012)",
+        "filename": "PMC3564958.pdf",
+    },
+    {
+        "pmcid": "PMC4078027",
+        "desc": "Liao et al. - TRPV1 cryo-EM structure (Nature, 2013)",
+        "filename": "PMC4078027.pdf",
+    },
+    {
+        "pmcid": "PMC4139937",
+        "desc": "Nishimasu et al. - Cas9 crystal structure (Cell, 2014)",
+        "filename": "PMC4139937.pdf",
+    },
+    {
+        "pmcid": "PMC3439153",
+        "desc": "ENCODE Consortium - Encyclopedia of DNA elements (Nature, 2012)",
+        "filename": "PMC3439153.pdf",
+    },
+    {
+        "pmcid": "PMC4790845",
+        "desc": "Deisseroth - Optogenetics 10 years review (Nat Neurosci, 2015)",
+        "filename": "PMC4790845.pdf",
+    },
+    {
+        "pmcid": "PMC5394987",
+        "desc": "Saxton & Sabatini - mTOR signaling review (Cell, 2017)",
+        "filename": "PMC5394987.pdf",
+    },
+    {
+        "pmcid": "PMC4845755",
+        "desc": "Sirohi et al. - Zika virus cryo-EM structure (Science, 2016)",
+        "filename": "PMC4845755.pdf",
+    },
+    {
+        "pmcid": "PMC3776390",
+        "desc": "Alexandrov et al. - Mutational signatures in cancer (Nature, 2013)",
+        "filename": "PMC3776390.pdf",
+    },
 ]
 
 
@@ -233,9 +365,7 @@ def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
     return counts
 
 
-def sample_rsiil_images(
-    sample_size: int = 30, seed: int = 42
-) -> tuple[list[Path], list[Path]]:
+def sample_rsiil_images(sample_size: int = 30, seed: int = 42) -> tuple[list[Path], list[Path]]:
     """Sample images from the full RSIIL Zenodo dataset for demo analysis.
 
     Returns ``(pristine_paths, tampered_paths)`` — each a list of up to
@@ -251,8 +381,7 @@ def sample_rsiil_images(
         if not directory.exists():
             return []
         return sorted(
-            p for p in directory.rglob("*")
-            if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
+            p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
         )
 
     pristine_all = _collect(pristine_dir)
@@ -425,7 +554,9 @@ def download_all() -> dict[str, int]:
         results["survey"] = download_pmc_papers([SURVEY_PAPER], "survey", client)
 
         console.print("[bold]5/6[/bold] Retraction Watch Flagged Papers")
-        results["retraction_watch"] = download_pmc_papers(RETRACTION_WATCH_PAPERS, "retraction_watch", client)
+        results["retraction_watch"] = download_pmc_papers(
+            RETRACTION_WATCH_PAPERS, "retraction_watch", client
+        )
 
         console.print("[bold]6/6[/bold] Clean Control Papers")
         results["clean"] = download_pmc_papers(CLEAN_PAPERS, "clean", client)

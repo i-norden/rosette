@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from snoopy.llm.prompts import (
     PROMPT_ANALYZE_FIGURE,
@@ -115,7 +115,11 @@ async def screen_figure(
     raw_content = result.get("content", "") if isinstance(result, dict) else str(result)
     model_used = result.get("model", "unknown") if isinstance(result, dict) else "unknown"
 
-    parsed = result.get("parsed") if isinstance(result, dict) and result.get("parsed") else _parse_json_response(raw_content)
+    parsed = (
+        result.get("parsed")
+        if isinstance(result, dict) and result.get("parsed")
+        else _parse_json_response(raw_content)
+    ) or {}
 
     suspicious = bool(parsed.get("suspicious", False))
     reason = str(parsed.get("brief_reason", parsed.get("reason", "")))
@@ -161,7 +165,11 @@ async def analyze_figure_detailed(
     raw_content = result.get("content", "") if isinstance(result, dict) else str(result)
     model_used = result.get("model", "unknown") if isinstance(result, dict) else "unknown"
 
-    parsed = result.get("parsed") if isinstance(result, dict) and result.get("parsed") else _parse_json_response(raw_content)
+    parsed = (
+        result.get("parsed")
+        if isinstance(result, dict) and result.get("parsed")
+        else _parse_json_response(raw_content)
+    ) or {}
 
     overall_assessment = str(parsed.get("overall_assessment", ""))
     manipulation_likelihood = float(parsed.get("manipulation_likelihood", 0.0))
@@ -202,10 +210,16 @@ async def classify_figure(image_path: str, provider) -> str:
     Returns:
         A string describing the figure type.
     """
-    result = await provider.analyze_image(image_path, PROMPT_FIGURE_CLASSIFY, response_schema={"type": "object"})
+    result = await provider.analyze_image(
+        image_path, PROMPT_FIGURE_CLASSIFY, response_schema={"type": "object"}
+    )
 
     raw_content = result.get("content", "") if isinstance(result, dict) else str(result)
-    parsed = result.get("parsed") if isinstance(result, dict) and result.get("parsed") else _parse_json_response(raw_content)
+    parsed = (
+        result.get("parsed")
+        if isinstance(result, dict) and result.get("parsed")
+        else _parse_json_response(raw_content)
+    ) or {}
     figure_type = parsed.get("figure_type", "")
 
     if not figure_type:

@@ -7,6 +7,7 @@ llm:
   max_concurrent_requests: 5
 
 discovery:
+  unpaywall_email: ${UNPAYWALL_EMAIL:-}
   scimago_csv_path: data/scimago.csv
 
 priority:
@@ -20,6 +21,47 @@ analysis:
   noise_block_size: 64
   llm_screening_confidence_threshold: 0.5
   convergence_required: true
+
+  # Method weights for composite scoring (research-based)
+  weight_clone_detection: 0.85
+  weight_phash: 0.90
+  weight_pvalue_check: 0.80
+  weight_grim: 0.60
+  weight_noise: 0.50
+  weight_ela: 0.35
+  weight_benford: 0.30
+  weight_duplicate_check: 0.25
+  weight_llm_vision: 0.70
+
+  # Convergence thresholds
+  convergence_confidence_threshold: 0.6
+  convergence_confidence_boost: 0.1
+  single_method_max_severity: medium
+
+  # ELA severity thresholds
+  ela_high_threshold: 60.0
+  ela_medium_threshold: 40.0
+  ela_low_threshold: 25.0
+
+  # Clone severity thresholds
+  clone_high_inliers: 60
+  clone_high_ratio: 0.35
+  clone_medium_inliers: 40
+  clone_medium_ratio: 0.25
+  clone_low_inliers: 20
+  clone_low_ratio: 0.15
+
+  # Noise severity thresholds
+  noise_high_ratio: 20.0
+  noise_medium_ratio: 10.0
+  noise_low_ratio: 5.0
+
+  # Noise analysis
+  noise_intensity_bin_width: 32
+
+  # Figure extraction
+  min_figure_width: 50
+  min_figure_height: 50
 
 storage:
   database_url: sqlite:///snoopy.db

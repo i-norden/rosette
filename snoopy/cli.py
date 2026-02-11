@@ -15,22 +15,47 @@ from snoopy.config import load_config
 from snoopy.db.session import get_session, init_db
 
 
-def setup_logging(verbose: bool) -> None:
+def setup_logging(verbose: bool, json_logs: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    if json_logs:
+        import json as _json
+
+        class _JsonFormatter(logging.Formatter):
+            def format(self, record: logging.LogRecord) -> str:
+                log_entry: dict = {
+                    "timestamp": self.formatTime(record, self.datefmt),
+                    "level": record.levelname,
+                    "logger": record.name,
+                    "message": record.getMessage(),
+                }
+                # Include structured context fields if present
+                for field in ("paper_id", "stage", "figure_id"):
+                    val = getattr(record, field, None)
+                    if val is not None:
+                        log_entry[field] = val
+                return _json.dumps(log_entry)
+
+        handler = logging.StreamHandler()
+        handler.setFormatter(_JsonFormatter(datefmt="%Y-%m-%dT%H:%M:%S"))
+        logging.root.handlers.clear()
+        logging.root.addHandler(handler)
+        logging.root.setLevel(level)
+    else:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
 
 
 @click.group()
 @click.option("--config", "-c", "config_path", default=None, help="Path to config YAML file")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+@click.option("--json-logs", is_flag=True, help="Output logs in JSON format")
 @click.pass_context
-def main(ctx: click.Context, config_path: str | None, verbose: bool) -> None:
+def main(ctx: click.Context, config_path: str | None, verbose: bool, json_logs: bool) -> None:
     """Snoopy: LLM-powered academic integrity analyzer."""
-    setup_logging(verbose)
+    setup_logging(verbose, json_logs=json_logs)
     ctx.ensure_object(dict)
     cfg = load_config(config_path)
     ctx.obj["config"] = cfg
@@ -72,24 +97,25 @@ def discover(
         added = 0
         with get_session() as session:
             for work in works:
-                doi = work.get("doi")
+                doi = work.doi
                 if doi:
                     from sqlalchemy import select
-                    existing = session.execute(
-                        select(Paper).where(Paper.doi == doi)
-                    ).scalars().first()
+
+                    existing = (
+                        session.execute(select(Paper).where(Paper.doi == doi)).scalars().first()
+                    )
                     if existing:
                         continue
 
                 metadata = PaperMetadata(
-                    citation_count=work.get("citation_count", 0),
-                    journal_quartile=work.get("journal_quartile", 2),
-                    influential_citations=work.get("influential_citation_count", 0),
-                    max_author_hindex=work.get("max_author_hindex", 0),
-                    institution_in_top100=work.get("institution_in_top100", False),
-                    has_retraction_concern=work.get("has_retraction_concern", False),
-                    year=work.get("publication_year", 2020),
-                    has_image_heavy_methods=work.get("has_image_heavy_methods", False),
+                    citation_count=work.citation_count,
+                    journal_quartile=getattr(work, "journal_quartile", 2),
+                    influential_citations=getattr(work, "influential_citation_count", 0),
+                    max_author_hindex=getattr(work, "max_author_hindex", 0),
+                    institution_in_top100=getattr(work, "institution_in_top100", False),
+                    has_retraction_concern=getattr(work, "has_retraction_concern", False),
+                    year=work.publication_year or 2020,
+                    has_image_heavy_methods=getattr(work, "has_image_heavy_methods", False),
                 )
                 priority = compute_priority(metadata)
 
@@ -100,14 +126,14 @@ def discover(
                 paper = Paper(
                     id=str(uuid.uuid4()),
                     doi=doi,
-                    title=work.get("title", "Unknown"),
-                    abstract=work.get("abstract"),
-                    authors_json=json.dumps(work.get("authors", [])),
-                    journal=work.get("journal"),
-                    journal_issn=work.get("issn"),
-                    publication_year=work.get("publication_year"),
-                    citation_count=work.get("citation_count"),
-                    influential_citation_count=work.get("influential_citation_count"),
+                    title=work.title or "Unknown",
+                    abstract=work.abstract,
+                    authors_json=json.dumps([a.name for a in work.authors]),
+                    journal=work.journal,
+                    journal_issn=work.issn,
+                    publication_year=work.publication_year,
+                    citation_count=work.citation_count,
+                    influential_citation_count=getattr(work, "influential_citation_count", None),
                     priority_score=priority,
                     source="openalex",
                     status="pending",
@@ -120,17 +146,40 @@ def discover(
     asyncio.run(_run())
 
 
+def _validate_doi(doi: str) -> str:
+    """Validate and normalize a DOI string."""
+    from snoopy.validation import validate_doi
+
+    try:
+        return validate_doi(doi)
+    except ValueError as e:
+        raise click.BadParameter(str(e))
+
+
 @main.command()
 @click.option("--doi", default=None, help="DOI of paper to analyze")
 @click.option("--pdf", "pdf_path", default=None, type=click.Path(exists=True), help="Path to PDF")
+@click.option("--from-stage", default=None, help="Start from this pipeline stage")
+@click.option("--to-stage", default=None, help="Stop after this pipeline stage")
+@click.option("--force-stage", multiple=True, help="Force re-run of specific stage(s)")
 @click.pass_context
-def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
+def analyze(
+    ctx: click.Context,
+    doi: str | None,
+    pdf_path: str | None,
+    from_stage: str | None,
+    to_stage: str | None,
+    force_stage: tuple[str, ...],
+) -> None:
     """Analyze a single paper by DOI or local PDF path."""
     config = ctx.obj["config"]
 
     if not doi and not pdf_path:
         click.echo("Error: provide either --doi or --pdf", err=True)
         sys.exit(1)
+
+    if doi:
+        doi = _validate_doi(doi)
 
     async def _run() -> None:
         from snoopy.db.models import Paper
@@ -141,11 +190,10 @@ def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
         with get_session() as session:
             if doi:
                 from sqlalchemy import select
-                existing = session.execute(
-                    select(Paper).where(Paper.doi == doi)
-                ).scalars().first()
+
+                existing = session.execute(select(Paper).where(Paper.doi == doi)).scalars().first()
                 if existing:
-                    paper_id = existing.id
+                    paper_id = str(existing.id)
                     click.echo(f"Paper already in database: {paper_id}")
                 else:
                     paper = Paper(
@@ -159,8 +207,13 @@ def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
                     click.echo(f"Added paper {paper_id} for DOI {doi}")
             else:
                 import hashlib
-                pdf = Path(pdf_path)
-                sha256 = hashlib.sha256(pdf.read_bytes()).hexdigest()
+
+                pdf = Path(pdf_path)  # type: ignore[arg-type]
+                h = hashlib.sha256()
+                with open(pdf, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(8192), b""):
+                        h.update(chunk)
+                sha256 = h.hexdigest()
                 paper = Paper(
                     id=paper_id,
                     title=pdf.stem,
@@ -174,7 +227,15 @@ def analyze(ctx: click.Context, doi: str | None, pdf_path: str | None) -> None:
 
         orchestrator = PipelineOrchestrator(config)
         click.echo("Starting analysis pipeline...")
-        await orchestrator.process_paper(paper_id)
+        if force_stage or from_stage or to_stage:
+            await orchestrator.process_paper_stages(
+                paper_id,
+                from_stage=from_stage,
+                to_stage=to_stage,
+                force_stages=list(force_stage) if force_stage else None,
+            )
+        else:
+            await orchestrator.process_paper(paper_id)
         click.echo(f"Analysis complete. Paper ID: {paper_id}")
         click.echo(f"Run 'snoopy report --paper-id {paper_id}' to view the report.")
 
@@ -211,11 +272,13 @@ def report(ctx: click.Context, paper_id: str, fmt: str) -> None:
     from snoopy.db.models import Report
 
     with get_session() as session:
-        rpt = session.execute(
-            select(Report)
-            .where(Report.paper_id == paper_id)
-            .order_by(Report.created_at.desc())
-        ).scalars().first()
+        rpt = (
+            session.execute(
+                select(Report).where(Report.paper_id == paper_id).order_by(Report.created_at.desc())
+            )
+            .scalars()
+            .first()
+        )
 
         if not rpt:
             click.echo(f"No report found for paper {paper_id}", err=True)
@@ -247,12 +310,16 @@ def status(ctx: click.Context) -> None:
             click.echo(f"  {status_val}: {count}")
 
         # Show top priority pending
-        top = session.execute(
-            select(Paper)
-            .where(Paper.status == "pending")
-            .order_by(Paper.priority_score.desc())
-            .limit(5)
-        ).scalars().all()
+        top = (
+            session.execute(
+                select(Paper)
+                .where(Paper.status == "pending")
+                .order_by(Paper.priority_score.desc())
+                .limit(5)
+            )
+            .scalars()
+            .all()
+        )
 
         if top:
             click.echo("\nTop priority pending papers:")
@@ -296,12 +363,98 @@ def demo(
     )
 
 
+@main.command()
+@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option("--port", default=8000, help="Port to bind to")
+@click.pass_context
+def serve(ctx: click.Context, host: str, port: int) -> None:
+    """Start the API server."""
+    import uvicorn
+
+    from snoopy.api.app import create_app
+
+    app = create_app(ctx.obj["config"])
+    uvicorn.run(app, host=host, port=port)
+
+
 @main.command("config")
 @click.pass_context
 def show_config(ctx: click.Context) -> None:
     """Show current configuration."""
     config = ctx.obj["config"]
     click.echo(config.model_dump_json(indent=2))
+
+
+# ---------------------------------------------------------------------------
+# db subcommand group  --  Alembic migration helpers
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+@click.pass_context
+def db(ctx: click.Context) -> None:
+    """Database migration commands (powered by Alembic)."""
+
+
+@db.command()
+@click.option(
+    "--revision",
+    default="head",
+    show_default=True,
+    help="Revision target (default: head).",
+)
+@click.pass_context
+def upgrade(ctx: click.Context, revision: str) -> None:
+    """Run migrations forward to the target revision (default: head)."""
+    from alembic import command as alembic_cmd
+
+    cfg = ctx.obj["config"]
+    alembic_cfg = _make_alembic_config(cfg.storage.database_url)
+    click.echo(f"Upgrading database to revision '{revision}' ...")
+    alembic_cmd.upgrade(alembic_cfg, revision)
+    click.echo("Done.")
+
+
+@db.command()
+@click.option(
+    "--revision",
+    default="-1",
+    show_default=True,
+    help="Revision target (default: -1, i.e. rollback one step).",
+)
+@click.pass_context
+def downgrade(ctx: click.Context, revision: str) -> None:
+    """Rollback migrations to the target revision (default: one step back)."""
+    from alembic import command as alembic_cmd
+
+    cfg = ctx.obj["config"]
+    alembic_cfg = _make_alembic_config(cfg.storage.database_url)
+    click.echo(f"Downgrading database to revision '{revision}' ...")
+    alembic_cmd.downgrade(alembic_cfg, revision)
+    click.echo("Done.")
+
+
+@db.command()
+@click.pass_context
+def current(ctx: click.Context) -> None:
+    """Show the current migration revision stamped in the database."""
+    from alembic import command as alembic_cmd
+
+    cfg = ctx.obj["config"]
+    alembic_cfg = _make_alembic_config(cfg.storage.database_url)
+    alembic_cmd.current(alembic_cfg, verbose=True)
+
+
+def _make_alembic_config(database_url: str):
+    """Build an :class:`alembic.config.Config` pointing at the project ini."""
+    from pathlib import Path as _Path
+
+    from alembic.config import Config as AlembicConfig
+
+    ini_path = _Path(__file__).resolve().parent.parent / "alembic.ini"
+    alembic_cfg = AlembicConfig(str(ini_path))
+    alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+    return alembic_cfg
 
 
 if __name__ == "__main__":

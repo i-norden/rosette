@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from math import log10
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -87,9 +86,7 @@ def compute_priority(paper: PaperMetadata) -> float:
     # --- Influential citations (15%) ---
     # log10(1000) = 3.0 is the maximum
     capped_influential = min(paper.influential_citations, 1_000)
-    influential_score = (
-        _safe_log10(capped_influential) / 3.0 if capped_influential > 0 else 0.0
-    )
+    influential_score = _safe_log10(capped_influential) / 3.0 if capped_influential > 0 else 0.0
     influential_score = min(influential_score, 1.0)
 
     # --- Max author h-index (10%) ---

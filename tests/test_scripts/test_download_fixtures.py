@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import httpx
-import pytest
 
 from snoopy.demo.fixtures import (
     _count_files,
@@ -157,6 +156,7 @@ class TestGenerateSyntheticForgeries:
 
     def test_images_are_valid_pngs(self, tmp_path: Path, monkeypatch) -> None:
         from PIL import Image
+
         monkeypatch.setattr(fixtures_mod, "FIXTURES_DIR", tmp_path)
         generate_synthetic_forgeries()
         out_dir = tmp_path / "synthetic"
