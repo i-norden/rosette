@@ -1,7 +1,6 @@
 """Tests for evidence aggregation."""
 
 from snoopy.analysis.evidence import (
-    AggregatedEvidence,
     aggregate_findings,
     compute_figure_severity,
     compute_overall_confidence,

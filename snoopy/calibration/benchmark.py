@@ -13,12 +13,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from snoopy.analysis.evidence import aggregate_findings
-from snoopy.analysis.run_analysis import run_image_forensics, run_intra_paper_cross_ref
+from snoopy.analysis.run_analysis import run_image_forensics
 from snoopy.calibration.metrics import (
     CalibrationReport,
-    MethodMetrics,
     compute_method_metrics,
-    export_metrics_csv,
 )
 from snoopy.config import AnalysisConfig
 

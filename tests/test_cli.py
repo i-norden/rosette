@@ -157,7 +157,6 @@ class TestAnalyzeCommand:
         mock_orch_class.return_value = mock_orch_instance
 
         # Make process_paper a proper coroutine
-        import asyncio
 
         async def mock_process_paper(paper_id):
             pass

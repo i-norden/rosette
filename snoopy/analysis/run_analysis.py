@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from snoopy.analysis.cross_reference import compute_ahash, compute_phash, hash_distance
+from snoopy.analysis.cross_reference import hash_distance
 from snoopy.analysis.image_forensics import (
     CloneResult,
     ELAResult,

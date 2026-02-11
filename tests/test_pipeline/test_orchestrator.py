@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from snoopy.config import SnoopyConfig
-from snoopy.db.models import Base, Finding, Paper, ProcessingLog
+from snoopy.db.models import Paper, ProcessingLog
 from snoopy.db.session import get_session, init_db
 from snoopy.pipeline.orchestrator import PipelineOrchestrator
 

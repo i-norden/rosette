@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from snoopy.discovery.pubpeer import PubPeerResult, check_pubpeer
+from snoopy.discovery.pubpeer import check_pubpeer
 
 
 def _make_response(status_code: int, json_data: dict | None = None) -> MagicMock:

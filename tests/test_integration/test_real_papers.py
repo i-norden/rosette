@@ -210,7 +210,7 @@ class TestCleanControls:
                 pass  # PDF extraction issues are OK in this context
 
         assert len(false_positives) == 0, (
-            f"False positives on clean papers:\n" + "\n".join(false_positives)
+            "False positives on clean papers:\n" + "\n".join(false_positives)
         )
 
 

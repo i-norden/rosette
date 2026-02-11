@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from snoopy.api.app import create_app
 from snoopy.config import SnoopyConfig
-from snoopy.db.models import Author, Base, Finding, Paper, Report
-from snoopy.db.session import get_async_session, get_session, init_async_db, init_db
+from snoopy.db.models import Paper
+from snoopy.db.session import get_session, init_async_db, init_db
 
 
 @pytest.fixture

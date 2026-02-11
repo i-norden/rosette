@@ -1,6 +1,5 @@
 """Tests for statistical integrity checks."""
 
-import math
 
 from snoopy.analysis.statistical import (
     benford_test,
@@ -42,14 +41,14 @@ class TestBenford:
             # Logarithmic distribution follows Benford's law
             values.append(10 ** (random.random() * 4))
         result = benford_test(values)
-        assert result.conforms == True
+        assert result.conforms is True
         assert result.n_values == 1000
 
     def test_uniform_leading_digits_fail(self):
         # All values starting with 5 - definitely not Benford
         values = [50 + i * 0.1 for i in range(500)]
         result = benford_test(values)
-        assert result.conforms == False
+        assert result.conforms is False
 
     def test_empty_values(self):
         result = benford_test([])

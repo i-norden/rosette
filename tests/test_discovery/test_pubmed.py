@@ -7,7 +7,6 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from snoopy.discovery.pubmed import (
-    PubMedArticle,
     _parse_article_xml,
     fetch_details,
     search_pubmed,

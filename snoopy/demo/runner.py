@@ -441,7 +441,6 @@ async def _run_llm_analysis(
             fig_id = f.get("figure_id", "")
             if fig_id and fig_id not in image_paths:
                 # Try to find the actual image path
-                evidence = f.get("evidence", {})
                 # Look for image files in the figures_dir
                 for candidate in figures_dir.rglob(fig_id):
                     if candidate.is_file():

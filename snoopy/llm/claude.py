@@ -11,7 +11,6 @@ from pathlib import Path
 
 import anthropic
 
-from .base import LLMResponse
 
 logger = logging.getLogger(__name__)
 

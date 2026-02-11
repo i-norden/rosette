@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.config import SnoopyConfig, load_config
-from snoopy.db.models import Base
+from snoopy.config import SnoopyConfig
 from snoopy.db.session import init_db, get_session
 
 

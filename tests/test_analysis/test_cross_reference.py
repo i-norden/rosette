@@ -12,7 +12,7 @@ from snoopy.analysis.cross_reference import (
     find_cross_paper_duplicates,
     hash_distance,
 )
-from snoopy.db.models import Base, Figure, Paper
+from snoopy.db.models import Figure, Paper
 from snoopy.db.session import get_session, init_db
 
 

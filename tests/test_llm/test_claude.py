@@ -122,7 +122,7 @@ class TestClaudeProviderRetry:
     async def test_retries_on_rate_limit(self):
         import anthropic as anthropic_mod
 
-        with patch("anthropic.AsyncAnthropic") as mock_anthropic:
+        with patch("anthropic.AsyncAnthropic"):
             provider = ClaudeProvider(api_key="sk-ant-test")
 
             # First call raises rate limit, second succeeds

@@ -7,15 +7,14 @@ risk scores based on retraction history and anomalous publication patterns.
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 
 import community as community_louvain
 import networkx as nx
-from sqlalchemy import func, select
+from sqlalchemy import select
 
-from snoopy.db.models import Author, AuthorPaperLink, Paper
+from snoopy.db.models import Author, AuthorPaperLink
 from snoopy.db.session import get_session
 
 logger = logging.getLogger(__name__)

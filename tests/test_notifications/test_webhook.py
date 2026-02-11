@@ -176,8 +176,6 @@ class TestExponentialBackoff:
 
         delays_observed = []
 
-        original_sleep = __import__("asyncio").sleep
-
         async def _mock_sleep(delay):
             delays_observed.append(delay)
 

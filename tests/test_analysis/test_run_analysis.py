@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
-from PIL import Image
 
 from snoopy.analysis.run_analysis import (
     run_image_forensics,

@@ -9,7 +9,6 @@ scientific imaging equipment, and XMP metadata from editing workflows.
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path

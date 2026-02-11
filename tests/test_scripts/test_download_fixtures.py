@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import httpx
-import pytest
 
 from snoopy.demo.fixtures import (
     _count_files,

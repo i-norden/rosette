@@ -399,7 +399,6 @@ def db(ctx: click.Context) -> None:
 def upgrade(ctx: click.Context, revision: str) -> None:
     """Run migrations forward to the target revision (default: head)."""
     from alembic import command as alembic_cmd
-    from alembic.config import Config as AlembicConfig
 
     cfg = ctx.obj["config"]
     alembic_cfg = _make_alembic_config(cfg.storage.database_url)
@@ -419,7 +418,6 @@ def upgrade(ctx: click.Context, revision: str) -> None:
 def downgrade(ctx: click.Context, revision: str) -> None:
     """Rollback migrations to the target revision (default: one step back)."""
     from alembic import command as alembic_cmd
-    from alembic.config import Config as AlembicConfig
 
     cfg = ctx.obj["config"]
     alembic_cfg = _make_alembic_config(cfg.storage.database_url)
@@ -433,14 +431,13 @@ def downgrade(ctx: click.Context, revision: str) -> None:
 def current(ctx: click.Context) -> None:
     """Show the current migration revision stamped in the database."""
     from alembic import command as alembic_cmd
-    from alembic.config import Config as AlembicConfig
 
     cfg = ctx.obj["config"]
     alembic_cfg = _make_alembic_config(cfg.storage.database_url)
     alembic_cmd.current(alembic_cfg, verbose=True)
 
 
-def _make_alembic_config(database_url: str) -> "AlembicConfig":
+def _make_alembic_config(database_url: str):
     """Build an :class:`alembic.config.Config` pointing at the project ini."""
     from pathlib import Path as _Path
 

@@ -23,7 +23,7 @@ from snoopy.extraction.pdf_parser import download_pdf, extract_text
 from snoopy.extraction.stats_extractor import extract_means_and_ns, extract_test_statistics
 from snoopy.extraction.table_extractor import extract_tables
 from snoopy.llm.claude import ClaudeProvider
-from snoopy.pipeline.stages import PIPELINE_STAGES, StageResult, StageStatus
+from snoopy.pipeline.stages import PIPELINE_STAGES
 from snoopy.reporting.proof import generate_html_report, generate_markdown_report
 
 logger = logging.getLogger(__name__)
@@ -545,7 +545,7 @@ class PipelineOrchestrator:
                 })
 
             method_weights = self._build_method_weights()
-            evidence = aggregate_findings(finding_dicts, method_weights=method_weights)
+            aggregate_findings(finding_dicts, method_weights=method_weights)
             # Store aggregated result as paper metadata for report stage
             paper = await session.get(Paper, paper_id)
             if paper:
