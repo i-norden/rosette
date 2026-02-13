@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 
@@ -54,7 +54,7 @@ jobs:
         run: pip install ".[dev]"
 
       - name: Run tests (skip integration) with coverage
-        run: pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing
+        run: pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=80
 
   type-check:
     name: Type Check

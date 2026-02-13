@@ -34,6 +34,7 @@ class DiscoveryConfig(BaseModel):
     semantic_scholar_api_key: str | None = None
     ncbi_api_key: str | None = None
     unpaywall_email: str | None = None
+    contact_email: str = "research@example.com"
     scimago_csv_path: str = "data/scimago.csv"
 
 
@@ -165,6 +166,10 @@ class SnoopyConfig(BaseSettings):
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    require_authentication: bool = Field(
+        default=True,
+        description="When true, API keys must be configured. Set to false for dev mode.",
+    )
     api_keys: list[str] | None = Field(
         default=None,
         description="List of valid API keys. When None, all requests are allowed.",

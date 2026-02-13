@@ -20,7 +20,11 @@ _AsyncSessionFactory = None
 
 
 def init_db(database_url: str = "sqlite:///snoopy.db") -> None:
-    """Initialize the database engine and create all tables."""
+    """Initialize the database engine and create all tables.
+
+    WARNING: Must be called once at startup before any concurrent access.
+    Not safe to call from multiple threads simultaneously.
+    """
     global _engine, _SessionFactory
 
     connect_args = {}
@@ -37,6 +41,9 @@ def init_async_db(database_url: str = "sqlite:///snoopy.db") -> None:
 
     Converts standard database URLs to their async equivalents
     (e.g. sqlite:// -> sqlite+aiosqlite://).
+
+    WARNING: Must be called once at startup before any concurrent access.
+    Not safe to call from multiple threads simultaneously.
     """
     global _async_engine, _AsyncSessionFactory
 

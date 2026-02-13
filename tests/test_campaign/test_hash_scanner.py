@@ -127,23 +127,26 @@ class TestNearbyPrefixes:
 
 
 class TestBuildIndex:
-    def test_builds_index_from_all_papers(self, scanner_config, scanner_db):
+    @pytest.mark.asyncio
+    async def test_builds_index_from_all_papers(self, scanner_config, scanner_db):
         scanner = CampaignHashScanner(scanner_config, scanner_db)
-        scanner._build_index()
+        await scanner._build_index()
 
         total = sum(len(v) for v in scanner._index.values())
         assert total == 4  # 4 figures total
 
-    def test_builds_index_filtered_by_paper_ids(self, scanner_config, scanner_db):
+    @pytest.mark.asyncio
+    async def test_builds_index_filtered_by_paper_ids(self, scanner_config, scanner_db):
         scanner = CampaignHashScanner(scanner_config, scanner_db)
-        scanner._build_index(paper_ids=["paper-a"])
+        await scanner._build_index(paper_ids=["paper-a"])
 
         total = sum(len(v) for v in scanner._index.values())
         assert total == 2  # Paper A has 2 figures
 
-    def test_index_uses_prefix_buckets(self, scanner_config, scanner_db):
+    @pytest.mark.asyncio
+    async def test_index_uses_prefix_buckets(self, scanner_config, scanner_db):
         scanner = CampaignHashScanner(scanner_config, scanner_db)
-        scanner._build_index()
+        await scanner._build_index()
 
         # fig-a1 and fig-b1 both have prefix "ab" (first 2 hex chars) -> same bucket
         assert "ab" in scanner._index
@@ -152,26 +155,28 @@ class TestBuildIndex:
         assert "paper-a" in paper_ids
         assert "paper-b" in paper_ids
 
-    def test_skips_null_phash(self, scanner_config, scanner_db):
+    @pytest.mark.asyncio
+    async def test_skips_null_phash(self, scanner_config, scanner_db):
         with get_session() as session:
             session.add(Figure(
                 id="fig-null", paper_id="paper-a", phash=None,
             ))
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
-        scanner._build_index()
+        await scanner._build_index()
 
         total = sum(len(v) for v in scanner._index.values())
         assert total == 4  # null phash figure not indexed
 
-    def test_skips_short_phash(self, scanner_config, scanner_db):
+    @pytest.mark.asyncio
+    async def test_skips_short_phash(self, scanner_config, scanner_db):
         with get_session() as session:
             session.add(Figure(
                 id="fig-short", paper_id="paper-a", phash="a",
             ))
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
-        scanner._build_index()
+        await scanner._build_index()
 
         total = sum(len(v) for v in scanner._index.values())
         assert total == 4  # short phash (len < _DEFAULT_PREFIX_LEN) not indexed

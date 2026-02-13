@@ -50,6 +50,10 @@ class PValue:
 
 _CONTEXT_CHARS = 80
 
+# Maximum input text length for regex matching (500KB).
+# Academic papers shouldn't exceed this; truncation prevents regex DoS on adversarial inputs.
+_MAX_TEXT_LENGTH = 512_000
+
 
 def _surrounding(text: str, match: re.Match, chars: int = _CONTEXT_CHARS) -> str:
     """Return up to *chars* characters of text surrounding *match*."""
@@ -191,6 +195,7 @@ def extract_means_and_ns(text: str) -> list[MeanReport]:
     Returns:
         A list of :class:`MeanReport` instances.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[MeanReport] = []
     for m in _MEAN_N_RE.finditer(text):
         try:
@@ -217,6 +222,7 @@ def extract_test_statistics(text: str) -> list[TestStatistic]:
     Returns:
         A list of :class:`TestStatistic` instances.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[TestStatistic] = []
 
     # t-test
@@ -312,6 +318,7 @@ def extract_p_values(text: str) -> list[PValue]:
     Returns:
         A list of :class:`PValue` instances.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[PValue] = []
     for m in _P_VALUE_RE.finditer(text):
         try:
@@ -342,6 +349,7 @@ def extract_numerical_values(text: str) -> list[float]:
     Returns:
         A list of floats in the order they appear in the text.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     values: list[float] = []
     for m in _DECIMAL_RE.finditer(text):
         try:
@@ -365,6 +373,7 @@ def extract_means_sds_and_ns(text: str) -> list[MeanReport]:
     Returns:
         A list of :class:`MeanReport` with SD/SE fields populated.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[MeanReport] = []
     seen_positions: set[int] = set()
 

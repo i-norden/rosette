@@ -34,8 +34,15 @@ async def _verify_api_key(request: Request) -> None:
     config = request.app.state.config
     api_keys = getattr(config, "api_keys", None)
     if not api_keys:
+        require_auth = getattr(config, "require_authentication", True)
+        if require_auth:
+            raise HTTPException(
+                status_code=500,
+                detail="Server misconfigured: API keys are required but none are configured. "
+                "Set api_keys in config or set require_authentication: false for dev mode.",
+            )
         logger.warning(
-            "SECURITY: No API keys configured - all requests allowed"
+            "SECURITY: No API keys configured - all requests allowed (require_authentication=false)"
         )
         return
     key = request.headers.get("X-API-Key")

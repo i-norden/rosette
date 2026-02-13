@@ -60,10 +60,14 @@ def _try_parse_json(text: str) -> dict | None:
     # Strip optional markdown code fence.
     if cleaned.startswith("```"):
         # Remove opening fence (with optional language tag).
-        first_newline = cleaned.index("\n")
-        cleaned = cleaned[first_newline + 1 :]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3].strip()
+        first_newline = cleaned.find("\n")
+        if first_newline == -1:
+            # Fence with no newline (e.g. just "```" or "```json") — nothing to parse
+            pass
+        else:
+            cleaned = cleaned[first_newline + 1 :]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3].strip()
 
     try:
         return json.loads(cleaned)

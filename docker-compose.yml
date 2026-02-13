@@ -6,6 +6,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file: .env
+    ports:
+      - "8000:8000"
     environment:
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
       SNOOPY__STORAGE__DATABASE_URL: "postgresql+asyncpg://snoopy:${POSTGRES_PASSWORD}@postgres:5432/snoopy"

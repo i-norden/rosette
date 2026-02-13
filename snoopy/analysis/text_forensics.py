@@ -11,6 +11,7 @@ writing style emerging in science."
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
@@ -23,43 +24,34 @@ logger = logging.getLogger(__name__)
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _PHRASES_PATH = _DATA_DIR / "tortured_phrases.json"
 
-# In-memory cache for the loaded dictionary
-_phrase_dict: dict[str, str] | None = None
-
-
+@functools.lru_cache(maxsize=1)
 def _load_phrases() -> dict[str, str]:
-    """Load the tortured phrase dictionary (lazy, cached).
+    """Load the tortured phrase dictionary (lazy, cached, thread-safe via lru_cache).
 
     Returns:
         Dict mapping tortured phrase (lower-case) to its correct equivalent.
     """
-    global _phrase_dict
-    if _phrase_dict is not None:
-        return _phrase_dict
-
     if _PHRASES_PATH.exists():
         try:
             with open(_PHRASES_PATH) as f:
                 raw = json.load(f)
             if isinstance(raw, dict):
-                _phrase_dict = {k.lower(): v for k, v in raw.items()}
+                return {k.lower(): v for k, v in raw.items()}
             elif isinstance(raw, list):
                 # List of {"tortured": ..., "correct": ...} dicts
-                _phrase_dict = {
+                return {
                     entry["tortured"].lower(): entry.get("correct", "")
                     for entry in raw
                     if isinstance(entry, dict) and "tortured" in entry
                 }
             else:
-                _phrase_dict = {}
+                return {}
         except Exception as e:
             logger.warning("Failed to load tortured phrases: %s", e)
-            _phrase_dict = {}
+            return {}
     else:
         logger.debug("Tortured phrases file not found at %s", _PHRASES_PATH)
-        _phrase_dict = {}
-
-    return _phrase_dict
+        return {}
 
 
 @dataclass

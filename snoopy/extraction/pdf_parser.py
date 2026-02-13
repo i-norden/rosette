@@ -155,6 +155,21 @@ async def download_pdf(url: str, output_path: str) -> str:
     except Exception as exc:
         raise RuntimeError(f"Failed to download PDF from {url}") from exc
 
+    # Validate the downloaded file starts with the PDF magic bytes
+    try:
+        with open(out, "rb") as fh:
+            magic = fh.read(5)
+        if not magic.startswith(b"%PDF-"):
+            out.unlink(missing_ok=True)
+            raise ValueError(
+                f"Downloaded file from {url} is not a valid PDF (missing %%PDF- magic bytes)"
+            )
+    except ValueError:
+        raise
+    except Exception as exc:
+        out.unlink(missing_ok=True)
+        raise RuntimeError(f"Failed to validate downloaded PDF from {url}") from exc
+
     digest = sha256.hexdigest()
     logger.info("Downloaded PDF from %s to %s (SHA-256: %s)", url, output_path, digest)
     return digest

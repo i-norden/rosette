@@ -15,8 +15,14 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _CROSSREF_API = "https://api.crossref.org"
-_USER_AGENT = "snoopy/0.1 (academic research tool; mailto:research@example.com)"
+_DEFAULT_CONTACT_EMAIL = "research@example.com"
 _TIMEOUT = 30.0
+
+
+def _get_user_agent(contact_email: str | None = None) -> str:
+    """Build user agent string with configurable contact email."""
+    email = contact_email or _DEFAULT_CONTACT_EMAIL
+    return f"snoopy/0.1 (academic research tool; mailto:{email})"
 
 
 @dataclass
@@ -42,17 +48,18 @@ class AuthorRetractionHistory:
     retracted_dois: list[str] | None = None
 
 
-async def check_retraction_status(doi: str) -> RetractionInfo:
+async def check_retraction_status(doi: str, contact_email: str | None = None) -> RetractionInfo:
     """Check whether a paper has been retracted via the Crossref API.
 
     Args:
         doi: The DOI of the paper to check.
+        contact_email: Contact email for the User-Agent header.
 
     Returns:
         RetractionInfo with retraction status and details.
     """
     async with httpx.AsyncClient(
-        headers={"User-Agent": _USER_AGENT},
+        headers={"User-Agent": _get_user_agent(contact_email)},
         timeout=_TIMEOUT,
     ) as client:
         try:
@@ -105,12 +112,15 @@ async def check_retraction_status(doi: str) -> RetractionInfo:
     return RetractionInfo(is_retracted=False)
 
 
-async def check_author_retractions(author_name: str, limit: int = 50) -> AuthorRetractionHistory:
+async def check_author_retractions(
+    author_name: str, limit: int = 50, contact_email: str | None = None
+) -> AuthorRetractionHistory:
     """Search for retractions associated with an author name.
 
     Args:
         author_name: The author's name to search for.
         limit: Maximum number of results to check.
+        contact_email: Contact email for the User-Agent header.
 
     Returns:
         AuthorRetractionHistory with retraction counts and DOIs.
@@ -119,7 +129,7 @@ async def check_author_retractions(author_name: str, limit: int = 50) -> AuthorR
     eoc_count = 0
 
     async with httpx.AsyncClient(
-        headers={"User-Agent": _USER_AGENT},
+        headers={"User-Agent": _get_user_agent(contact_email)},
         timeout=_TIMEOUT,
     ) as client:
         try:

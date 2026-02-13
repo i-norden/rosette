@@ -8,7 +8,7 @@ import pytest
 
 from snoopy.config import SnoopyConfig
 from snoopy.db.models import Paper, ProcessingLog
-from snoopy.db.session import get_session, init_db
+from snoopy.db.session import get_session, init_async_db, init_db
 from snoopy.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -30,6 +30,7 @@ def orchestrator_config(tmp_path) -> SnoopyConfig:
 def seeded_db(orchestrator_config) -> str:
     """Initialize DB and seed with a pending paper. Return its paper_id."""
     init_db(orchestrator_config.storage.database_url)
+    init_async_db(orchestrator_config.storage.database_url)
 
     paper_id = "test-paper-orch-001"
     with get_session() as session:

@@ -10,7 +10,7 @@ from sqlalchemy import select
 from snoopy.analysis.cross_reference import hash_distance
 from snoopy.config import SnoopyConfig
 from snoopy.db.models import Campaign, CampaignPaper, Figure, ImageHashMatch
-from snoopy.db.session import get_async_session, get_session
+from snoopy.db.session import get_async_session
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class CampaignHashScanner:
         # In-memory index: prefix -> [(figure_id, paper_id, full_hash)]
         self._index: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
 
-    def _build_index(self, paper_ids: list[str] | None = None) -> None:
+    async def _build_index(self, paper_ids: list[str] | None = None) -> None:
         """Build prefix-bucketed hash index from DB.
 
         Args:
@@ -40,7 +40,7 @@ class CampaignHashScanner:
         """
         self._index.clear()
 
-        with get_session() as session:
+        async with get_async_session() as session:
             offset = 0
             while True:
                 query = select(Figure.id, Figure.paper_id, Figure.phash).where(
@@ -49,7 +49,8 @@ class CampaignHashScanner:
                 if paper_ids is not None:
                     query = query.where(Figure.paper_id.in_(paper_ids))
 
-                rows = session.execute(query.offset(offset).limit(_PAGE_SIZE)).all()
+                result = await session.execute(query.offset(offset).limit(_PAGE_SIZE))
+                rows = result.all()
 
                 if not rows:
                     break
@@ -64,10 +65,18 @@ class CampaignHashScanner:
 
         total = sum(len(v) for v in self._index.values())
         logger.info("Hash index built: %d figures in %d buckets", total, len(self._index))
+        max_index_size = getattr(self.config.campaign, "max_index_size", 1_000_000)
+        if total > max_index_size:
+            logger.warning(
+                "Hash index size (%d) exceeds max_index_size (%d). "
+                "Consider using an on-disk index for better memory efficiency.",
+                total,
+                max_index_size,
+            )
 
     async def scan_all_pairs(self) -> list[ImageHashMatch]:
         """Full database scan for cross-paper hash matches."""
-        self._build_index()
+        await self._build_index()
         return await self._find_matches_in_index()
 
     async def scan_incremental(self, new_paper_ids: list[str]) -> list[ImageHashMatch]:
@@ -77,17 +86,18 @@ class CampaignHashScanner:
         new papers' figures against the existing index.
         """
         # Build index from all existing figures
-        self._build_index()
+        await self._build_index()
 
         # Get new figures
         new_figures: list[tuple[str, str, str]] = []
-        with get_session() as session:
+        async with get_async_session() as session:
             for paper_id in new_paper_ids:
-                rows = session.execute(
+                result = await session.execute(
                     select(Figure.id, Figure.paper_id, Figure.phash)
                     .where(Figure.paper_id == paper_id)
                     .where(Figure.phash.isnot(None))
-                ).all()
+                )
+                rows = result.all()
                 for row in rows:
                     if row.phash and len(row.phash) >= self._prefix_len:
                         new_figures.append((row.id, row.paper_id, row.phash))

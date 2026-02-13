@@ -88,6 +88,27 @@ class TestTryParseJson:
         result = _try_parse_json('{"a": {"b": [1, 2, 3]}}')
         assert result == {"a": {"b": [1, 2, 3]}}
 
+    def test_code_fence_no_newline(self):
+        """Regression: code fence with no newline should not crash (was ValueError)."""
+        result = _try_parse_json("```")
+        assert result is None
+
+    def test_code_fence_language_tag_no_newline(self):
+        """Code fence like ```json with no newline should not crash."""
+        result = _try_parse_json("```json")
+        assert result is None
+
+    def test_nested_code_fences(self):
+        """Nested fences should be handled gracefully."""
+        text = '```\n```json\n{"key": "value"}\n```\n```'
+        result = _try_parse_json(text)
+        # May or may not parse, but should not crash
+        assert result is None or isinstance(result, dict)
+
+    def test_code_fence_with_only_closing(self):
+        result = _try_parse_json('```\n```')
+        assert result is None
+
 
 class TestClaudeProviderInit:
     def test_requires_api_key(self):

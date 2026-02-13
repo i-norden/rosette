@@ -119,11 +119,16 @@ def compute_author_risk(author_id: str) -> AuthorRisk | None:
                 .all()
             )
 
-            flagged_coauthors = 0
-            for ca_id in coauthor_ids:
-                ca = session.get(Author, ca_id)
-                if ca and ca.flagged_papers and ca.flagged_papers > 0:
-                    flagged_coauthors += 1
+            coauthors = (
+                session.execute(
+                    select(Author).where(Author.id.in_(coauthor_ids))
+                )
+                .scalars()
+                .all()
+            )
+            flagged_coauthors = sum(
+                1 for ca in coauthors if ca.flagged_papers and ca.flagged_papers > 0
+            )
 
             if coauthor_ids:
                 coauthor_risk = min((flagged_coauthors / len(coauthor_ids)) * 30, 15.0)
@@ -174,15 +179,26 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
         for paper_id, author_id in links:
             paper_authors.setdefault(paper_id, []).append(author_id)
 
+        # Batch-fetch all authors referenced in links
+        all_author_ids = {aid for aids in paper_authors.values() for aid in aids}
+        authors_by_id: dict[str, Author] = {}
+        if all_author_ids:
+            fetched = (
+                session.execute(select(Author).where(Author.id.in_(all_author_ids)))
+                .scalars()
+                .all()
+            )
+            authors_by_id = {str(a.id): a for a in fetched}
+
         # Add edges between co-authors
         for paper_id, authors in paper_authors.items():
             for i, a in enumerate(authors):
                 if not G.has_node(a):
-                    author = session.get(Author, a)
+                    author = authors_by_id.get(a)
                     G.add_node(a, name=author.name if author else a)
                 for b in authors[i + 1 :]:
                     if not G.has_node(b):
-                        author = session.get(Author, b)
+                        author = authors_by_id.get(b)
                         G.add_node(b, name=author.name if author else b)
                     if G.has_edge(a, b):
                         G[a][b]["weight"] += 1
@@ -207,6 +223,23 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
     # Score each community
     clusters = []
     with get_session() as session:
+        # Batch-fetch all authors in communities that meet min size
+        all_community_member_ids = {
+            mid for members in communities.values()
+            if len(members) >= min_cluster_size
+            for mid in members
+        }
+        community_authors: dict[str, Author] = {}
+        if all_community_member_ids:
+            fetched = (
+                session.execute(
+                    select(Author).where(Author.id.in_(all_community_member_ids))
+                )
+                .scalars()
+                .all()
+            )
+            community_authors = {str(a.id): a for a in fetched}
+
         for comm_id, members in communities.items():
             if len(members) < min_cluster_size:
                 continue
@@ -217,7 +250,7 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
             author_names = []
 
             for author_id in members:
-                author = session.get(Author, author_id)
+                author = community_authors.get(author_id)
                 if author:
                     author_names.append(str(author.name))
                     total_papers += int(author.total_papers or 0)
