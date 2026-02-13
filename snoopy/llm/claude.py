@@ -140,7 +140,7 @@ class ClaudeProvider:
                 )
                 await asyncio.sleep(delay)
             except anthropic.APIStatusError as exc:
-                if exc.status_code >= 500:
+                if exc.status_code in (502, 503, 529):
                     last_exc = exc
                     delay = _RETRY_BASE_DELAY_S * (2**attempt)
                     logger.warning(

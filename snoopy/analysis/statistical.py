@@ -208,12 +208,10 @@ def pvalue_check(
         # Convert Pearson r to t-statistic: t = r * sqrt((n-2)/(1-r^2))
         n = df[0]
         r = statistic
-        r_squared = r * r
-        if r_squared >= 1.0:
-            computed_p = 0.0
-        else:
-            t_stat = r * math.sqrt((n - 2) / (1 - r_squared))
-            computed_p = float(stats.t.sf(abs(t_stat), n - 2) * 2)
+        # Clamp to avoid floating-point roundoff producing r^2 > 1 (negative sqrt arg)
+        r_squared = min(r * r, 1.0 - 1e-15)
+        t_stat = r * math.sqrt((n - 2) / (1 - r_squared))
+        computed_p = float(stats.t.sf(abs(t_stat), n - 2) * 2)
     else:
         raise ValueError(f"Unknown test type: {test_type!r}. Use 't', 'F', 'chi2', or 'r'.")
 

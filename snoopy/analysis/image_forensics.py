@@ -1,27 +1,12 @@
 """Traditional CV-based image forensics analysis methods."""
 
-import atexit
 import io
 import os
-import shutil
-import tempfile
 from dataclasses import dataclass
 
 import cv2
 import numpy as np
 from PIL import Image
-
-# Managed temporary directory for ELA artifacts — cleaned up on process exit.
-_temp_dir: str | None = None
-
-
-def _get_temp_dir() -> str:
-    """Return a temporary directory for ELA artifacts, creating it if needed."""
-    global _temp_dir
-    if _temp_dir is None or not os.path.isdir(_temp_dir):
-        _temp_dir = tempfile.mkdtemp(prefix="snoopy_ela_")
-        atexit.register(lambda: shutil.rmtree(_temp_dir, ignore_errors=True))
-    return _temp_dir
 
 
 @dataclass
@@ -75,6 +60,8 @@ def error_level_analysis(
         min_max_diff: Absolute minimum max-pixel-difference (0-255) required
             to flag suspicious.  Prevents trivial differences (e.g. 3/255)
             from triggering on clean images (default 15).
+        output_dir: Directory for saving ELA artifact images. Required when
+            the result is suspicious and an artifact image should be saved.
 
     Returns:
         ELAResult with suspicion flag and difference statistics.
@@ -102,22 +89,14 @@ def error_level_analysis(
     suspicious = max_diff >= min_max_diff and max_diff > (mean_diff + 2.0 * std_diff)
 
     ela_image_path = None
-    if suspicious:
+    if suspicious and output_dir:
         # Save the difference image for visual inspection
         ela_visual = np.clip(diff * (255.0 / max(max_diff, 1.0)), 0, 255).astype(np.uint8)
         ela_img = Image.fromarray(ela_visual)
-
-        if output_dir:
-            # Write to specified directory (persistent)
-            os.makedirs(output_dir, exist_ok=True)
-            base_name = os.path.splitext(os.path.basename(image_path))[0]
-            ela_image_path = os.path.join(output_dir, f"{base_name}_ela.png")
-            ela_img.save(ela_image_path)
-        else:
-            # Write to a managed temp directory that is cleaned up on process exit
-            base_name = os.path.splitext(os.path.basename(image_path))[0]
-            ela_image_path = os.path.join(_get_temp_dir(), f"{base_name}_ela.png")
-            ela_img.save(ela_image_path)
+        os.makedirs(output_dir, exist_ok=True)
+        base_name = os.path.splitext(os.path.basename(image_path))[0]
+        ela_image_path = os.path.join(output_dir, f"{base_name}_ela.png")
+        ela_img.save(ela_image_path)
 
     return ELAResult(
         suspicious=suspicious,

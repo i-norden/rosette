@@ -10,7 +10,9 @@ class PaperSubmitRequest(BaseModel):
 
     doi: str | None = Field(default=None, description="DOI of the paper to analyze")
     pdf_upload: str | None = Field(
-        default=None, description="Base64-encoded PDF content for file upload"
+        default=None,
+        max_length=70_000_000,
+        description="Base64-encoded PDF content for file upload (~50 MB decoded limit)",
     )
 
 

@@ -6,6 +6,10 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from snoopy.config import SnoopyConfig
 from snoopy.db.session import init_async_db, init_db
@@ -60,6 +64,20 @@ def create_app(config: SnoopyConfig | None = None) -> FastAPI:
     # Store config on app.state so routes can access via request.app.state
     app.state.config = config
     app.state.orchestrator = None
+
+    # --- Rate limiting ---
+    limiter = Limiter(key_func=get_remote_address, default_limits=[config.rate_limit])
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # --- CORS middleware ---
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=config.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Health check endpoint
     @app.get("/health")

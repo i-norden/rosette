@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 import uuid
 
@@ -31,7 +33,7 @@ async def _verify_api_key(request: Request) -> None:
     config = request.app.state.config
     api_keys = getattr(config, "api_keys", None)
     if not api_keys:
-        # No keys configured — allow all requests (development mode)
+        logger.warning("No API keys configured — all requests are allowed (development mode)")
         return
     key = request.headers.get("X-API-Key")
     if not key or key not in api_keys:
@@ -63,6 +65,14 @@ async def submit_paper(
     """
     if not body.doi and not body.pdf_upload:
         raise HTTPException(status_code=422, detail="Provide either a DOI or PDF upload")
+
+    if body.pdf_upload:
+        try:
+            pdf_bytes = base64.b64decode(body.pdf_upload, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=422, detail="Invalid base64 encoding for pdf_upload")
+        if not pdf_bytes[:5].startswith(b"%PDF-"):
+            raise HTTPException(status_code=422, detail="Uploaded content is not a valid PDF")
 
     if body.doi:
         try:

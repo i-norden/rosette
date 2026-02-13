@@ -164,8 +164,8 @@ class TestClaudeProviderRetry:
             mock_create = AsyncMock(
                 side_effect=[
                     anthropic_mod.APIStatusError(
-                        message="server error",
-                        response=MagicMock(status_code=500),
+                        message="bad gateway",
+                        response=MagicMock(status_code=502),
                         body=None,
                     ),
                     mock_message,
