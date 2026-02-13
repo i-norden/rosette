@@ -24,7 +24,7 @@ def app(tmp_path):
             "pdf_dir": str(tmp_path / "pdfs"),
             "figures_dir": str(tmp_path / "figures"),
             "reports_dir": str(tmp_path / "reports"),
-        }
+        },
     )
     init_db(config.storage.database_url)
     init_async_db(config.storage.database_url)

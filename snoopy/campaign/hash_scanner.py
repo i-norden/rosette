@@ -58,7 +58,7 @@ class CampaignHashScanner:
                 for row in rows:
                     phash = row.phash
                     if phash and len(phash) >= self._prefix_len:
-                        prefix = phash[:self._prefix_len]
+                        prefix = phash[: self._prefix_len]
                         self._index[prefix].append((row.id, row.paper_id, phash))
 
                 offset += _PAGE_SIZE
@@ -107,7 +107,7 @@ class CampaignHashScanner:
         seen_pairs: set[tuple[str, str]] = set()
 
         for fig_id, paper_id, phash in new_figures:
-            prefix = phash[:self._prefix_len]
+            prefix = phash[: self._prefix_len]
             # Check same bucket and neighboring buckets
             for bucket_prefix in self._nearby_prefixes(prefix):
                 for other_id, other_paper_id, other_hash in self._index.get(bucket_prefix, []):

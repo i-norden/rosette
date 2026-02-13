@@ -141,7 +141,9 @@ class CampaignOrchestrator:
 
         field = config_data.get("field", "biomedical")
         min_citations = config_data.get("min_citations", 50)
-        max_papers = int(config_data.get("max_papers") or (campaign.max_papers if campaign else 1000))
+        max_papers = int(
+            config_data.get("max_papers") or (campaign.max_papers if campaign else 1000)
+        )
 
         from snoopy.discovery.openalex import search_works
 

@@ -49,17 +49,22 @@ def scanner_db(scanner_config) -> str:
 
         # Paper A with 2 figures
         paper_a = Paper(
-            id="paper-a", title="Paper A", doi="10.1234/a",
-            source="test", status="complete",
+            id="paper-a",
+            title="Paper A",
+            doi="10.1234/a",
+            source="test",
+            status="complete",
         )
         session.add(paper_a)
 
         fig_a1 = Figure(
-            id="fig-a1", paper_id="paper-a",
+            id="fig-a1",
+            paper_id="paper-a",
             phash="abcd1234abcd1234",  # 16 hex chars
         )
         fig_a2 = Figure(
-            id="fig-a2", paper_id="paper-a",
+            id="fig-a2",
+            paper_id="paper-a",
             phash="1111222233334444",
         )
         session.add(fig_a1)
@@ -67,37 +72,50 @@ def scanner_db(scanner_config) -> str:
 
         # Paper B with a figure very similar to paper A's fig_a1
         paper_b = Paper(
-            id="paper-b", title="Paper B", doi="10.1234/b",
-            source="test", status="complete",
+            id="paper-b",
+            title="Paper B",
+            doi="10.1234/b",
+            source="test",
+            status="complete",
         )
         session.add(paper_b)
 
         # Only differs in last char: Hamming distance = 4 bits (hex f vs 4 = 1111 vs 0100)
         fig_b1 = Figure(
-            id="fig-b1", paper_id="paper-b",
+            id="fig-b1",
+            paper_id="paper-b",
             phash="abcd1234abcd123f",
         )
         session.add(fig_b1)
 
         # Paper C with a completely different hash
         paper_c = Paper(
-            id="paper-c", title="Paper C", doi="10.1234/c",
-            source="test", status="complete",
+            id="paper-c",
+            title="Paper C",
+            doi="10.1234/c",
+            source="test",
+            status="complete",
         )
         session.add(paper_c)
 
         fig_c1 = Figure(
-            id="fig-c1", paper_id="paper-c",
+            id="fig-c1",
+            paper_id="paper-c",
             phash="ffffeeeeddddcccc",
         )
         session.add(fig_c1)
 
         # Campaign paper links
         for pid in ["paper-a", "paper-b", "paper-c"]:
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id=pid,
-                source="domain_scan", depth=0, triage_status="auto_done",
-            ))
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id=pid,
+                    source="domain_scan",
+                    depth=0,
+                    triage_status="auto_done",
+                )
+            )
 
     return campaign_id
 
@@ -156,9 +174,13 @@ class TestBuildIndex:
     @pytest.mark.asyncio
     async def test_skips_null_phash(self, scanner_config, scanner_db):
         with get_session() as session:
-            session.add(Figure(
-                id="fig-null", paper_id="paper-a", phash=None,
-            ))
+            session.add(
+                Figure(
+                    id="fig-null",
+                    paper_id="paper-a",
+                    phash=None,
+                )
+            )
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
         await scanner._build_index()
@@ -169,9 +191,13 @@ class TestBuildIndex:
     @pytest.mark.asyncio
     async def test_skips_short_phash(self, scanner_config, scanner_db):
         with get_session() as session:
-            session.add(Figure(
-                id="fig-short", paper_id="paper-a", phash="a",
-            ))
+            session.add(
+                Figure(
+                    id="fig-short",
+                    paper_id="paper-a",
+                    phash="a",
+                )
+            )
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
         await scanner._build_index()
@@ -189,15 +215,13 @@ class TestScanAllPairs:
         # fig-a1 (abcd1234abcd1234) and fig-b1 (abcd1234abcd123f) should match
         # Verify via DB query since returned ORM objects may be detached
         from sqlalchemy import select
+
         with get_session() as session:
             db_matches = session.execute(select(ImageHashMatch)).scalars().all()
             match_pairs = set()
             for m in db_matches:
                 match_pairs.add((str(m.figure_id_a), str(m.figure_id_b)))
-            has_match = (
-                ("fig-a1", "fig-b1") in match_pairs
-                or ("fig-b1", "fig-a1") in match_pairs
-            )
+            has_match = ("fig-a1", "fig-b1") in match_pairs or ("fig-b1", "fig-a1") in match_pairs
             assert has_match
 
     @pytest.mark.asyncio
@@ -206,6 +230,7 @@ class TestScanAllPairs:
         await scanner.scan_all_pairs()
 
         from sqlalchemy import select
+
         with get_session() as session:
             db_matches = session.execute(select(ImageHashMatch)).scalars().all()
             for m in db_matches:
@@ -217,6 +242,7 @@ class TestScanAllPairs:
         await scanner.scan_all_pairs()
 
         from sqlalchemy import select
+
         with get_session() as session:
             db_matches = session.execute(select(ImageHashMatch)).scalars().all()
             # Should have at least the fig-a1/fig-b1 match
@@ -228,15 +254,23 @@ class TestScanIncremental:
     async def test_incremental_finds_new_matches(self, scanner_config, scanner_db):
         # Add a new paper with a similar figure
         with get_session() as session:
-            session.add(Paper(
-                id="paper-d", title="Paper D", doi="10.1234/d",
-                source="test", status="complete",
-            ))
+            session.add(
+                Paper(
+                    id="paper-d",
+                    title="Paper D",
+                    doi="10.1234/d",
+                    source="test",
+                    status="complete",
+                )
+            )
             # Very similar to fig-a1 (abcd1234abcd1234)
-            session.add(Figure(
-                id="fig-d1", paper_id="paper-d",
-                phash="abcd1234abcd1230",  # differs by 1 hex digit at end
-            ))
+            session.add(
+                Figure(
+                    id="fig-d1",
+                    paper_id="paper-d",
+                    phash="abcd1234abcd1230",  # differs by 1 hex digit at end
+                )
+            )
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
         matches = await scanner.scan_incremental(["paper-d"])
@@ -248,14 +282,22 @@ class TestScanIncremental:
     async def test_incremental_empty_for_unrelated(self, scanner_config, scanner_db):
         # Add paper with a completely different hash
         with get_session() as session:
-            session.add(Paper(
-                id="paper-e", title="Paper E", doi="10.1234/e",
-                source="test", status="complete",
-            ))
-            session.add(Figure(
-                id="fig-e1", paper_id="paper-e",
-                phash="0000000000000000",
-            ))
+            session.add(
+                Paper(
+                    id="paper-e",
+                    title="Paper E",
+                    doi="10.1234/e",
+                    source="test",
+                    status="complete",
+                )
+            )
+            session.add(
+                Figure(
+                    id="fig-e1",
+                    paper_id="paper-e",
+                    phash="0000000000000000",
+                )
+            )
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
         # Use very low max_distance to exclude far hashes
@@ -296,10 +338,15 @@ class TestPersistMatches:
         await scanner._persist_matches([match2])
 
         from sqlalchemy import select
+
         with get_session() as session:
-            all_matches = session.execute(
-                select(ImageHashMatch)
-                .where(ImageHashMatch.figure_id_a == "fig-a1")
-                .where(ImageHashMatch.figure_id_b == "fig-b1")
-            ).scalars().all()
+            all_matches = (
+                session.execute(
+                    select(ImageHashMatch)
+                    .where(ImageHashMatch.figure_id_a == "fig-a1")
+                    .where(ImageHashMatch.figure_id_b == "fig-b1")
+                )
+                .scalars()
+                .all()
+            )
             assert len(all_matches) == 1

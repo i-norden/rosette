@@ -512,8 +512,7 @@ def dct_analysis(
         )
     if suspicious:
         details_parts.append(
-            "DCT histograms show periodic comb patterns consistent with "
-            "double JPEG compression."
+            "DCT histograms show periodic comb patterns consistent with double JPEG compression."
         )
     else:
         details_parts.append("No significant double-compression artifacts detected.")
@@ -627,7 +626,10 @@ def jpeg_ghost_detection(
     # For each block, find the quality that minimises the difference
     best_quality_indices = np.argmin(diff_volumes, axis=0)  # (h_blocks, w_blocks)
     best_qualities = np.array(
-        [[quality_levels[best_quality_indices[by, bx]] for bx in range(w_blocks)] for by in range(h_blocks)],
+        [
+            [quality_levels[best_quality_indices[by, bx]] for bx in range(w_blocks)]
+            for by in range(h_blocks)
+        ],
         dtype=np.int32,
     )
 
@@ -670,9 +672,7 @@ def jpeg_ghost_detection(
 
     # Suspicious if there are ghost regions and quality variance is high
     ghost_fraction = len(ghost_regions) / max(len(quality_map), 1)
-    suspicious = len(ghost_regions) > 0 and (
-        quality_variance > (step**2) or ghost_fraction > 0.05
-    )
+    suspicious = len(ghost_regions) > 0 and (quality_variance > (step**2) or ghost_fraction > 0.05)
 
     details_parts = [
         f"Tested {len(quality_levels)} quality levels from {q_min} to {q_max}.",
@@ -686,9 +686,7 @@ def jpeg_ghost_detection(
             "mixed compression history (possible splicing or compositing)."
         )
     else:
-        details_parts.append(
-            "Block quality levels are consistent; no ghost artifacts detected."
-        )
+        details_parts.append("Block quality levels are consistent; no ghost artifacts detected.")
 
     return JPEGGhostResult(
         suspicious=suspicious,
@@ -824,8 +822,12 @@ def frequency_analysis(
     boundary_low = max_radius // 3
     boundary_high = 2 * max_radius // 3
 
-    low_freq_energy = float(np.mean(radial_profile[1 : boundary_low + 1])) if boundary_low > 1 else 0.0
-    high_freq_energy = float(np.mean(radial_profile[boundary_high:])) if boundary_high < max_radius else 0.0
+    low_freq_energy = (
+        float(np.mean(radial_profile[1 : boundary_low + 1])) if boundary_low > 1 else 0.0
+    )
+    high_freq_energy = (
+        float(np.mean(radial_profile[boundary_high:])) if boundary_high < max_radius else 0.0
+    )
 
     # Ratio of high-freq to low-freq energy
     high_freq_ratio = high_freq_energy / max(low_freq_energy, 1e-10)
@@ -883,9 +885,7 @@ def frequency_analysis(
             "profile is consistent with GAN or diffusion-model generated images."
         )
     if not suspicious:
-        details_parts.append(
-            "Frequency spectrum is consistent with natural photographic content."
-        )
+        details_parts.append("Frequency spectrum is consistent with natural photographic content.")
 
     return FFTResult(
         suspicious=suspicious,

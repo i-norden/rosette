@@ -1,4 +1,5 @@
 """Tests for variance ratio test."""
+
 from __future__ import annotations
 
 from snoopy.analysis.statistical import variance_ratio_test, VarianceRatioResult
@@ -35,8 +36,14 @@ class TestVarianceRatioRealistic:
 
     def test_many_realistic_groups(self):
         pairs = [
-            (1.2, 30), (1.5, 28), (0.9, 32), (1.8, 25),
-            (1.1, 35), (1.6, 27), (1.3, 30), (2.0, 22),
+            (1.2, 30),
+            (1.5, 28),
+            (0.9, 32),
+            (1.8, 25),
+            (1.1, 35),
+            (1.6, 27),
+            (1.3, 30),
+            (2.0, 22),
         ]
         result = variance_ratio_test(pairs)
         assert isinstance(result, VarianceRatioResult)

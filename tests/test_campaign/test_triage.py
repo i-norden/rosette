@@ -83,10 +83,23 @@ def seeded_campaign(campaign_config) -> tuple[str, str]:
 class TestRiskWeights:
     def test_all_expected_keys_present(self):
         expected = {
-            "hash_match", "clone_detection", "grim", "pvalue_check",
-            "retraction", "ela", "noise_analysis", "pubpeer", "benford",
-            "tortured_phrases", "grimmer", "variance_ratio", "sprite",
-            "dct_analysis", "jpeg_ghost", "fft_analysis", "terminal_digit",
+            "hash_match",
+            "clone_detection",
+            "grim",
+            "pvalue_check",
+            "retraction",
+            "ela",
+            "noise_analysis",
+            "pubpeer",
+            "benford",
+            "tortured_phrases",
+            "grimmer",
+            "variance_ratio",
+            "sprite",
+            "dct_analysis",
+            "jpeg_ghost",
+            "fft_analysis",
+            "terminal_digit",
             "temporal_patterns",
         }
         assert set(RISK_WEIGHTS.keys()) == expected
@@ -128,14 +141,24 @@ class TestComputeAutoRiskScore:
         campaign_id, paper_id = seeded_campaign
 
         with get_session() as session:
-            session.add(Finding(
-                paper_id=paper_id, analysis_type="clone_detection",
-                severity="high", confidence=0.9, title="Clone",
-            ))
-            session.add(Finding(
-                paper_id=paper_id, analysis_type="grim",
-                severity="medium", confidence=0.7, title="GRIM fail",
-            ))
+            session.add(
+                Finding(
+                    paper_id=paper_id,
+                    analysis_type="clone_detection",
+                    severity="high",
+                    confidence=0.9,
+                    title="Clone",
+                )
+            )
+            session.add(
+                Finding(
+                    paper_id=paper_id,
+                    analysis_type="grim",
+                    severity="medium",
+                    confidence=0.7,
+                    title="GRIM fail",
+                )
+            )
 
         triage = TriagePipeline(campaign_config, campaign_id)
         score = await triage._compute_auto_risk_score(paper_id)
@@ -147,14 +170,24 @@ class TestComputeAutoRiskScore:
         campaign_id, paper_id = seeded_campaign
 
         with get_session() as session:
-            session.add(Finding(
-                paper_id=paper_id, analysis_type="ela",
-                severity="medium", confidence=0.8, title="ELA anomaly 1",
-            ))
-            session.add(Finding(
-                paper_id=paper_id, analysis_type="ela",
-                severity="low", confidence=0.5, title="ELA anomaly 2",
-            ))
+            session.add(
+                Finding(
+                    paper_id=paper_id,
+                    analysis_type="ela",
+                    severity="medium",
+                    confidence=0.8,
+                    title="ELA anomaly 1",
+                )
+            )
+            session.add(
+                Finding(
+                    paper_id=paper_id,
+                    analysis_type="ela",
+                    severity="low",
+                    confidence=0.5,
+                    title="ELA anomaly 2",
+                )
+            )
 
         triage = TriagePipeline(campaign_config, campaign_id)
         score = await triage._compute_auto_risk_score(paper_id)
@@ -169,10 +202,15 @@ class TestComputeAutoRiskScore:
             for analysis_type in RISK_WEIGHTS:
                 if analysis_type in ("hash_match", "retraction", "pubpeer"):
                     continue  # These come from other sources
-                session.add(Finding(
-                    paper_id=paper_id, analysis_type=analysis_type,
-                    severity="high", confidence=0.9, title=f"{analysis_type} hit",
-                ))
+                session.add(
+                    Finding(
+                        paper_id=paper_id,
+                        analysis_type=analysis_type,
+                        severity="high",
+                        confidence=0.9,
+                        title=f"{analysis_type} hit",
+                    )
+                )
 
             # Add hash match
             fig_a = Figure(paper_id=paper_id, phash="abcd1234")
@@ -181,14 +219,20 @@ class TestComputeAutoRiskScore:
         # Add hash match record
         other_paper_id = "other-paper-001"
         with get_session() as session:
-            session.add(Paper(
-                id=other_paper_id, title="Other Paper", source="test", status="pending",
-            ))
+            session.add(
+                Paper(
+                    id=other_paper_id,
+                    title="Other Paper",
+                    source="test",
+                    status="pending",
+                )
+            )
             fig_b = Figure(paper_id=other_paper_id, phash="abcd1235")
             session.add(fig_b)
 
         with get_session() as session:
             from sqlalchemy import select
+
             fig_a_id = session.execute(
                 select(Figure.id).where(Figure.paper_id == paper_id)
             ).scalar()
@@ -196,11 +240,16 @@ class TestComputeAutoRiskScore:
                 select(Figure.id).where(Figure.paper_id == other_paper_id)
             ).scalar()
 
-            session.add(ImageHashMatch(
-                figure_id_a=fig_a_id, figure_id_b=fig_b_id,
-                paper_id_a=paper_id, paper_id_b=other_paper_id,
-                hash_type="phash", hash_distance=5,
-            ))
+            session.add(
+                ImageHashMatch(
+                    figure_id_a=fig_a_id,
+                    figure_id_b=fig_b_id,
+                    paper_id_a=paper_id,
+                    paper_id_b=other_paper_id,
+                    hash_type="phash",
+                    hash_distance=5,
+                )
+            )
 
             # Set retraction status
             paper = session.get(Paper, paper_id)
@@ -289,12 +338,8 @@ class TestRunAutoTier:
     async def test_auto_tier_updates_campaign_paper(self, campaign_config, seeded_campaign):
         campaign_id, paper_id = seeded_campaign
 
-        with patch.object(
-            TriagePipeline, "_check_external_signals", new_callable=AsyncMock
-        ):
-            with patch(
-                "snoopy.campaign.triage.PipelineOrchestrator"
-            ) as MockOrch:
+        with patch.object(TriagePipeline, "_check_external_signals", new_callable=AsyncMock):
+            with patch("snoopy.campaign.triage.PipelineOrchestrator") as MockOrch:
                 mock_orch = MockOrch.return_value
                 mock_orch.process_paper_stages = AsyncMock()
 
@@ -307,11 +352,16 @@ class TestRunAutoTier:
 
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.paper_id == paper_id)
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.paper_id == paper_id)
+                )
+                .scalars()
+                .first()
+            )
             assert cp.triage_status == "auto_done"
             assert cp.auto_risk_score == 0.0
 
@@ -327,17 +377,20 @@ class TestRunLlmTier:
         # Set up paper with auto_done status
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.paper_id == paper_id)
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.paper_id == paper_id)
+                )
+                .scalars()
+                .first()
+            )
             cp.triage_status = "auto_done"
             cp.llm_promoted = True
 
-        with patch(
-            "snoopy.campaign.triage.PipelineOrchestrator"
-        ) as MockOrch:
+        with patch("snoopy.campaign.triage.PipelineOrchestrator") as MockOrch:
             mock_orch = MockOrch.return_value
             mock_orch.process_paper_stages = AsyncMock()
 
@@ -348,11 +401,16 @@ class TestRunLlmTier:
 
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.paper_id == paper_id)
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.paper_id == paper_id)
+                )
+                .scalars()
+                .first()
+            )
             assert cp.triage_status == "complete"
 
             campaign = session.get(Campaign, campaign_id)
@@ -372,9 +430,7 @@ class TestRunLlmTier:
             )
             session.add(report)
 
-        with patch(
-            "snoopy.campaign.triage.PipelineOrchestrator"
-        ) as MockOrch:
+        with patch("snoopy.campaign.triage.PipelineOrchestrator") as MockOrch:
             mock_orch = MockOrch.return_value
             mock_orch.process_paper_stages = AsyncMock()
 
@@ -385,11 +441,16 @@ class TestRunLlmTier:
 
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.paper_id == paper_id)
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.paper_id == paper_id)
+                )
+                .scalars()
+                .first()
+            )
             assert cp.final_risk == "high"
 
 
@@ -419,9 +480,7 @@ class TestRunPaperThroughFunnel:
             with patch.object(
                 TriagePipeline, "_should_promote", new_callable=AsyncMock, return_value=True
             ):
-                with patch.object(
-                    TriagePipeline, "run_llm_tier", new_callable=AsyncMock
-                ):
+                with patch.object(TriagePipeline, "run_llm_tier", new_callable=AsyncMock):
                     triage = TriagePipeline(campaign_config, campaign_id)
                     status = await triage.run_paper_through_funnel(paper_id)
 

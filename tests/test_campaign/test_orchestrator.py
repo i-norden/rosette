@@ -71,9 +71,15 @@ class TestCampaignModeDispatching:
         campaign_id = _seed_campaign(orch_config, "network_expansion", seed_dois=["10.1234/seed"])
 
         with (
-            patch.object(CampaignOrchestrator, "_run_network_expansion", new_callable=AsyncMock) as mock_ne,
-            patch.object(CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock) as mock_ds,
-            patch.object(CampaignOrchestrator, "_run_paper_mill", new_callable=AsyncMock) as mock_pm,
+            patch.object(
+                CampaignOrchestrator, "_run_network_expansion", new_callable=AsyncMock
+            ) as mock_ne,
+            patch.object(
+                CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock
+            ) as mock_ds,
+            patch.object(
+                CampaignOrchestrator, "_run_paper_mill", new_callable=AsyncMock
+            ) as mock_pm,
         ):
             orchestrator = CampaignOrchestrator(orch_config, campaign_id)
             await orchestrator.run()
@@ -87,9 +93,15 @@ class TestCampaignModeDispatching:
         campaign_id = _seed_campaign(orch_config, "domain_scan")
 
         with (
-            patch.object(CampaignOrchestrator, "_run_network_expansion", new_callable=AsyncMock) as mock_ne,
-            patch.object(CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock) as mock_ds,
-            patch.object(CampaignOrchestrator, "_run_paper_mill", new_callable=AsyncMock) as mock_pm,
+            patch.object(
+                CampaignOrchestrator, "_run_network_expansion", new_callable=AsyncMock
+            ) as mock_ne,
+            patch.object(
+                CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock
+            ) as mock_ds,
+            patch.object(
+                CampaignOrchestrator, "_run_paper_mill", new_callable=AsyncMock
+            ) as mock_pm,
         ):
             orchestrator = CampaignOrchestrator(orch_config, campaign_id)
             await orchestrator.run()
@@ -103,9 +115,15 @@ class TestCampaignModeDispatching:
         campaign_id = _seed_campaign(orch_config, "paper_mill", seed_dois=["10.1234/seed"])
 
         with (
-            patch.object(CampaignOrchestrator, "_run_network_expansion", new_callable=AsyncMock) as mock_ne,
-            patch.object(CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock) as mock_ds,
-            patch.object(CampaignOrchestrator, "_run_paper_mill", new_callable=AsyncMock) as mock_pm,
+            patch.object(
+                CampaignOrchestrator, "_run_network_expansion", new_callable=AsyncMock
+            ) as mock_ne,
+            patch.object(
+                CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock
+            ) as mock_ds,
+            patch.object(
+                CampaignOrchestrator, "_run_paper_mill", new_callable=AsyncMock
+            ) as mock_pm,
         ):
             orchestrator = CampaignOrchestrator(orch_config, campaign_id)
             await orchestrator.run()
@@ -128,7 +146,9 @@ class TestCampaignStatusTransitions:
     async def test_completed_campaign_skips_run(self, orch_config):
         campaign_id = _seed_campaign(orch_config, "domain_scan", status="completed")
 
-        with patch.object(CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock) as mock_ds:
+        with patch.object(
+            CampaignOrchestrator, "_run_domain_scan", new_callable=AsyncMock
+        ) as mock_ds:
             orchestrator = CampaignOrchestrator(orch_config, campaign_id)
             await orchestrator.run()
             mock_ds.assert_not_called()
@@ -188,7 +208,8 @@ class TestSeedPapers:
     @pytest.mark.asyncio
     async def test_seed_papers_creates_records(self, orch_config):
         campaign_id = _seed_campaign(
-            orch_config, "network_expansion",
+            orch_config,
+            "network_expansion",
             seed_dois=["10.1234/seed1", "10.1234/seed2"],
         )
 
@@ -197,9 +218,14 @@ class TestSeedPapers:
 
         with get_session() as session:
             from sqlalchemy import select
-            cps = session.execute(
-                select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
-            ).scalars().all()
+
+            cps = (
+                session.execute(
+                    select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
+                )
+                .scalars()
+                .all()
+            )
             assert len(cps) == 2
             for cp in cps:
                 assert cp.source == "seed"
@@ -209,7 +235,8 @@ class TestSeedPapers:
     @pytest.mark.asyncio
     async def test_seed_papers_idempotent(self, orch_config):
         campaign_id = _seed_campaign(
-            orch_config, "network_expansion",
+            orch_config,
+            "network_expansion",
             seed_dois=["10.1234/seed1"],
         )
 
@@ -219,9 +246,14 @@ class TestSeedPapers:
 
         with get_session() as session:
             from sqlalchemy import select
-            cps = session.execute(
-                select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
-            ).scalars().all()
+
+            cps = (
+                session.execute(
+                    select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
+                )
+                .scalars()
+                .all()
+            )
             assert len(cps) == 1
 
     @pytest.mark.asyncio
@@ -233,34 +265,50 @@ class TestSeedPapers:
 
         with get_session() as session:
             from sqlalchemy import select
-            cps = session.execute(
-                select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
-            ).scalars().all()
+
+            cps = (
+                session.execute(
+                    select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
+                )
+                .scalars()
+                .all()
+            )
             assert len(cps) == 0
 
     @pytest.mark.asyncio
     async def test_seed_papers_reuses_existing_paper_by_doi(self, orch_config):
         campaign_id = _seed_campaign(
-            orch_config, "network_expansion",
+            orch_config,
+            "network_expansion",
             seed_dois=["10.1234/existing"],
         )
 
         # Pre-create a paper with the same DOI
         existing_paper_id = "existing-paper-001"
         with get_session() as session:
-            session.add(Paper(
-                id=existing_paper_id, doi="10.1234/existing",
-                title="Existing Paper", source="manual", status="complete",
-            ))
+            session.add(
+                Paper(
+                    id=existing_paper_id,
+                    doi="10.1234/existing",
+                    title="Existing Paper",
+                    source="manual",
+                    status="complete",
+                )
+            )
 
         orchestrator = CampaignOrchestrator(orch_config, campaign_id)
         await orchestrator._seed_papers()
 
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper).where(CampaignPaper.campaign_id == campaign_id)
+                )
+                .scalars()
+                .first()
+            )
             assert str(cp.paper_id) == existing_paper_id
 
 
@@ -273,20 +321,27 @@ class TestProcessBatchAuto:
         with get_session() as session:
             for i in range(3):
                 pid = f"batch-paper-{i}"
-                session.add(Paper(
-                    id=pid, title=f"Paper {i}",
-                    source="test", status="pending",
-                ))
-                session.add(CampaignPaper(
-                    campaign_id=campaign_id, paper_id=pid,
-                    source="domain_scan", depth=0, triage_status="pending",
-                ))
+                session.add(
+                    Paper(
+                        id=pid,
+                        title=f"Paper {i}",
+                        source="test",
+                        status="pending",
+                    )
+                )
+                session.add(
+                    CampaignPaper(
+                        campaign_id=campaign_id,
+                        paper_id=pid,
+                        source="domain_scan",
+                        depth=0,
+                        triage_status="pending",
+                    )
+                )
 
         paper_ids = [f"batch-paper-{i}" for i in range(3)]
 
-        with patch(
-            "snoopy.campaign.orchestrator.TriagePipeline"
-        ) as MockTriage:
+        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_auto_tier = AsyncMock(side_effect=[10.0, 40.0, 80.0])
 
@@ -304,18 +359,25 @@ class TestProcessBatchAuto:
         campaign_id = _seed_campaign(orch_config, "domain_scan")
 
         with get_session() as session:
-            session.add(Paper(
-                id="flag-paper", title="Flaggy",
-                source="test", status="pending",
-            ))
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id="flag-paper",
-                source="domain_scan", depth=0, triage_status="pending",
-            ))
+            session.add(
+                Paper(
+                    id="flag-paper",
+                    title="Flaggy",
+                    source="test",
+                    status="pending",
+                )
+            )
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id="flag-paper",
+                    source="domain_scan",
+                    depth=0,
+                    triage_status="pending",
+                )
+            )
 
-        with patch(
-            "snoopy.campaign.orchestrator.TriagePipeline"
-        ) as MockTriage:
+        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_auto_tier = AsyncMock(return_value=50.0)
 
@@ -332,18 +394,25 @@ class TestProcessBatchAuto:
         campaign_id = _seed_campaign(orch_config, "domain_scan")
 
         with get_session() as session:
-            session.add(Paper(
-                id="error-paper", title="Error Paper",
-                source="test", status="pending",
-            ))
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id="error-paper",
-                source="domain_scan", depth=0, triage_status="pending",
-            ))
+            session.add(
+                Paper(
+                    id="error-paper",
+                    title="Error Paper",
+                    source="test",
+                    status="pending",
+                )
+            )
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id="error-paper",
+                    source="domain_scan",
+                    depth=0,
+                    triage_status="pending",
+                )
+            )
 
-        with patch(
-            "snoopy.campaign.orchestrator.TriagePipeline"
-        ) as MockTriage:
+        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_auto_tier = AsyncMock(side_effect=RuntimeError("fail"))
 
@@ -365,18 +434,25 @@ class TestProcessBatchLlm:
             campaign = session.get(Campaign, campaign_id)
             campaign.papers_llm_analyzed = 5  # equals llm_budget
 
-            session.add(Paper(
-                id="llm-paper", title="LLM Paper",
-                source="test", status="pending",
-            ))
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id="llm-paper",
-                source="domain_scan", depth=0, triage_status="llm_queued",
-            ))
+            session.add(
+                Paper(
+                    id="llm-paper",
+                    title="LLM Paper",
+                    source="test",
+                    status="pending",
+                )
+            )
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id="llm-paper",
+                    source="domain_scan",
+                    depth=0,
+                    triage_status="llm_queued",
+                )
+            )
 
-        with patch(
-            "snoopy.campaign.orchestrator.TriagePipeline"
-        ) as MockTriage:
+        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_llm_tier = AsyncMock()
 
@@ -409,14 +485,23 @@ class TestGetPapersAtDepth:
         with get_session() as session:
             for i in range(3):
                 pid = f"depth-paper-{i}"
-                session.add(Paper(
-                    id=pid, title=f"Paper {i}",
-                    source="test", status="pending",
-                ))
-                session.add(CampaignPaper(
-                    campaign_id=campaign_id, paper_id=pid,
-                    source="seed", depth=i, triage_status="pending",
-                ))
+                session.add(
+                    Paper(
+                        id=pid,
+                        title=f"Paper {i}",
+                        source="test",
+                        status="pending",
+                    )
+                )
+                session.add(
+                    CampaignPaper(
+                        campaign_id=campaign_id,
+                        paper_id=pid,
+                        source="seed",
+                        depth=i,
+                        triage_status="pending",
+                    )
+                )
 
         orchestrator = CampaignOrchestrator(orch_config, campaign_id)
         papers = await orchestrator._get_papers_at_depth(0, status="pending")
@@ -434,19 +519,29 @@ class TestGetPromotedPapers:
         with get_session() as session:
             # Paper above threshold
             session.add(Paper(id="high-score", title="High", source="test", status="pending"))
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id="high-score",
-                source="domain_scan", depth=0, triage_status="auto_done",
-                auto_risk_score=50.0,
-            ))
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id="high-score",
+                    source="domain_scan",
+                    depth=0,
+                    triage_status="auto_done",
+                    auto_risk_score=50.0,
+                )
+            )
 
             # Paper below threshold
             session.add(Paper(id="low-score", title="Low", source="test", status="pending"))
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id="low-score",
-                source="domain_scan", depth=0, triage_status="auto_done",
-                auto_risk_score=10.0,
-            ))
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id="low-score",
+                    source="domain_scan",
+                    depth=0,
+                    triage_status="auto_done",
+                    auto_risk_score=10.0,
+                )
+            )
 
         orchestrator = CampaignOrchestrator(orch_config, campaign_id)
         promoted = await orchestrator._get_promoted_papers()
@@ -457,10 +552,15 @@ class TestGetPromotedPapers:
         # Verify promoted paper got marked as llm_queued
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.paper_id == "high-score")
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.paper_id == "high-score")
+                )
+                .scalars()
+                .first()
+            )
             assert cp.triage_status == "llm_queued"
             assert cp.llm_promoted is True

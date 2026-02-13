@@ -1,4 +1,5 @@
 """Tests for terminal digit test."""
+
 from __future__ import annotations
 
 from snoopy.analysis.statistical import terminal_digit_test, TerminalDigitResult

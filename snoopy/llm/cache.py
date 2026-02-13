@@ -86,9 +86,7 @@ class LLMCache:
         response = {k: v for k, v in entry.items() if not k.startswith("_")}
         return response
 
-    def put(
-        self, image_sha256: str, prompt: str, model: str, response: dict
-    ) -> None:
+    def put(self, image_sha256: str, prompt: str, model: str, response: dict) -> None:
         """Store a response in the cache."""
         if not self.enabled:
             return

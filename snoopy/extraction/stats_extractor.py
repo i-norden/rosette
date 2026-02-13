@@ -383,9 +383,7 @@ def extract_means_sds_and_ns(text: str) -> list[MeanReport]:
             mean = _parse_float(m.group("mean"))
             sd = _parse_float(m.group("sd"))
             n = int(m.group("n")) if m.group("n") else 0
-            results.append(
-                MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sd)
-            )
+            results.append(MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sd))
             seen_positions.add(m.start())
         except (ValueError, TypeError):
             logger.debug("Could not parse mean/SD/N match: %s", m.group(0))
@@ -398,9 +396,7 @@ def extract_means_sds_and_ns(text: str) -> list[MeanReport]:
             mean = _parse_float(m.group("mean"))
             sdse = _parse_float(m.group("sdse"))
             n = int(m.group("n")) if m.group("n") else 0
-            results.append(
-                MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sdse)
-            )
+            results.append(MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sdse))
             seen_positions.add(m.start())
         except (ValueError, TypeError):
             logger.debug("Could not parse mean±SD match: %s", m.group(0))
@@ -413,9 +409,7 @@ def extract_means_sds_and_ns(text: str) -> list[MeanReport]:
             mean = _parse_float(m.group("mean"))
             sdse = _parse_float(m.group("sdse"))
             n = int(m.group("n")) if m.group("n") else 0
-            results.append(
-                MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sdse)
-            )
+            results.append(MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sdse))
         except (ValueError, TypeError):
             logger.debug("Could not parse labeled mean±SD match: %s", m.group(0))
 

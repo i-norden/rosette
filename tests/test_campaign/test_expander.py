@@ -116,7 +116,9 @@ class TestExpandFromPaper:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works", new_callable=AsyncMock, return_value=mock_works
+            "snoopy.discovery.openalex.search_works",
+            new_callable=AsyncMock,
+            return_value=mock_works,
         ):
             with patch(
                 "snoopy.discovery.retraction_watch.check_author_retractions",
@@ -132,11 +134,16 @@ class TestExpandFromPaper:
         # Verify papers were created in DB
         with get_session() as session:
             from sqlalchemy import select
-            cps = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.depth == 1)
-            ).scalars().all()
+
+            cps = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.depth == 1)
+                )
+                .scalars()
+                .all()
+            )
             assert len(cps) > 0
             for cp in cps:
                 assert cp.source == "network_expansion"
@@ -157,7 +164,9 @@ class TestExpandFromPaper:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works", new_callable=AsyncMock, return_value=mock_works
+            "snoopy.discovery.openalex.search_works",
+            new_callable=AsyncMock,
+            return_value=mock_works,
         ):
             with patch(
                 "snoopy.discovery.retraction_watch.check_author_retractions",
@@ -179,7 +188,9 @@ class TestExpandFromPaper:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works", new_callable=AsyncMock, return_value=mock_works
+            "snoopy.discovery.openalex.search_works",
+            new_callable=AsyncMock,
+            return_value=mock_works,
         ):
             with patch(
                 "snoopy.discovery.retraction_watch.check_author_retractions",
@@ -199,14 +210,24 @@ class TestExpandFromPaper:
         # Create a paper with no authors
         no_authors_id = "test-paper-no-authors"
         with get_session() as session:
-            session.add(Paper(
-                id=no_authors_id, title="No Authors", source="test",
-                status="pending", authors_json=None,
-            ))
-            session.add(CampaignPaper(
-                campaign_id=campaign_id, paper_id=no_authors_id,
-                source="seed", depth=0, triage_status="pending",
-            ))
+            session.add(
+                Paper(
+                    id=no_authors_id,
+                    title="No Authors",
+                    source="test",
+                    status="pending",
+                    authors_json=None,
+                )
+            )
+            session.add(
+                CampaignPaper(
+                    campaign_id=campaign_id,
+                    paper_id=no_authors_id,
+                    source="seed",
+                    depth=0,
+                    triage_status="pending",
+                )
+            )
 
         expander = NetworkExpander(expander_config, campaign_id)
         new_ids = await expander.expand_from_paper(no_authors_id, depth=1)
@@ -223,7 +244,9 @@ class TestExpandDepth:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works", new_callable=AsyncMock, return_value=mock_works
+            "snoopy.discovery.openalex.search_works",
+            new_callable=AsyncMock,
+            return_value=mock_works,
         ):
             with patch(
                 "snoopy.discovery.retraction_watch.check_author_retractions",
@@ -243,11 +266,16 @@ class TestExpandDepth:
         # Change seed paper to clean risk
         with get_session() as session:
             from sqlalchemy import select
-            cp = session.execute(
-                select(CampaignPaper)
-                .where(CampaignPaper.campaign_id == campaign_id)
-                .where(CampaignPaper.paper_id == paper_id)
-            ).scalars().first()
+
+            cp = (
+                session.execute(
+                    select(CampaignPaper)
+                    .where(CampaignPaper.campaign_id == campaign_id)
+                    .where(CampaignPaper.paper_id == paper_id)
+                )
+                .scalars()
+                .first()
+            )
             cp.final_risk = "clean"
 
         expander = NetworkExpander(expander_config, campaign_id)

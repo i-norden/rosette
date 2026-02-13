@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _PHRASES_PATH = _DATA_DIR / "tortured_phrases.json"
 
+
 @functools.lru_cache(maxsize=1)
 def _load_phrases() -> dict[str, str]:
     """Load the tortured phrase dictionary (lazy, cached, thread-safe via lru_cache).
@@ -127,10 +128,7 @@ def detect_tortured_phrases(
     suspicious = unique_count >= min_matches
 
     if matches:
-        examples = [
-            f"'{m.tortured_phrase}' (should be '{m.correct_phrase}')"
-            for m in matches[:5]
-        ]
+        examples = [f"'{m.tortured_phrase}' (should be '{m.correct_phrase}')" for m in matches[:5]]
         details = (
             f"Found {len(matches)} tortured phrase occurrence(s) "
             f"({unique_count} unique): {'; '.join(examples)}"

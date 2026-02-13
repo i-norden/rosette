@@ -27,7 +27,11 @@ class TestDemoCommand:
     @patch("snoopy.cli.load_config")
     @patch("snoopy.demo.runner.run_demo")
     def test_demo_invokes_run_demo(
-        self, mock_run_demo: MagicMock, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
+        self,
+        mock_run_demo: MagicMock,
+        mock_load_config: MagicMock,
+        mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         mock_load_config.return_value = MagicMock()
         mock_run_demo.return_value = []
@@ -46,7 +50,11 @@ class TestDemoCommand:
     @patch("snoopy.cli.load_config")
     @patch("snoopy.demo.runner.run_demo")
     def test_demo_download_only_flag(
-        self, mock_run_demo: MagicMock, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
+        self,
+        mock_run_demo: MagicMock,
+        mock_load_config: MagicMock,
+        mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         mock_load_config.return_value = MagicMock()
         mock_run_demo.return_value = []
@@ -65,7 +73,11 @@ class TestDemoCommand:
     @patch("snoopy.cli.load_config")
     @patch("snoopy.demo.runner.run_demo")
     def test_demo_output_dir_option(
-        self, mock_run_demo: MagicMock, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
+        self,
+        mock_run_demo: MagicMock,
+        mock_load_config: MagicMock,
+        mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         mock_load_config.return_value = MagicMock()
         mock_run_demo.return_value = []
@@ -99,7 +111,9 @@ class TestMainGroup:
     @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
-    def test_config_command(self, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock) -> None:
+    def test_config_command(
+        self, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
+    ) -> None:
         mock_cfg = MagicMock()
         mock_cfg.model_dump_json.return_value = '{"llm": {}}'
         mock_load_config.return_value = mock_cfg

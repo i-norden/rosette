@@ -129,13 +129,9 @@ class TestMigrations:
 
         with get_session() as session:
             for i in range(3):
-                session.add(
-                    Paper(id=f"pending-{i}", title="P", source="test", status="pending")
-                )
+                session.add(Paper(id=f"pending-{i}", title="P", source="test", status="pending"))
             for i in range(2):
-                session.add(
-                    Paper(id=f"complete-{i}", title="C", source="test", status="complete")
-                )
+                session.add(Paper(id=f"complete-{i}", title="C", source="test", status="complete"))
 
         counts = get_paper_counts()
         assert counts.get("pending") == 3

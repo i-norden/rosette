@@ -408,7 +408,7 @@ def grimmer_test(
             details="N < 3; GRIMMER test not applicable.",
         )
 
-    tolerance = 0.5 / (10 ** decimals)
+    tolerance = 0.5 / (10**decimals)
 
     # The total (sum of all items) implied by the reported mean.
     total = round(mean * n)
@@ -428,18 +428,18 @@ def grimmer_test(
         n_floor = n - n_ceil
 
         # Minimum sum-of-squares given the constraint
-        min_ss = n_floor * (floor_val ** 2) + n_ceil * (ceil_val ** 2)
-        min_var = (min_ss - (total ** 2) / n) / (n - 1)
+        min_ss = n_floor * (floor_val**2) + n_ceil * (ceil_val**2)
+        min_var = (min_ss - (total**2) / n) / (n - 1)
         min_sd = math.sqrt(max(min_var, 0.0))
 
         # Maximum sum-of-squares: put values at 0 and the maximum integer
         # that keeps the sum equal to total.  A practical upper bound is
         # total itself (one item = total, rest = 0) but we don't know the
         # scale range, so we use this as the upper bound.
-        max_ss = total ** 2  # one item carries the entire sum
+        max_ss = total**2  # one item carries the entire sum
         # But the remaining n-1 items are 0, so ss = total^2
         # However ss also equals sum(xi^2), and if one item = total, rest 0:
-        max_var = (max_ss - (total ** 2) / n) / (n - 1)
+        max_var = (max_ss - (total**2) / n) / (n - 1)
         max_sd = math.sqrt(max(max_var, 0.0))
 
         consistent = (sd >= min_sd - tolerance) and (sd <= max_sd + tolerance)
@@ -498,7 +498,7 @@ def grimmer_test(
     # Convert each achievable sum-of-squares to a sample SD.
     possible_sds: list[float] = []
     for ss in sorted(achievable_ss):
-        var = (ss - (total ** 2) / n) / (n - 1)
+        var = (ss - (total**2) / n) / (n - 1)
         if var < -1e-12:
             continue
         possible_sds.append(math.sqrt(max(var, 0.0)))
@@ -809,7 +809,7 @@ def variance_ratio_test(
     # Pool the SDs to estimate the common population SD (sigma).
     # Weighted by degrees of freedom: pooled_var = sum((n_i - 1)*s_i^2) / sum(n_i - 1)
     dfs = ns - 1.0
-    pooled_var = np.sum(dfs * sds ** 2) / np.sum(dfs)
+    pooled_var = np.sum(dfs * sds**2) / np.sum(dfs)
     sigma = math.sqrt(pooled_var)
 
     # Observed variance of the reported SDs
@@ -819,7 +819,7 @@ def variance_ratio_test(
     # For a normal population, Var(s) ~ sigma^2 / (2 * n_i) approximately
     # (using the asymptotic result for the sample standard deviation).
     # The expected variance of the set of SDs is the average of these.
-    expected_var = float(np.mean(sigma ** 2 / (2.0 * ns)))
+    expected_var = float(np.mean(sigma**2 / (2.0 * ns)))
 
     # Ratio: values much less than 1 indicate suspiciously low variability.
     ratio = observed_var / expected_var if expected_var > 0 else float("inf")

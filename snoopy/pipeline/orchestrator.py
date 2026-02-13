@@ -347,64 +347,83 @@ class PipelineOrchestrator:
                     error_level_analysis, img_path, quality=self.config.analysis.ela_quality
                 )
                 if ela.suspicious:
-                    self._create_finding_from_analysis(session, paper_id, figure, "ela", {
-                        "severity": "medium",
-                        "confidence": min(ela.max_difference / 100, 1.0),
-                        "title": f"ELA anomaly in {fig_label}",
-                        "description": (
-                            f"Error Level Analysis detected inconsistent compression levels. "
-                            f"Max difference: {ela.max_difference:.1f}, "
-                            f"Mean: {ela.mean_difference:.1f}, Std: {ela.std_difference:.1f}"
-                        ),
-                        "evidence": {
-                            "max_difference": ela.max_difference,
-                            "mean_difference": ela.mean_difference,
-                            "ela_image_path": ela.ela_image_path,
+                    self._create_finding_from_analysis(
+                        session,
+                        paper_id,
+                        figure,
+                        "ela",
+                        {
+                            "severity": "medium",
+                            "confidence": min(ela.max_difference / 100, 1.0),
+                            "title": f"ELA anomaly in {fig_label}",
+                            "description": (
+                                f"Error Level Analysis detected inconsistent compression levels. "
+                                f"Max difference: {ela.max_difference:.1f}, "
+                                f"Mean: {ela.mean_difference:.1f}, Std: {ela.std_difference:.1f}"
+                            ),
+                            "evidence": {
+                                "max_difference": ela.max_difference,
+                                "mean_difference": ela.mean_difference,
+                                "ela_image_path": ela.ela_image_path,
+                            },
                         },
-                    })
+                    )
 
                 # Clone detection
                 clone = await asyncio.to_thread(
                     clone_detection, img_path, min_matches=self.config.analysis.clone_min_matches
                 )
                 if clone.suspicious:
-                    self._create_finding_from_analysis(session, paper_id, figure, "clone_detection", {
-                        "severity": "high",
-                        "confidence": min(clone.num_matches / 50, 1.0),
-                        "title": f"Potential clone region in {fig_label}",
-                        "description": (
-                            f"Copy-move detection found {clone.num_matches} geometrically "
-                            f"consistent keypoint matches (inlier ratio: {clone.inlier_ratio:.2f})"
-                        ),
-                        "evidence": {
-                            "num_matches": clone.num_matches,
-                            "inlier_ratio": clone.inlier_ratio,
-                            "clusters": clone.match_clusters,
+                    self._create_finding_from_analysis(
+                        session,
+                        paper_id,
+                        figure,
+                        "clone_detection",
+                        {
+                            "severity": "high",
+                            "confidence": min(clone.num_matches / 50, 1.0),
+                            "title": f"Potential clone region in {fig_label}",
+                            "description": (
+                                f"Copy-move detection found {clone.num_matches} geometrically "
+                                f"consistent keypoint matches (inlier ratio: {clone.inlier_ratio:.2f})"
+                            ),
+                            "evidence": {
+                                "num_matches": clone.num_matches,
+                                "inlier_ratio": clone.inlier_ratio,
+                                "clusters": clone.match_clusters,
+                            },
                         },
-                    })
+                    )
 
                 # Noise analysis
                 noise = await asyncio.to_thread(
                     noise_analysis, img_path, block_size=self.config.analysis.noise_block_size
                 )
                 if noise.suspicious:
-                    self._create_finding_from_analysis(session, paper_id, figure, "noise_analysis", {
-                        "severity": "medium",
-                        "confidence": min(noise.max_ratio / 10, 1.0),
-                        "title": f"Noise inconsistency in {fig_label}",
-                        "description": (
-                            f"Noise analysis detected inconsistent noise levels across image "
-                            f"regions. Max noise ratio: {noise.max_ratio:.1f}x"
-                        ),
-                        "evidence": {
-                            "max_ratio": noise.max_ratio,
-                            "mean_noise": noise.mean_noise,
+                    self._create_finding_from_analysis(
+                        session,
+                        paper_id,
+                        figure,
+                        "noise_analysis",
+                        {
+                            "severity": "medium",
+                            "confidence": min(noise.max_ratio / 10, 1.0),
+                            "title": f"Noise inconsistency in {fig_label}",
+                            "description": (
+                                f"Noise analysis detected inconsistent noise levels across image "
+                                f"regions. Max noise ratio: {noise.max_ratio:.1f}x"
+                            ),
+                            "evidence": {
+                                "max_ratio": noise.max_ratio,
+                                "mean_noise": noise.mean_noise,
+                            },
                         },
-                    })
+                    )
 
                 # DCT analysis (double JPEG compression)
                 dct_findings = await asyncio.to_thread(
-                    run_dct_analysis, img_path,
+                    run_dct_analysis,
+                    img_path,
                     figure_id=str(figure.figure_label or figure.id),
                     config=self.config.analysis,
                 )
@@ -415,18 +434,18 @@ class PipelineOrchestrator:
 
                 # JPEG ghost detection
                 ghost_findings = await asyncio.to_thread(
-                    run_jpeg_ghost_analysis, img_path,
+                    run_jpeg_ghost_analysis,
+                    img_path,
                     figure_id=str(figure.figure_label or figure.id),
                     config=self.config.analysis,
                 )
                 for fd in ghost_findings:
-                    self._create_finding_from_analysis(
-                        session, paper_id, figure, "jpeg_ghost", fd
-                    )
+                    self._create_finding_from_analysis(session, paper_id, figure, "jpeg_ghost", fd)
 
                 # FFT frequency analysis
                 fft_findings = await asyncio.to_thread(
-                    run_frequency_analysis, img_path,
+                    run_frequency_analysis,
+                    img_path,
                     figure_id=str(figure.figure_label or figure.id),
                     config=self.config.analysis,
                 )
@@ -641,7 +660,9 @@ class PipelineOrchestrator:
                 if mr.sd is not None and mr.n >= 2:
                     sprite_findings = await asyncio.to_thread(
                         run_sprite_analysis,
-                        mr.mean, mr.sd, mr.n,
+                        mr.mean,
+                        mr.sd,
+                        mr.n,
                         context=mr.context,
                     )
                     for fd in sprite_findings:

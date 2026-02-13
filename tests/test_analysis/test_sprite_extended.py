@@ -6,10 +6,16 @@ from snoopy.analysis.sprite import SPRITEResult, sprite_test
 class TestSpriteDeterministic:
     def test_same_seed_produces_identical_results(self):
         result_a = sprite_test(
-            reported_mean=3.50, reported_sd=1.20, n=30, seed=42,
+            reported_mean=3.50,
+            reported_sd=1.20,
+            n=30,
+            seed=42,
         )
         result_b = sprite_test(
-            reported_mean=3.50, reported_sd=1.20, n=30, seed=42,
+            reported_mean=3.50,
+            reported_sd=1.20,
+            n=30,
+            seed=42,
         )
         assert result_a.consistent == result_b.consistent
         assert result_a.mean_achievable == result_b.mean_achievable
@@ -20,10 +26,16 @@ class TestSpriteDeterministic:
 class TestSpriteDifferentSeeds:
     def test_different_seeds_agree_on_clear_cases(self):
         result_42 = sprite_test(
-            reported_mean=4.00, reported_sd=1.50, n=30, seed=42,
+            reported_mean=4.00,
+            reported_sd=1.50,
+            n=30,
+            seed=42,
         )
         result_99 = sprite_test(
-            reported_mean=4.00, reported_sd=1.50, n=30, seed=99,
+            reported_mean=4.00,
+            reported_sd=1.50,
+            n=30,
+            seed=99,
         )
         assert result_42.consistent == result_99.consistent
 
@@ -88,12 +100,18 @@ class TestSpriteLargeN:
 class TestSpriteSeedField:
     def test_seed_value_stored_in_result(self):
         result = sprite_test(
-            reported_mean=3.50, reported_sd=1.20, n=30, seed=42,
+            reported_mean=3.50,
+            reported_sd=1.20,
+            n=30,
+            seed=42,
         )
         assert result.seed == 42
 
     def test_custom_seed_stored_in_result(self):
         result = sprite_test(
-            reported_mean=3.50, reported_sd=1.20, n=30, seed=12345,
+            reported_mean=3.50,
+            reported_sd=1.20,
+            n=30,
+            seed=12345,
         )
         assert result.seed == 12345

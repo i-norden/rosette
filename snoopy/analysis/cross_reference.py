@@ -257,8 +257,7 @@ def compute_ssim(
     sigma_a_sq = np.var(win_a, axis=(-2, -1))
     sigma_b_sq = np.var(win_b, axis=(-2, -1))
     sigma_ab = np.mean(
-        (win_a - mu_a[..., np.newaxis, np.newaxis])
-        * (win_b - mu_b[..., np.newaxis, np.newaxis]),
+        (win_a - mu_a[..., np.newaxis, np.newaxis]) * (win_b - mu_b[..., np.newaxis, np.newaxis]),
         axis=(-2, -1),
     )
 

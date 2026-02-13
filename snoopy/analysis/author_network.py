@@ -120,11 +120,7 @@ def compute_author_risk(author_id: str) -> AuthorRisk | None:
             )
 
             coauthors = (
-                session.execute(
-                    select(Author).where(Author.id.in_(coauthor_ids))
-                )
-                .scalars()
-                .all()
+                session.execute(select(Author).where(Author.id.in_(coauthor_ids))).scalars().all()
             )
             flagged_coauthors = sum(
                 1 for ca in coauthors if ca.flagged_papers and ca.flagged_papers > 0
@@ -184,9 +180,7 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
         authors_by_id: dict[str, Author] = {}
         if all_author_ids:
             fetched = (
-                session.execute(select(Author).where(Author.id.in_(all_author_ids)))
-                .scalars()
-                .all()
+                session.execute(select(Author).where(Author.id.in_(all_author_ids))).scalars().all()
             )
             authors_by_id = {str(a.id): a for a in fetched}
 
@@ -225,16 +219,15 @@ def detect_fraud_clusters(min_cluster_size: int = 3) -> list[FraudCluster]:
     with get_session() as session:
         # Batch-fetch all authors in communities that meet min size
         all_community_member_ids = {
-            mid for members in communities.values()
+            mid
+            for members in communities.values()
             if len(members) >= min_cluster_size
             for mid in members
         }
         community_authors: dict[str, Author] = {}
         if all_community_member_ids:
             fetched = (
-                session.execute(
-                    select(Author).where(Author.id.in_(all_community_member_ids))
-                )
+                session.execute(select(Author).where(Author.id.in_(all_community_member_ids)))
                 .scalars()
                 .all()
             )
@@ -366,9 +359,7 @@ def analyze_temporal_patterns(
         # Get all papers for this author with publication dates
         paper_ids = (
             session.execute(
-                select(AuthorPaperLink.paper_id).where(
-                    AuthorPaperLink.author_id == author_id
-                )
+                select(AuthorPaperLink.paper_id).where(AuthorPaperLink.author_id == author_id)
             )
             .scalars()
             .all()
@@ -386,16 +377,12 @@ def analyze_temporal_patterns(
                 details="No papers found for this author",
             )
 
-        papers = session.execute(
-            select(Paper).where(Paper.id.in_(paper_ids))
-        ).scalars().all()
+        papers = session.execute(select(Paper).where(Paper.id.in_(paper_ids))).scalars().all()
 
         # Extract publication dates
         pub_dates: list[datetime] = []
         for p in papers:
-            date_val = getattr(p, "publication_date", None) or getattr(
-                p, "created_at", None
-            )
+            date_val = getattr(p, "publication_date", None) or getattr(p, "created_at", None)
             if date_val is not None:
                 if isinstance(date_val, str):
                     try:
@@ -443,9 +430,7 @@ def analyze_temporal_patterns(
             window = timedelta(days=182)
             for i, date in enumerate(pub_dates):
                 window_end = date + window
-                count_in_window = sum(
-                    1 for d in pub_dates[i:] if d <= window_end
-                )
+                count_in_window = sum(1 for d in pub_dates[i:] if d <= window_end)
                 if count_in_window > baseline_rate * spike_threshold:
                     volume_spike = True
                     break
@@ -472,9 +457,7 @@ def analyze_temporal_patterns(
             suspicious = True
 
         if rate_per_year > 20:
-            details_parts.append(
-                f"Unusually high publication rate: {rate_per_year:.1f}/year"
-            )
+            details_parts.append(f"Unusually high publication rate: {rate_per_year:.1f}/year")
             suspicious = True
 
         return TemporalPatternResult(

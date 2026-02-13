@@ -18,9 +18,7 @@ _TEST_PHRASES = {
 
 def _mock_phrases():
     """Patch _load_phrases so tests don't depend on the data file."""
-    return patch(
-        "snoopy.analysis.text_forensics._load_phrases", return_value=_TEST_PHRASES
-    )
+    return patch("snoopy.analysis.text_forensics._load_phrases", return_value=_TEST_PHRASES)
 
 
 class TestTorturedPhrasesDetection:

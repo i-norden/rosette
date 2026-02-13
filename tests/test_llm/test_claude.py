@@ -106,7 +106,7 @@ class TestTryParseJson:
         assert result is None or isinstance(result, dict)
 
     def test_code_fence_with_only_closing(self):
-        result = _try_parse_json('```\n```')
+        result = _try_parse_json("```\n```")
         assert result is None
 
 

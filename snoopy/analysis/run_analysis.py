@@ -617,7 +617,7 @@ def run_tortured_phrases(
                 confidence = min(0.7, 0.4 + result.unique_phrases * 0.1)
 
             match_details = "; ".join(
-                f"'{m.phrase}' (should be '{m.correct_term}')"
+                f"'{m.tortured_phrase}' (should be '{m.correct_phrase}')"
                 for m in result.matches[:10]
             )
             findings.append(
@@ -633,7 +633,10 @@ def run_tortured_phrases(
                         "match_count": result.match_count,
                         "unique_phrases": result.unique_phrases,
                         "matches": [
-                            {"phrase": m.phrase, "correct": m.correct_term}
+                            {
+                                "phrase": m.tortured_phrase,
+                                "correct": m.correct_phrase,
+                            }
                             for m in result.matches[:20]
                         ],
                     },

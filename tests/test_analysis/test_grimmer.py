@@ -1,4 +1,5 @@
 """Tests for GRIMMER test."""
+
 from __future__ import annotations
 
 from snoopy.analysis.statistical import grimmer_test, GRIMMERResult
