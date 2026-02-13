@@ -33,6 +33,7 @@ dependencies = [
     "networkx~=3.3",
     "python-louvain~=0.16",
     "alembic~=1.13",
+    "slowapi~=0.1",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-httpx>=0.30",
+    "pytest-cov>=6.0",
     "ruff>=0.4",
     "mypy>=1.10",
     "pip-tools>=7.4",
@@ -65,3 +67,16 @@ markers = [
 
 [tool.mypy]
 plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+# Per-package overrides for untyped third-party libraries
+[[tool.mypy.overrides]]
+module = [
+    "fitz.*",
+    "cv2.*",
+    "pdfplumber.*",
+    "imagehash.*",
+    "community.*",
+    "py7zr.*",
+    "pillow_heif.*",
+]
+ignore_missing_imports = true

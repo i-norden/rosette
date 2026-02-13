@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Download test fixtures. Thin wrapper around snoopy.demo.fixtures."""
+"""Download test fixtures. Thin wrapper around snoopy.demo.fixtures.
+
+Usage: python -m scripts.download_fixtures   (from project root with snoopy installed)
+"""
 
 import logging
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from snoopy.demo.fixtures import download_all
 
