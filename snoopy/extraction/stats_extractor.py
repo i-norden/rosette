@@ -122,17 +122,13 @@ _R_RE = re.compile(
 
 # Standalone p-value -------------------------------------------------------
 _P_VALUE_RE = re.compile(
-    r"(?<![a-zA-Z])"
-    r"p\s*(?P<cmp>[<>=])\s*"
-    r"(?P<val>\.?\d+(?:\.\d+)?)",
+    r"(?<![a-zA-Z])" r"p\s*(?P<cmp>[<>=])\s*" r"(?P<val>\.?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 # General decimal number (for extract_numerical_values) --------------------
 _DECIMAL_RE = re.compile(
-    r"(?<![a-zA-Z])"
-    r"(-?\d+\.\d+)"
-    r"(?![a-zA-Z])",
+    r"(?<![a-zA-Z])" r"(-?\d+\.\d+)" r"(?![a-zA-Z])",
 )
 
 # SD/SE extraction patterns ------------------------------------------------

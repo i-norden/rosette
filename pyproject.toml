@@ -78,5 +78,13 @@ module = [
     "community.*",
     "py7zr.*",
     "pillow_heif.*",
+    "networkx",
+    "networkx.*",
+    "scipy",
+    "scipy.*",
+    "uvicorn",
+    "uvicorn.*",
+    "alembic",
+    "alembic.*",
 ]
 ignore_missing_imports = true

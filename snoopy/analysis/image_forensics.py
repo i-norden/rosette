@@ -372,7 +372,7 @@ def dct_analysis(
         )
 
     img_float = np.float32(img)
-    h, w = img_float.shape
+    h, w = img_float.shape  # type: ignore[misc]
 
     # Trim dimensions to multiples of 8
     h8 = (h // 8) * 8
@@ -386,7 +386,7 @@ def dct_analysis(
             details="Image too small for 8x8 block DCT analysis.",
         )
 
-    img_float = img_float[:h8, :w8]
+    img_float = img_float[:h8, :w8]  # type: ignore[index]
 
     # Number of DCT modes to inspect (skip DC at [0,0])
     # We look at modes (0,1)..(7,7) = 63 AC modes
@@ -748,7 +748,7 @@ def frequency_analysis(
         )
 
     img_float = np.float64(img)
-    h, w = img_float.shape
+    h, w = img_float.shape  # type: ignore[misc]
 
     # Compute 2D FFT and shift zero-frequency to centre
     f_transform = np.fft.fft2(img_float)
@@ -848,7 +848,7 @@ def frequency_analysis(
         # Fit linear regression in log-log
         valid = log_actual > 0
         if np.sum(valid) > 2:
-            X = np.column_stack([np.ones(np.sum(valid)), log_r[valid]])
+            X = np.column_stack([np.ones(int(np.sum(valid))), log_r[valid]])
             y_fit = log_actual[valid]
             # Normal equation: beta = (X^T X)^-1 X^T y
             try:

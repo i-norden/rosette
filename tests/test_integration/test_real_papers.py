@@ -76,9 +76,9 @@ class TestSyntheticForgeries:
                 detected += 1
 
         # At least some copy-move images should be detected
-        assert detected > 0, (
-            f"None of {len(copymove_images)} copy-move images were detected by ELA or clone detection"
-        )
+        assert (
+            detected > 0
+        ), f"None of {len(copymove_images)} copy-move images were detected by ELA or clone detection"
 
     def test_spliced_images_trigger_noise_analysis(self) -> None:
         """Spliced images should trigger noise inconsistency detection."""
@@ -91,9 +91,9 @@ class TestSyntheticForgeries:
             if noise.suspicious:
                 detected += 1
 
-        assert detected > 0, (
-            f"None of {len(spliced_images)} spliced images were detected by noise analysis"
-        )
+        assert (
+            detected > 0
+        ), f"None of {len(spliced_images)} spliced images were detected by noise analysis"
 
     def test_retouched_images_trigger_detection(self) -> None:
         """Retouched images should trigger some form of detection."""

@@ -68,7 +68,7 @@ def create_app(config: SnoopyConfig | None = None) -> FastAPI:
     # --- Rate limiting ---
     limiter = Limiter(key_func=get_remote_address, default_limits=[config.rate_limit])
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     # --- CORS middleware ---
     app.add_middleware(
