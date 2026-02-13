@@ -89,6 +89,21 @@ class AnalysisConfig(BaseModel):
     min_figure_width: int = 50
     min_figure_height: int = 50
 
+    # Image forensics defaults (used by direct callers; orchestrator passes these)
+    ela_min_max_diff: float = 15.0
+    clone_spatial_distance: float = 20.0
+    clone_cluster_radius: float = 50.0
+    noise_max_ratio_threshold: float = 10.0
+
+
+class CampaignConfig(BaseModel):
+    auto_risk_promotion_threshold: float = 30.0
+    max_authors_per_paper: int = 20  # cap on co-authors to expand per paper
+    max_papers_per_author: int = 50  # cap on papers to fetch per author
+    hash_match_max_distance: int = 10  # perceptual hash Hamming distance threshold
+    network_min_cluster_size: int = 3  # minimum authors for fraud cluster reporting
+    batch_concurrency: int = 5  # concurrent papers in batch processing
+
 
 class StorageConfig(BaseModel):
     database_url: str = "sqlite:///snoopy.db"
@@ -102,10 +117,19 @@ class SnoopyConfig(BaseSettings):
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     priority: PriorityConfig = Field(default_factory=PriorityConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     api_keys: list[str] | None = Field(
         default=None,
         description="List of valid API keys. When None, all requests are allowed.",
+    )
+    cors_origins: list[str] = Field(
+        default_factory=list,
+        description="Allowed CORS origins. Empty list blocks all cross-origin requests.",
+    )
+    rate_limit: str = Field(
+        default="60/minute",
+        description="Default rate limit (slowapi format, e.g. '60/minute').",
     )
 
     model_config = {"env_prefix": "SNOOPY_", "env_nested_delimiter": "__"}

@@ -72,8 +72,11 @@ class TestProcessPaperFullPipeline:
                 PipelineOrchestrator, "_run_classify_figures", new_callable=AsyncMock
             ) as mock_classify,
             patch.object(
-                PipelineOrchestrator, "_run_analyze_images", new_callable=AsyncMock
-            ) as mock_analyze_images,
+                PipelineOrchestrator, "_run_analyze_images_auto", new_callable=AsyncMock
+            ) as mock_analyze_images_auto,
+            patch.object(
+                PipelineOrchestrator, "_run_analyze_images_llm", new_callable=AsyncMock
+            ) as mock_analyze_images_llm,
             patch.object(
                 PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock
             ) as mock_analyze_stats,
@@ -96,7 +99,8 @@ class TestProcessPaperFullPipeline:
             mock_extract_figures.assert_called_once_with(paper_id)
             mock_extract_stats.assert_called_once_with(paper_id)
             mock_classify.assert_called_once_with(paper_id)
-            mock_analyze_images.assert_called_once_with(paper_id)
+            mock_analyze_images_auto.assert_called_once_with(paper_id)
+            mock_analyze_images_llm.assert_called_once_with(paper_id)
             mock_analyze_stats.assert_called_once_with(paper_id)
             mock_aggregate.assert_called_once_with(paper_id)
             mock_report.assert_called_once_with(paper_id)
@@ -119,7 +123,8 @@ class TestStageLogging:
             patch.object(PipelineOrchestrator, "_run_extract_figures", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_extract_stats", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_classify_figures", new_callable=AsyncMock),
-            patch.object(PipelineOrchestrator, "_run_analyze_images", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_images_auto", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_images_llm", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
@@ -155,7 +160,8 @@ class TestStageLogging:
                 "extract_figures",
                 "extract_stats",
                 "classify_figures",
-                "analyze_images",
+                "analyze_images_auto",
+                "analyze_images_llm",
                 "analyze_stats",
                 "aggregate",
                 "report",

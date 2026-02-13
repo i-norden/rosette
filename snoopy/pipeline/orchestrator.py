@@ -7,6 +7,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 
@@ -23,7 +24,7 @@ from snoopy.extraction.pdf_parser import download_pdf, extract_text
 from snoopy.extraction.stats_extractor import extract_means_and_ns, extract_test_statistics
 from snoopy.extraction.table_extractor import extract_tables
 from snoopy.llm.claude import ClaudeProvider
-from snoopy.pipeline.stages import PIPELINE_STAGES
+from snoopy.pipeline.stages import PIPELINE_STAGES, _LEGACY_STAGE_MAP
 from snoopy.reporting.proof import generate_html_report, generate_markdown_report
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,19 @@ class PipelineOrchestrator:
         self.semaphore = asyncio.Semaphore(config.llm.max_concurrent_requests)
         # Initialize async DB alongside sync DB
         init_async_db(config.storage.database_url)
+        # Explicit stage handler dispatch table
+        self._stage_handlers: dict[str, Any] = {
+            "download": self._run_download,
+            "extract_text": self._run_extract_text,
+            "extract_figures": self._run_extract_figures,
+            "extract_stats": self._run_extract_stats,
+            "classify_figures": self._run_classify_figures,
+            "analyze_images_auto": self._run_analyze_images_auto,
+            "analyze_images_llm": self._run_analyze_images_llm,
+            "analyze_stats": self._run_analyze_stats,
+            "aggregate": self._run_aggregate,
+            "report": self._run_report,
+        }
 
     async def _log_stage(self, paper_id: str, stage: str, status: str, details: str = "") -> None:
         async with get_async_session() as session:
@@ -97,9 +111,10 @@ class PipelineOrchestrator:
         for stage in paper_stages:
             await self._log_stage(paper_id, stage, "started")
             try:
-                handler = getattr(self, f"_run_{stage}", None)
-                if handler:
-                    await handler(paper_id)
+                handler = self._stage_handlers.get(stage)
+                if handler is None:
+                    raise ValueError(f"Unknown pipeline stage: {stage!r}")
+                await handler(paper_id)
                 await self._log_stage(paper_id, stage, "completed")
             except Exception as e:
                 logger.error(f"Stage {stage} failed for paper {paper_id}: {e}")
@@ -126,7 +141,14 @@ class PipelineOrchestrator:
                 completion status.
         """
         if force_stages:
-            paper_stages = [s for s in force_stages if s in PIPELINE_STAGES]
+            # Expand legacy stage names (e.g. "analyze_images" -> auto + llm)
+            expanded: list[str] = []
+            for s in force_stages:
+                if s in _LEGACY_STAGE_MAP:
+                    expanded.extend(_LEGACY_STAGE_MAP[s])
+                else:
+                    expanded.append(s)
+            paper_stages = [s for s in expanded if s in PIPELINE_STAGES]
         else:
             if from_stage:
                 try:
@@ -160,9 +182,10 @@ class PipelineOrchestrator:
         for stage in paper_stages:
             await self._log_stage(paper_id, stage, "started")
             try:
-                handler = getattr(self, f"_run_{stage}", None)
-                if handler:
-                    await handler(paper_id)
+                handler = self._stage_handlers.get(stage)
+                if handler is None:
+                    raise ValueError(f"Unknown pipeline stage: {stage!r}")
+                await handler(paper_id)
                 await self._log_stage(paper_id, stage, "completed")
             except Exception as e:
                 logger.error(f"Stage {stage} failed for paper {paper_id}: {e}")
@@ -210,7 +233,7 @@ class PipelineOrchestrator:
             paper = await session.get(Paper, paper_id)
             if not paper or not paper.pdf_path:
                 return
-            pages = extract_text(str(paper.pdf_path))
+            pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
             paper.full_text = "\n".join(p.text for p in pages)  # type: ignore[assignment]
             logger.info(f"Extracted {len(pages)} pages from {paper_id}")
 
@@ -224,7 +247,7 @@ class PipelineOrchestrator:
             fig_dir = Path(self.config.storage.figures_dir) / paper_id
             fig_dir.mkdir(parents=True, exist_ok=True)
 
-            figures = extract_figures(str(paper.pdf_path), str(fig_dir))
+            figures = await asyncio.to_thread(extract_figures, str(paper.pdf_path), str(fig_dir))
             for fig_info in figures:
                 # Compute and store perceptual hashes at extraction time
                 phash_val = compute_phash(fig_info.image_path)
@@ -273,8 +296,8 @@ class PipelineOrchestrator:
                         fig_type = await classify_figure(str(figure.image_path), self.llm_provider)
                         figure.image_type = fig_type  # type: ignore[assignment]
 
-    async def _run_analyze_images(self, paper_id: str) -> None:
-        """Run image forensics on all figures."""
+    async def _run_analyze_images_auto(self, paper_id: str) -> None:
+        """Run automated image forensics (ELA, clone detection, noise) on all figures."""
         async with get_async_session() as session:
             result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
             figures = result.scalars().all()
@@ -285,7 +308,9 @@ class PipelineOrchestrator:
                     continue
 
                 # ELA
-                ela = error_level_analysis(img_path, quality=self.config.analysis.ela_quality)
+                ela = await asyncio.to_thread(
+                    error_level_analysis, img_path, quality=self.config.analysis.ela_quality
+                )
                 if ela.suspicious:
                     finding = Finding(
                         paper_id=paper_id,
@@ -310,8 +335,8 @@ class PipelineOrchestrator:
                     session.add(finding)
 
                 # Clone detection
-                clone = clone_detection(
-                    img_path, min_matches=self.config.analysis.clone_min_matches
+                clone = await asyncio.to_thread(
+                    clone_detection, img_path, min_matches=self.config.analysis.clone_min_matches
                 )
                 if clone.suspicious:
                     finding = Finding(
@@ -336,7 +361,9 @@ class PipelineOrchestrator:
                     session.add(finding)
 
                 # Noise analysis
-                noise = noise_analysis(img_path, block_size=self.config.analysis.noise_block_size)
+                noise = await asyncio.to_thread(
+                    noise_analysis, img_path, block_size=self.config.analysis.noise_block_size
+                )
                 if noise.suspicious:
                     finding = Finding(
                         paper_id=paper_id,
@@ -357,6 +384,17 @@ class PipelineOrchestrator:
                         ),
                     )
                     session.add(finding)
+
+    async def _run_analyze_images_llm(self, paper_id: str) -> None:
+        """Run LLM-based image analysis (screening + detailed) on all figures."""
+        async with get_async_session() as session:
+            result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
+            figures = result.scalars().all()
+
+            for figure in figures:
+                img_path = str(figure.image_path or "")
+                if not img_path or not Path(img_path).exists():
+                    continue
 
                 # LLM Vision - Stage 1 screening
                 async with self.semaphore:
@@ -472,7 +510,7 @@ class PipelineOrchestrator:
                         session.add(finding)
 
             # Benford's law on tables
-            tables = extract_tables(str(paper.pdf_path))
+            tables = await asyncio.to_thread(extract_tables, str(paper.pdf_path))
             all_values = []
             for table in tables:
                 for row in table.rows:

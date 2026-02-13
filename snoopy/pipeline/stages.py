@@ -21,12 +21,19 @@ PIPELINE_STAGES = [
     "extract_text",
     "extract_figures",
     "extract_stats",
-    "classify_figures",
-    "analyze_images",
+    "analyze_images_auto",
     "analyze_stats",
+    "classify_figures",
+    "analyze_images_llm",
     "aggregate",
     "report",
 ]
+
+# Legacy alias: the old "analyze_images" stage is now split into auto + llm.
+# Map old stage name to its replacements for backward compatibility.
+_LEGACY_STAGE_MAP: dict[str, list[str]] = {
+    "analyze_images": ["analyze_images_auto", "analyze_images_llm"],
+}
 
 
 @dataclass

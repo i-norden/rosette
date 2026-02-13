@@ -457,5 +457,14 @@ def _make_alembic_config(database_url: str):
     return alembic_cfg
 
 
+# ---------------------------------------------------------------------------
+# campaign subcommand group
+# ---------------------------------------------------------------------------
+
+from snoopy.cli_campaign import campaign  # noqa: E402
+
+main.add_command(campaign)
+
+
 if __name__ == "__main__":
     main()
