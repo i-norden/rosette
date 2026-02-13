@@ -74,8 +74,9 @@ def _detect_lanes(gray: np.ndarray, min_lane_width: int = 15) -> list[tuple[int,
         kernel_size += 1
     smoothed = cv2.GaussianBlur(projection.reshape(1, -1), (kernel_size, 1), 0).flatten()
 
-    # Find valleys (lane boundaries) using derivative zero-crossings
-    threshold = np.mean(smoothed) * 0.7
+    # Find valleys (lane boundaries) using adaptive thresholding.
+    # Use the larger of mean*multiplier and 25th percentile to handle low-contrast images.
+    threshold = max(np.mean(smoothed) * 0.7, np.percentile(smoothed, 25))
     in_lane = smoothed > threshold
 
     lanes = []

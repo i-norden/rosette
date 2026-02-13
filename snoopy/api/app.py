@@ -75,8 +75,8 @@ def create_app(config: SnoopyConfig | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=config.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "X-API-Key", "Authorization"],
     )
 
     # Health check endpoint

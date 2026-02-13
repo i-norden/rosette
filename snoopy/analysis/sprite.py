@@ -37,6 +37,7 @@ class SPRITEResult:
     sd_achievable: bool
     attempts: int
     details: str
+    seed: int | None = None
 
 
 def sprite_test(
@@ -47,6 +48,7 @@ def sprite_test(
     max_val: int = 7,
     mean_decimals: int = 2,
     sd_decimals: int = 2,
+    seed: int = 42,
 ) -> SPRITEResult:
     """Test whether reported mean and SD are simultaneously achievable.
 
@@ -78,6 +80,7 @@ def sprite_test(
             sd_achievable=True,
             attempts=0,
             details="N too small for SPRITE test",
+            seed=seed,
         )
 
     # Check if mean is even possible given min/max constraints
@@ -93,12 +96,13 @@ def sprite_test(
             sd_achievable=False,
             attempts=0,
             details=f"Reported mean {reported_mean} outside possible range [{min_val}, {max_val}]",
+            seed=seed,
         )
 
     mean_tolerance = 0.5 / (10**mean_decimals)
     sd_tolerance = 0.5 / (10**sd_decimals)
 
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed)
     mean_achievable = False
     sd_achievable = False
 
@@ -145,6 +149,7 @@ def sprite_test(
                     sd_achievable=True,
                     attempts=attempt + 1,
                     details="Found consistent dataset",
+                    seed=seed,
                 )
 
     # Construct detailed failure message
@@ -171,4 +176,5 @@ def sprite_test(
         sd_achievable=sd_achievable,
         attempts=_MAX_ATTEMPTS,
         details=detail,
+        seed=seed,
     )

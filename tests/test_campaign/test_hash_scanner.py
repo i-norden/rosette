@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from snoopy.campaign.hash_scanner import CampaignHashScanner, _PREFIX_LEN
+from snoopy.campaign.hash_scanner import CampaignHashScanner, _DEFAULT_PREFIX_LEN
 from snoopy.config import SnoopyConfig
 from snoopy.db.models import Campaign, CampaignPaper, Figure, ImageHashMatch, Paper
 from snoopy.db.session import get_session, init_async_db, init_db
@@ -107,22 +107,22 @@ def scanner_db(scanner_config) -> str:
 class TestNearbyPrefixes:
     def test_includes_original(self, scanner_config):
         scanner = CampaignHashScanner(scanner_config)
-        neighbors = scanner._nearby_prefixes("abcd")
-        assert "abcd" in neighbors
+        neighbors = scanner._nearby_prefixes("ab")
+        assert "ab" in neighbors
 
     def test_generates_correct_count(self, scanner_config):
         scanner = CampaignHashScanner(scanner_config)
-        prefix = "abcd"
+        prefix = "ab"
         neighbors = scanner._nearby_prefixes(prefix)
-        # Original + 15 variants per position * 4 positions = 1 + 60 = 61
-        assert len(neighbors) == 1 + (15 * _PREFIX_LEN)
+        # Original + 15 variants per position * 2 positions = 1 + 30 = 31
+        assert len(neighbors) == 1 + (15 * _DEFAULT_PREFIX_LEN)
 
     def test_neighbors_differ_by_one_char(self, scanner_config):
         scanner = CampaignHashScanner(scanner_config)
-        neighbors = scanner._nearby_prefixes("0000")
+        neighbors = scanner._nearby_prefixes("00")
         for n in neighbors:
-            assert len(n) == 4
-            diffs = sum(1 for a, b in zip("0000", n) if a != b)
+            assert len(n) == _DEFAULT_PREFIX_LEN
+            diffs = sum(1 for a, b in zip("00", n) if a != b)
             assert diffs <= 1
 
 
@@ -145,10 +145,10 @@ class TestBuildIndex:
         scanner = CampaignHashScanner(scanner_config, scanner_db)
         scanner._build_index()
 
-        # fig-a1 and fig-b1 both have prefix "abcd" -> same bucket
-        assert "abcd" in scanner._index
-        abcd_entries = scanner._index["abcd"]
-        paper_ids = {entry[1] for entry in abcd_entries}
+        # fig-a1 and fig-b1 both have prefix "ab" (first 2 hex chars) -> same bucket
+        assert "ab" in scanner._index
+        ab_entries = scanner._index["ab"]
+        paper_ids = {entry[1] for entry in ab_entries}
         assert "paper-a" in paper_ids
         assert "paper-b" in paper_ids
 
@@ -167,14 +167,14 @@ class TestBuildIndex:
     def test_skips_short_phash(self, scanner_config, scanner_db):
         with get_session() as session:
             session.add(Figure(
-                id="fig-short", paper_id="paper-a", phash="ab",
+                id="fig-short", paper_id="paper-a", phash="a",
             ))
 
         scanner = CampaignHashScanner(scanner_config, scanner_db)
         scanner._build_index()
 
         total = sum(len(v) for v in scanner._index.values())
-        assert total == 4  # short phash not indexed
+        assert total == 4  # short phash (len < _DEFAULT_PREFIX_LEN) not indexed
 
 
 class TestScanAllPairs:

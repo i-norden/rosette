@@ -13,8 +13,23 @@ from sqlalchemy import select
 
 from snoopy.analysis.cross_reference import compute_ahash, compute_phash
 from snoopy.analysis.evidence import aggregate_findings
-from snoopy.analysis.image_forensics import clone_detection, error_level_analysis, noise_analysis
+from snoopy.analysis.image_forensics import (
+    clone_detection,
+    dct_analysis,
+    error_level_analysis,
+    frequency_analysis,
+    jpeg_ghost_detection,
+    noise_analysis,
+)
 from snoopy.analysis.llm_vision import analyze_figure_detailed, classify_figure, screen_figure
+from snoopy.analysis.run_analysis import (
+    run_dct_analysis,
+    run_frequency_analysis,
+    run_jpeg_ghost_analysis,
+    run_sprite_analysis,
+    run_statistical_tests,
+    run_tortured_phrases,
+)
 from snoopy.analysis.statistical import benford_test, duplicate_value_check, grim_test, pvalue_check
 from snoopy.config import SnoopyConfig
 from snoopy.db.models import Figure, Finding, Paper, ProcessingLog, Report
@@ -385,6 +400,63 @@ class PipelineOrchestrator:
                     )
                     session.add(finding)
 
+                # DCT analysis (double JPEG compression)
+                dct_findings = await asyncio.to_thread(
+                    run_dct_analysis, img_path,
+                    figure_id=str(figure.figure_label or figure.id),
+                    config=self.config.analysis,
+                )
+                for fd in dct_findings:
+                    finding = Finding(
+                        paper_id=paper_id,
+                        figure_id=figure.id,
+                        analysis_type="dct_analysis",
+                        severity=fd["severity"],
+                        confidence=fd["confidence"],
+                        title=fd["title"],
+                        description=fd["description"],
+                        evidence_json=json.dumps(fd.get("evidence", {})),
+                    )
+                    session.add(finding)
+
+                # JPEG ghost detection
+                ghost_findings = await asyncio.to_thread(
+                    run_jpeg_ghost_analysis, img_path,
+                    figure_id=str(figure.figure_label or figure.id),
+                    config=self.config.analysis,
+                )
+                for fd in ghost_findings:
+                    finding = Finding(
+                        paper_id=paper_id,
+                        figure_id=figure.id,
+                        analysis_type="jpeg_ghost",
+                        severity=fd["severity"],
+                        confidence=fd["confidence"],
+                        title=fd["title"],
+                        description=fd["description"],
+                        evidence_json=json.dumps(fd.get("evidence", {})),
+                    )
+                    session.add(finding)
+
+                # FFT frequency analysis
+                fft_findings = await asyncio.to_thread(
+                    run_frequency_analysis, img_path,
+                    figure_id=str(figure.figure_label or figure.id),
+                    config=self.config.analysis,
+                )
+                for fd in fft_findings:
+                    finding = Finding(
+                        paper_id=paper_id,
+                        figure_id=figure.id,
+                        analysis_type="fft_analysis",
+                        severity=fd["severity"],
+                        confidence=fd["confidence"],
+                        title=fd["title"],
+                        description=fd["description"],
+                        evidence_json=json.dumps(fd.get("evidence", {})),
+                    )
+                    session.add(finding)
+
     async def _run_analyze_images_llm(self, paper_id: str) -> None:
         """Run LLM-based image analysis (screening + detailed) on all figures."""
         async with get_async_session() as session:
@@ -567,6 +639,61 @@ class PipelineOrchestrator:
                     )
                     session.add(finding)
 
+            # New statistical tests (GRIMMER, variance ratio, terminal digit)
+            stat_findings = await asyncio.to_thread(
+                run_statistical_tests, full_text, config=self.config.analysis
+            )
+            for fd in stat_findings:
+                finding = Finding(
+                    paper_id=paper_id,
+                    analysis_type=fd["analysis_type"],
+                    severity=fd["severity"],
+                    confidence=fd["confidence"],
+                    title=fd["title"],
+                    description=fd["description"],
+                    evidence_json=json.dumps(fd.get("evidence", {})),
+                )
+                session.add(finding)
+
+            # SPRITE test on mean/SD/N reports
+            from snoopy.extraction.stats_extractor import extract_means_sds_and_ns
+
+            mean_sd_reports = extract_means_sds_and_ns(full_text)
+            for mr in mean_sd_reports:
+                if mr.sd is not None and mr.n >= 2:
+                    sprite_findings = await asyncio.to_thread(
+                        run_sprite_analysis,
+                        mr.mean, mr.sd, mr.n,
+                        context=mr.context,
+                    )
+                    for fd in sprite_findings:
+                        finding = Finding(
+                            paper_id=paper_id,
+                            analysis_type="sprite",
+                            severity=fd["severity"],
+                            confidence=fd["confidence"],
+                            title=fd["title"],
+                            description=fd["description"],
+                            evidence_json=json.dumps(fd.get("evidence", {})),
+                        )
+                        session.add(finding)
+
+            # Tortured phrase detection
+            tp_findings = await asyncio.to_thread(
+                run_tortured_phrases, full_text, config=self.config.analysis
+            )
+            for fd in tp_findings:
+                finding = Finding(
+                    paper_id=paper_id,
+                    analysis_type="tortured_phrases",
+                    severity=fd["severity"],
+                    confidence=fd["confidence"],
+                    title=fd["title"],
+                    description=fd["description"],
+                    evidence_json=json.dumps(fd.get("evidence", {})),
+                )
+                session.add(finding)
+
     def _build_method_weights(self) -> dict[str, float]:
         """Build a mapping of analysis_type -> weight from config."""
         cfg = self.config.analysis
@@ -582,6 +709,16 @@ class PipelineOrchestrator:
             "duplicate_check": cfg.weight_duplicate_check,
             "llm_vision": cfg.weight_llm_vision,
             "llm_screening": cfg.weight_llm_vision,
+            "dct_analysis": cfg.weight_dct_analysis,
+            "jpeg_ghost": cfg.weight_jpeg_ghost,
+            "fft_analysis": cfg.weight_fft_analysis,
+            "grimmer": cfg.weight_grimmer,
+            "terminal_digit": cfg.weight_terminal_digit,
+            "distribution_fit": cfg.weight_distribution_fit,
+            "variance_ratio": cfg.weight_variance_ratio,
+            "tortured_phrases": cfg.weight_tortured_phrases,
+            "sprite": cfg.weight_sprite,
+            "temporal_patterns": cfg.weight_temporal_patterns,
         }
 
     async def _run_aggregate(self, paper_id: str) -> None:

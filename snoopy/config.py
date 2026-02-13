@@ -25,6 +25,8 @@ class LLMConfig(BaseModel):
     model_proof: str = "claude-opus-4-6"
     use_batch_api: bool = True
     max_concurrent_requests: int = 5
+    cache_enabled: bool = True
+    cache_dir: str = "data/llm_cache"
 
 
 class DiscoveryConfig(BaseModel):
@@ -42,7 +44,8 @@ class PriorityConfig(BaseModel):
 
 
 class AnalysisConfig(BaseModel):
-    ela_quality: int = 95
+    # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
+    ela_quality: int = 80
     clone_min_matches: int = 10
     noise_block_size: int = 64
     llm_screening_confidence_threshold: float = 0.5
@@ -92,8 +95,50 @@ class AnalysisConfig(BaseModel):
     # Image forensics defaults (used by direct callers; orchestrator passes these)
     ela_min_max_diff: float = 15.0
     clone_spatial_distance: float = 20.0
+    clone_ransac_threshold: float = 5.0
     clone_cluster_radius: float = 50.0
+    clone_feature_extractor: str = "sift"
     noise_max_ratio_threshold: float = 10.0
+
+    # Western blot thresholds
+    western_blot_lane_threshold_multiplier: float = 0.7
+    western_blot_duplicate_correlation: float = 0.95
+    western_blot_splice_border_px: int = 3
+
+    # Phase 2 new detection method weights
+    weight_dct_analysis: float = 0.70
+    weight_jpeg_ghost: float = 0.65
+    weight_fft_analysis: float = 0.55
+    weight_grimmer: float = 0.60
+    weight_terminal_digit: float = 0.45
+    weight_distribution_fit: float = 0.40
+    weight_variance_ratio: float = 0.70
+    weight_tortured_phrases: float = 0.80
+    weight_temporal_patterns: float = 0.50
+    weight_sprite: float = 0.65
+
+    # DCT analysis
+    dct_periodicity_threshold: float = 0.3
+
+    # JPEG ghost detection
+    jpeg_ghost_quality_range_start: int = 50
+    jpeg_ghost_quality_range_end: int = 95
+    jpeg_ghost_step: int = 5
+
+    # FFT frequency analysis
+    fft_spectral_anomaly_threshold: float = 2.5
+
+    # SSIM cross-reference
+    ssim_duplicate_threshold: float = 0.95
+
+    # Terminal digit analysis
+    terminal_digit_uniformity_alpha: float = 0.01
+
+    # Variance ratio test
+    variance_ratio_min_sds: int = 3
+
+    # Tortured phrases
+    tortured_phrase_min_matches: int = 2
 
 
 class CampaignConfig(BaseModel):
@@ -103,6 +148,7 @@ class CampaignConfig(BaseModel):
     hash_match_max_distance: int = 10  # perceptual hash Hamming distance threshold
     network_min_cluster_size: int = 3  # minimum authors for fraud cluster reporting
     batch_concurrency: int = 5  # concurrent papers in batch processing
+    hash_prefix_length: int = 2  # prefix length for hash bucketing (256 buckets)
 
 
 class StorageConfig(BaseModel):

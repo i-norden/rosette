@@ -3,12 +3,14 @@
 Builds co-authorship graphs and applies community detection to find clusters
 where multiple members have flagged papers. Also computes individual author
 risk scores based on retraction history and anomalous publication patterns.
+Includes temporal publication pattern analysis for paper mill detection.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
 import community as community_louvain
 import networkx as nx
@@ -278,3 +280,177 @@ def run_network_analysis() -> NetworkAnalysisResult:
         total_authors=total_authors,
         total_communities=len(fraud_clusters),
     )
+
+
+# ---------------------------------------------------------------------------
+# 2.11 Temporal publication pattern analysis
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TemporalPatternResult:
+    """Result of temporal publication pattern analysis."""
+
+    suspicious: bool
+    total_papers: int
+    min_interval_days: float | None
+    mean_interval_days: float | None
+    publication_rate_per_year: float
+    volume_spike_detected: bool
+    fast_acceptance_count: int
+    details: str
+
+
+def analyze_temporal_patterns(
+    author_id: str,
+    min_papers: int = 5,
+    spike_threshold: float = 3.0,
+    min_interval_days: float = 14.0,
+) -> TemporalPatternResult | None:
+    """Analyze an author's publication timeline for paper mill signals.
+
+    Detects:
+    - Implausibly short submission intervals
+    - Sudden publication volume spikes
+    - Suspiciously fast acceptance times
+
+    Args:
+        author_id: The author to analyze.
+        min_papers: Minimum number of papers with dates needed for analysis.
+        spike_threshold: Multiple of baseline rate to count as a volume spike.
+        min_interval_days: Minimum expected days between publications.
+
+    Returns:
+        TemporalPatternResult, or None if the author is not found.
+    """
+    from snoopy.db.models import Paper
+
+    with get_session() as session:
+        author = session.get(Author, author_id)
+        if not author:
+            return None
+
+        # Get all papers for this author with publication dates
+        paper_ids = (
+            session.execute(
+                select(AuthorPaperLink.paper_id).where(
+                    AuthorPaperLink.author_id == author_id
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        if not paper_ids:
+            return TemporalPatternResult(
+                suspicious=False,
+                total_papers=0,
+                min_interval_days=None,
+                mean_interval_days=None,
+                publication_rate_per_year=0.0,
+                volume_spike_detected=False,
+                fast_acceptance_count=0,
+                details="No papers found for this author",
+            )
+
+        papers = session.execute(
+            select(Paper).where(Paper.id.in_(paper_ids))
+        ).scalars().all()
+
+        # Extract publication dates
+        pub_dates: list[datetime] = []
+        for p in papers:
+            date_val = getattr(p, "publication_date", None) or getattr(
+                p, "created_at", None
+            )
+            if date_val is not None:
+                if isinstance(date_val, str):
+                    try:
+                        date_val = datetime.fromisoformat(date_val)
+                    except (ValueError, TypeError):
+                        continue
+                if isinstance(date_val, datetime):
+                    pub_dates.append(date_val)
+
+        total_papers = len(papers)
+
+        if len(pub_dates) < min_papers:
+            return TemporalPatternResult(
+                suspicious=False,
+                total_papers=total_papers,
+                min_interval_days=None,
+                mean_interval_days=None,
+                publication_rate_per_year=0.0,
+                volume_spike_detected=False,
+                fast_acceptance_count=0,
+                details=f"Only {len(pub_dates)} papers with dates (need {min_papers})",
+            )
+
+        pub_dates.sort()
+
+        # Compute inter-publication intervals
+        intervals: list[float] = []
+        for i in range(1, len(pub_dates)):
+            delta = (pub_dates[i] - pub_dates[i - 1]).total_seconds() / 86400.0
+            intervals.append(delta)
+
+        min_interval = min(intervals) if intervals else None
+        mean_interval = sum(intervals) / len(intervals) if intervals else None
+
+        # Publication rate
+        date_range = (pub_dates[-1] - pub_dates[0]).days
+        years = max(date_range / 365.25, 0.1)
+        rate_per_year = len(pub_dates) / years
+
+        # Volume spike detection: check if any 6-month window has >spike_threshold
+        # times the baseline rate
+        volume_spike = False
+        baseline_rate = rate_per_year / 2.0  # per 6 months
+        if baseline_rate > 0:
+            window = timedelta(days=182)
+            for i, date in enumerate(pub_dates):
+                window_end = date + window
+                count_in_window = sum(
+                    1 for d in pub_dates[i:] if d <= window_end
+                )
+                if count_in_window > baseline_rate * spike_threshold:
+                    volume_spike = True
+                    break
+
+        # Fast acceptance count (papers with very short intervals)
+        fast_count = sum(1 for iv in intervals if iv < min_interval_days)
+
+        # Determine suspicion
+        details_parts: list[str] = []
+        suspicious = False
+
+        if min_interval is not None and min_interval < min_interval_days:
+            details_parts.append(
+                f"Minimum interval between publications: {min_interval:.1f} days "
+                f"(threshold: {min_interval_days} days)"
+            )
+            if fast_count >= 3:
+                suspicious = True
+
+        if volume_spike:
+            details_parts.append(
+                f"Publication volume spike detected (>{spike_threshold}x baseline)"
+            )
+            suspicious = True
+
+        if rate_per_year > 20:
+            details_parts.append(
+                f"Unusually high publication rate: {rate_per_year:.1f}/year"
+            )
+            suspicious = True
+
+        return TemporalPatternResult(
+            suspicious=suspicious,
+            total_papers=total_papers,
+            min_interval_days=min_interval,
+            mean_interval_days=mean_interval,
+            publication_rate_per_year=rate_per_year,
+            volume_spike_detected=volume_spike,
+            fast_acceptance_count=fast_count,
+            details="; ".join(details_parts) if details_parts else "No anomalous patterns",
+        )

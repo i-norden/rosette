@@ -14,8 +14,9 @@ from snoopy.db.session import get_async_session, get_session
 
 logger = logging.getLogger(__name__)
 
-# Prefix length for hash bucketing (first N hex chars)
-_PREFIX_LEN = 4
+# Default prefix length for hash bucketing (first N hex chars).
+# 2 = 256 buckets; better recall than 4 (65536) for Hamming distance matching.
+_DEFAULT_PREFIX_LEN = 2
 _PAGE_SIZE = 500
 
 
@@ -26,6 +27,7 @@ class CampaignHashScanner:
         self.config = config
         self.campaign_id = campaign_id
         self.max_distance = config.campaign.hash_match_max_distance
+        self._prefix_len = getattr(config.campaign, "hash_prefix_length", _DEFAULT_PREFIX_LEN)
         # In-memory index: prefix -> [(figure_id, paper_id, full_hash)]
         self._index: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
 
@@ -54,8 +56,8 @@ class CampaignHashScanner:
 
                 for row in rows:
                     phash = row.phash
-                    if phash and len(phash) >= _PREFIX_LEN:
-                        prefix = phash[:_PREFIX_LEN]
+                    if phash and len(phash) >= self._prefix_len:
+                        prefix = phash[:self._prefix_len]
                         self._index[prefix].append((row.id, row.paper_id, phash))
 
                 offset += _PAGE_SIZE
@@ -87,7 +89,7 @@ class CampaignHashScanner:
                     .where(Figure.phash.isnot(None))
                 ).all()
                 for row in rows:
-                    if row.phash and len(row.phash) >= _PREFIX_LEN:
+                    if row.phash and len(row.phash) >= self._prefix_len:
                         new_figures.append((row.id, row.paper_id, row.phash))
 
         # Compare new figures against index
@@ -95,7 +97,7 @@ class CampaignHashScanner:
         seen_pairs: set[tuple[str, str]] = set()
 
         for fig_id, paper_id, phash in new_figures:
-            prefix = phash[:_PREFIX_LEN]
+            prefix = phash[:self._prefix_len]
             # Check same bucket and neighboring buckets
             for bucket_prefix in self._nearby_prefixes(prefix):
                 for other_id, other_paper_id, other_hash in self._index.get(bucket_prefix, []):

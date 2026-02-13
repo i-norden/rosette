@@ -36,12 +36,21 @@ LLM_TIER_STAGES = [
 RISK_WEIGHTS: dict[str, float] = {
     "hash_match": 30.0,
     "clone_detection": 25.0,
-    "grim": 15.0,
-    "pvalue_check": 15.0,
+    "tortured_phrases": 25.0,
     "retraction": 20.0,
+    "grim": 15.0,
+    "grimmer": 15.0,
+    "pvalue_check": 15.0,
+    "variance_ratio": 15.0,
+    "sprite": 12.0,
+    "dct_analysis": 12.0,
     "ela": 10.0,
     "noise_analysis": 10.0,
     "pubpeer": 10.0,
+    "jpeg_ghost": 10.0,
+    "fft_analysis": 8.0,
+    "terminal_digit": 8.0,
+    "temporal_patterns": 8.0,
     "benford": 5.0,
 }
 

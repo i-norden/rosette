@@ -161,10 +161,10 @@ class TestParseJsonResponse:
         assert parsed["result"] is True
 
     def test_parse_json_response_invalid(self) -> None:
-        """Return empty dict when JSON cannot be parsed."""
+        """Return dict with _parse_failed flag when JSON cannot be parsed."""
         raw = "This is not JSON at all, no braces here."
         parsed = _parse_json_response(raw)
-        assert parsed == {}
+        assert parsed == {"_parse_failed": True}
 
 
 class TestClassifyFigure:

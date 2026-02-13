@@ -21,6 +21,7 @@ class FigureEvidence:
     severity: str
     confidence: float
     findings: list[dict]
+    single_method: bool = False
 
 
 @dataclass
@@ -138,6 +139,8 @@ def compute_overall_confidence(
 def aggregate_findings(
     findings: list[dict],
     method_weights: dict[str, float] | None = None,
+    single_method_max_severity: str = "medium",
+    single_method_max_confidence: float = 0.7,
 ) -> AggregatedEvidence:
     """Aggregate findings across all analysis methods into a unified assessment.
 
@@ -197,11 +200,17 @@ def aggregate_findings(
         severity = compute_figure_severity(fig_findings, method_weights=method_weights)
         confidence = compute_overall_confidence(fig_findings, method_weights=method_weights)
 
-        # Downgrade single-method flags
-        if not converging and methods_flagged:
-            if severity in ("high", "critical"):
-                severity = "medium"
-            confidence = min(confidence, 0.5)
+        # For single-method flags, preserve original severity but mark them
+        # and apply configurable confidence cap (default 0.7, softer than old 0.5)
+        is_single_method = not converging and len(methods_flagged) > 0
+        if is_single_method:
+            severity_order_local = {"critical": 4, "high": 3, "medium": 2, "low": 1, "clean": 0}
+            max_sev_val = severity_order_local.get(single_method_max_severity, 2)
+            cur_sev_val = severity_order_local.get(severity, 0)
+            if cur_sev_val > max_sev_val:
+                reverse_local = {v: k for k, v in severity_order_local.items()}
+                severity = reverse_local.get(max_sev_val, single_method_max_severity)
+            confidence = min(confidence, single_method_max_confidence)
 
         if severity == "critical":
             critical_count += 1
@@ -219,6 +228,7 @@ def aggregate_findings(
                 severity=severity,
                 confidence=confidence,
                 findings=fig_findings,
+                single_method=is_single_method,
             )
         )
 

@@ -9,7 +9,7 @@ class TestConfigDefaults:
         assert config.llm.provider == "claude"
         assert config.llm.model_screen == "claude-haiku-4-5-20251001"
         assert config.storage.database_url == "sqlite:///snoopy.db"
-        assert config.analysis.ela_quality == 95
+        assert config.analysis.ela_quality == 80
         assert config.priority.min_citations == 50
 
     def test_custom_config(self):

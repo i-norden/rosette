@@ -86,6 +86,9 @@ class TestRiskWeights:
         expected = {
             "hash_match", "clone_detection", "grim", "pvalue_check",
             "retraction", "ela", "noise_analysis", "pubpeer", "benford",
+            "tortured_phrases", "grimmer", "variance_ratio", "sprite",
+            "dct_analysis", "jpeg_ghost", "fft_analysis", "terminal_digit",
+            "temporal_patterns",
         }
         assert set(RISK_WEIGHTS.keys()) == expected
 

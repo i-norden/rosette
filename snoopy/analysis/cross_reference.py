@@ -1,4 +1,4 @@
-"""Cross-paper image/data comparison using perceptual hashing."""
+"""Cross-paper image/data comparison using perceptual hashing and SSIM."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field
 
 import imagehash
+import numpy as np
 from PIL import Image
 from sqlalchemy import select
 
@@ -177,3 +178,98 @@ def build_hash_index() -> dict[str, list[tuple[str, str]]]:
             offset += _PAGE_SIZE
 
     return index
+
+
+@dataclass
+class SSIMResult:
+    """Result of SSIM comparison between two images."""
+
+    score: float
+    is_duplicate: bool
+    difference_map: np.ndarray | None = None
+
+
+def compute_ssim(
+    image_a_path: str,
+    image_b_path: str,
+    threshold: float = 0.95,
+    return_map: bool = False,
+) -> SSIMResult:
+    """Compute Structural Similarity Index between two images.
+
+    Pure numpy implementation (no scikit-image dependency). Provides a spatial
+    difference map showing exactly where images differ, useful for detecting
+    partial image recycling.
+
+    Args:
+        image_a_path: Path to the first image.
+        image_b_path: Path to the second image.
+        threshold: SSIM score above which images are considered duplicates.
+        return_map: If True, include the per-pixel SSIM map in the result.
+
+    Returns:
+        SSIMResult with similarity score and optional spatial map.
+    """
+    try:
+        img_a = np.array(Image.open(image_a_path).convert("L"), dtype=np.float64)
+        img_b = np.array(Image.open(image_b_path).convert("L"), dtype=np.float64)
+    except Exception:
+        return SSIMResult(score=0.0, is_duplicate=False)
+
+    # Resize to match dimensions if needed
+    if img_a.shape != img_b.shape:
+        min_h = min(img_a.shape[0], img_b.shape[0])
+        min_w = min(img_a.shape[1], img_b.shape[1])
+        img_a = img_a[:min_h, :min_w]
+        img_b = img_b[:min_h, :min_w]
+
+    if img_a.size == 0:
+        return SSIMResult(score=0.0, is_duplicate=False)
+
+    # SSIM constants (per Wang et al. 2004)
+    C1 = (0.01 * 255) ** 2
+    C2 = (0.03 * 255) ** 2
+    window_size = 7
+
+    # Use uniform window (box filter) for simplicity
+    from numpy.lib.stride_tricks import sliding_window_view
+
+    h, w = img_a.shape
+    if h < window_size or w < window_size:
+        # Image too small for windowed SSIM, compute global
+        mu_a = np.mean(img_a)
+        mu_b = np.mean(img_b)
+        sigma_a_sq = np.var(img_a)
+        sigma_b_sq = np.var(img_b)
+        sigma_ab = np.mean((img_a - mu_a) * (img_b - mu_b))
+        num = (2 * mu_a * mu_b + C1) * (2 * sigma_ab + C2)
+        den = (mu_a**2 + mu_b**2 + C1) * (sigma_a_sq + sigma_b_sq + C2)
+        score = float(num / den) if den != 0 else 0.0
+        return SSIMResult(score=score, is_duplicate=score >= threshold)
+
+    # Windowed SSIM via sliding windows
+    win_a = sliding_window_view(img_a, (window_size, window_size))
+    win_b = sliding_window_view(img_b, (window_size, window_size))
+
+    mu_a = np.mean(win_a, axis=(-2, -1))
+    mu_b = np.mean(win_b, axis=(-2, -1))
+
+    sigma_a_sq = np.var(win_a, axis=(-2, -1))
+    sigma_b_sq = np.var(win_b, axis=(-2, -1))
+    sigma_ab = np.mean(
+        (win_a - mu_a[..., np.newaxis, np.newaxis])
+        * (win_b - mu_b[..., np.newaxis, np.newaxis]),
+        axis=(-2, -1),
+    )
+
+    num = (2 * mu_a * mu_b + C1) * (2 * sigma_ab + C2)
+    den = (mu_a**2 + mu_b**2 + C1) * (sigma_a_sq + sigma_b_sq + C2)
+
+    ssim_map = np.where(den != 0, num / den, 0.0)
+    score = float(np.mean(ssim_map))
+
+    return SSIMResult(
+        score=score,
+        is_duplicate=score >= threshold,
+        difference_map=ssim_map if return_map else None,
+    )
