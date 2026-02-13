@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import snoopy
 
@@ -16,7 +16,10 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
 def _get_jinja_env() -> Environment:
-    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=False)
+    return Environment(
+        loader=FileSystemLoader(str(TEMPLATE_DIR)),
+        autoescape=select_autoescape(enabled_extensions=["html.j2"], default_for_string=False),
+    )
 
 
 def _prepare_paper_context(paper: dict) -> dict:

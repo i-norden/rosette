@@ -61,9 +61,10 @@ class TestWebhookRegistration:
         assert len(notifier.urls) == 0
 
 
+@patch("snoopy.notifications.webhook._is_safe_url", return_value=True)
 class TestWebhookDelivery:
     @pytest.mark.asyncio
-    async def test_successful_delivery(self):
+    async def test_successful_delivery(self, _mock_safe):
         notifier = WebhookNotifier(max_retries=1, retry_delay=0.01)
         notifier.urls = {"https://example.com/hook"}
 
@@ -82,7 +83,7 @@ class TestWebhookDelivery:
         assert results["https://example.com/hook"] is True
 
     @pytest.mark.asyncio
-    async def test_failed_delivery_retries(self):
+    async def test_failed_delivery_retries(self, _mock_safe):
         notifier = WebhookNotifier(max_retries=2, retry_delay=0.01)
         notifier.urls = {"https://example.com/hook"}
 
@@ -103,7 +104,7 @@ class TestWebhookDelivery:
         assert results["https://example.com/hook"] is True
 
     @pytest.mark.asyncio
-    async def test_delivery_exhausts_retries(self):
+    async def test_delivery_exhausts_retries(self, _mock_safe):
         notifier = WebhookNotifier(max_retries=2, retry_delay=0.01)
         notifier.urls = {"https://example.com/hook"}
 
@@ -122,7 +123,7 @@ class TestWebhookDelivery:
         assert results["https://example.com/hook"] is False
 
     @pytest.mark.asyncio
-    async def test_delivery_handles_http_error(self):
+    async def test_delivery_handles_http_error(self, _mock_safe):
         notifier = WebhookNotifier(max_retries=1, retry_delay=0.01)
         notifier.urls = {"https://example.com/hook"}
 
@@ -138,13 +139,13 @@ class TestWebhookDelivery:
         assert results["https://example.com/hook"] is False
 
     @pytest.mark.asyncio
-    async def test_no_urls_returns_empty(self):
+    async def test_no_urls_returns_empty(self, _mock_safe):
         notifier = WebhookNotifier()
         results = await notifier.notify({"paper_id": "123"})
         assert results == {}
 
     @pytest.mark.asyncio
-    async def test_multiple_urls(self):
+    async def test_multiple_urls(self, _mock_safe):
         notifier = WebhookNotifier(max_retries=1, retry_delay=0.01)
         notifier.urls = {"https://a.com/hook", "https://b.com/hook"}
 
@@ -164,9 +165,10 @@ class TestWebhookDelivery:
         assert all(v is True for v in results.values())
 
 
+@patch("snoopy.notifications.webhook._is_safe_url", return_value=True)
 class TestExponentialBackoff:
     @pytest.mark.asyncio
-    async def test_backoff_increases_delay(self):
+    async def test_backoff_increases_delay(self, _mock_safe):
         """Verify that retry delay doubles each attempt."""
         notifier = WebhookNotifier(max_retries=3, retry_delay=0.01)
         notifier.urls = {"https://example.com/hook"}

@@ -22,11 +22,16 @@ class TestDemoCommand:
         assert "--output-dir" in result.output
         assert "--download-rsiil" in result.output
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
     @patch("snoopy.demo.runner.run_demo")
     def test_demo_invokes_run_demo(
-        self, mock_run_demo: MagicMock, mock_load_config: MagicMock, mock_init_db: MagicMock
+        self,
+        mock_run_demo: MagicMock,
+        mock_load_config: MagicMock,
+        mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         mock_load_config.return_value = MagicMock()
         mock_run_demo.return_value = []
@@ -40,11 +45,16 @@ class TestDemoCommand:
             download_rsiil=False,
         )
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
     @patch("snoopy.demo.runner.run_demo")
     def test_demo_download_only_flag(
-        self, mock_run_demo: MagicMock, mock_load_config: MagicMock, mock_init_db: MagicMock
+        self,
+        mock_run_demo: MagicMock,
+        mock_load_config: MagicMock,
+        mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         mock_load_config.return_value = MagicMock()
         mock_run_demo.return_value = []
@@ -58,11 +68,16 @@ class TestDemoCommand:
             download_rsiil=False,
         )
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
     @patch("snoopy.demo.runner.run_demo")
     def test_demo_output_dir_option(
-        self, mock_run_demo: MagicMock, mock_load_config: MagicMock, mock_init_db: MagicMock
+        self,
+        mock_run_demo: MagicMock,
+        mock_load_config: MagicMock,
+        mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         mock_load_config.return_value = MagicMock()
         mock_run_demo.return_value = []
@@ -93,9 +108,12 @@ class TestMainGroup:
         assert "config" in result.output
         assert "serve" in result.output
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
-    def test_config_command(self, mock_load_config: MagicMock, mock_init_db: MagicMock) -> None:
+    def test_config_command(
+        self, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
+    ) -> None:
         mock_cfg = MagicMock()
         mock_cfg.model_dump_json.return_value = '{"llm": {}}'
         mock_load_config.return_value = mock_cfg
@@ -116,10 +134,11 @@ class TestAnalyzeCommand:
         assert "--pdf" in result.output
         assert "--from-stage" in result.output
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
     def test_analyze_requires_doi_or_pdf(
-        self, mock_load_config: MagicMock, mock_init_db: MagicMock
+        self, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
     ) -> None:
         """Analyze without --doi or --pdf should exit with error."""
         mock_load_config.return_value = MagicMock()
@@ -128,6 +147,7 @@ class TestAnalyzeCommand:
         assert result.exit_code != 0
         assert "provide either" in result.output.lower() or result.exit_code == 1
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
     @patch("snoopy.pipeline.orchestrator.PipelineOrchestrator")
@@ -138,6 +158,7 @@ class TestAnalyzeCommand:
         mock_orch_class: MagicMock,
         mock_load_config: MagicMock,
         mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         """Analyze with a valid DOI invokes the orchestrator."""
         mock_load_config.return_value = MagicMock()
@@ -176,6 +197,7 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "status" in result.output.lower()
 
+    @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
     @patch("snoopy.cli.load_config")
     @patch("snoopy.cli.get_session")
@@ -184,6 +206,7 @@ class TestStatusCommand:
         mock_get_session: MagicMock,
         mock_load_config: MagicMock,
         mock_init_db: MagicMock,
+        mock_init_async_db: MagicMock,
     ) -> None:
         """Status command displays paper counts."""
         mock_load_config.return_value = MagicMock()

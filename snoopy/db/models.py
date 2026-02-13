@@ -188,3 +188,88 @@ class AuthorPaperLink(Base):
         Index("idx_author_paper_author", "author_id"),
         Index("idx_author_paper_paper", "paper_id"),
     )
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id = Column(Text, primary_key=True, default=_uuid)
+    name = Column(Text, nullable=False)
+    mode = Column(Text, nullable=False)  # 'network_expansion', 'domain_scan', 'paper_mill'
+    status = Column(
+        Text, default="created"
+    )  # created/seeding/auto_analyzing/expanding/llm_analyzing/paused/completed
+    config_json = Column(Text, nullable=True)  # JSON: mode-specific parameters
+    seed_dois = Column(Text, nullable=True)  # JSON array of seed DOIs
+    max_depth = Column(Integer, default=2)
+    max_papers = Column(Integer, default=1000)
+    llm_budget = Column(Integer, default=100)
+    papers_discovered = Column(Integer, default=0)
+    papers_triaged = Column(Integer, default=0)
+    papers_flagged = Column(Integer, default=0)
+    papers_llm_analyzed = Column(Integer, default=0)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    campaign_papers = relationship(
+        "CampaignPaper", back_populates="campaign", cascade="all, delete-orphan"
+    )
+    hash_matches = relationship(
+        "ImageHashMatch", back_populates="campaign", cascade="all, delete-orphan"
+    )
+
+
+class CampaignPaper(Base):
+    __tablename__ = "campaign_papers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    campaign_id = Column(Text, ForeignKey("campaigns.id"), nullable=False)
+    paper_id = Column(Text, ForeignKey("papers.id"), nullable=False)
+    source = Column(
+        Text, nullable=False
+    )  # 'seed', 'network_expansion', 'domain_scan', 'hash_match'
+    source_paper_id = Column(Text, nullable=True)  # Paper that triggered expansion
+    source_author_id = Column(Text, nullable=True)  # Author that linked them
+    depth = Column(Integer, default=0)  # Expansion depth from seed (0 for seeds)
+    triage_status = Column(
+        Text, default="pending"
+    )  # pending/auto_analyzing/auto_done/llm_queued/llm_analyzing/complete/dismissed
+    auto_findings_count = Column(Integer, default=0)
+    auto_risk_score = Column(Float, nullable=True)  # 0-100
+    llm_promoted = Column(Boolean, default=False)
+    final_risk = Column(Text, nullable=True)  # critical/high/medium/low/clean
+
+    campaign = relationship("Campaign", back_populates="campaign_papers")
+    paper = relationship("Paper")
+
+    __table_args__ = (
+        Index("idx_campaign_papers_campaign", "campaign_id"),
+        Index("idx_campaign_papers_paper", "paper_id"),
+        Index("idx_campaign_papers_triage", "triage_status"),
+    )
+
+
+class ImageHashMatch(Base):
+    __tablename__ = "image_hash_matches"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    campaign_id = Column(Text, ForeignKey("campaigns.id"), nullable=True)
+    figure_id_a = Column(Text, ForeignKey("figures.id"), nullable=False)
+    figure_id_b = Column(Text, ForeignKey("figures.id"), nullable=False)
+    paper_id_a = Column(Text, ForeignKey("papers.id"), nullable=False)
+    paper_id_b = Column(Text, ForeignKey("papers.id"), nullable=False)
+    hash_type = Column(Text, nullable=False)  # 'phash', 'ahash', 'sha256'
+    hash_distance = Column(Integer, nullable=False)
+    verified = Column(Boolean, nullable=True)  # None = unreviewed
+
+    campaign = relationship("Campaign", back_populates="hash_matches")
+    figure_a = relationship("Figure", foreign_keys=[figure_id_a])
+    figure_b = relationship("Figure", foreign_keys=[figure_id_b])
+    paper_a = relationship("Paper", foreign_keys=[paper_id_a])
+    paper_b = relationship("Paper", foreign_keys=[paper_id_b])
+
+    __table_args__ = (
+        Index("idx_hash_matches_campaign", "campaign_id"),
+        Index("idx_hash_matches_paper_a", "paper_id_a"),
+        Index("idx_hash_matches_paper_b", "paper_id_b"),
+    )

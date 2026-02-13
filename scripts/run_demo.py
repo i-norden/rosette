@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Run snoopy demo. Thin wrapper around snoopy.demo.runner."""
+"""Run snoopy demo. Thin wrapper around snoopy.demo.runner.
+
+Usage: python -m scripts.run_demo   (from project root with snoopy installed)
+"""
 
 import argparse
 import logging
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from snoopy.demo.runner import run_demo
 

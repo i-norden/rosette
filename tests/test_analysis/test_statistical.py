@@ -24,10 +24,11 @@ class TestGRIM:
         result = grim_test(3.00, 1)
         assert result.consistent is True
 
-    def test_large_n_more_tolerant(self):
-        # Larger n allows more granularity
+    def test_large_n_tolerance_independent(self):
+        # Tolerance is 0.5 / 10^decimals = 0.005, independent of N
+        # 3.33 * 3 = 9.99, difference from 10 = 0.01 > 0.005
         result = grim_test(3.33, 3)
-        assert result.consistent is True  # 3.33 * 3 = 9.99, close to 10
+        assert result.consistent is False
 
 
 class TestBenford:

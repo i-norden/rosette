@@ -7,23 +7,36 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 
 from snoopy.analysis.cross_reference import compute_ahash, compute_phash
 from snoopy.analysis.evidence import aggregate_findings
-from snoopy.analysis.image_forensics import clone_detection, error_level_analysis, noise_analysis
+from snoopy.analysis.image_forensics import (
+    clone_detection,
+    error_level_analysis,
+    noise_analysis,
+)
 from snoopy.analysis.llm_vision import analyze_figure_detailed, classify_figure, screen_figure
+from snoopy.analysis.run_analysis import (
+    run_dct_analysis,
+    run_frequency_analysis,
+    run_jpeg_ghost_analysis,
+    run_sprite_analysis,
+    run_statistical_tests,
+    run_tortured_phrases,
+)
 from snoopy.analysis.statistical import benford_test, duplicate_value_check, grim_test, pvalue_check
 from snoopy.config import SnoopyConfig
 from snoopy.db.models import Figure, Finding, Paper, ProcessingLog, Report
-from snoopy.db.session import get_async_session, get_session, init_async_db
+from snoopy.db.session import get_async_session
 from snoopy.extraction.figure_extractor import extract_figures
 from snoopy.extraction.pdf_parser import download_pdf, extract_text
 from snoopy.extraction.stats_extractor import extract_means_and_ns, extract_test_statistics
 from snoopy.extraction.table_extractor import extract_tables
 from snoopy.llm.claude import ClaudeProvider
-from snoopy.pipeline.stages import PIPELINE_STAGES
+from snoopy.pipeline.stages import PIPELINE_STAGES, _LEGACY_STAGE_MAP
 from snoopy.reporting.proof import generate_html_report, generate_markdown_report
 
 logger = logging.getLogger(__name__)
@@ -38,8 +51,21 @@ class PipelineOrchestrator:
             default_model=config.llm.model_analyze,
         )
         self.semaphore = asyncio.Semaphore(config.llm.max_concurrent_requests)
-        # Initialize async DB alongside sync DB
-        init_async_db(config.storage.database_url)
+        # NOTE: Callers must call init_async_db() before constructing the orchestrator.
+        # The FastAPI lifespan and CLI entry points handle this.
+        # Explicit stage handler dispatch table
+        self._stage_handlers: dict[str, Any] = {
+            "download": self._run_download,
+            "extract_text": self._run_extract_text,
+            "extract_figures": self._run_extract_figures,
+            "extract_stats": self._run_extract_stats,
+            "classify_figures": self._run_classify_figures,
+            "analyze_images_auto": self._run_analyze_images_auto,
+            "analyze_images_llm": self._run_analyze_images_llm,
+            "analyze_stats": self._run_analyze_stats,
+            "aggregate": self._run_aggregate,
+            "report": self._run_report,
+        }
 
     async def _log_stage(self, paper_id: str, stage: str, status: str, details: str = "") -> None:
         async with get_async_session() as session:
@@ -97,9 +123,10 @@ class PipelineOrchestrator:
         for stage in paper_stages:
             await self._log_stage(paper_id, stage, "started")
             try:
-                handler = getattr(self, f"_run_{stage}", None)
-                if handler:
-                    await handler(paper_id)
+                handler = self._stage_handlers.get(stage)
+                if handler is None:
+                    raise ValueError(f"Unknown pipeline stage: {stage!r}")
+                await handler(paper_id)
                 await self._log_stage(paper_id, stage, "completed")
             except Exception as e:
                 logger.error(f"Stage {stage} failed for paper {paper_id}: {e}")
@@ -126,7 +153,14 @@ class PipelineOrchestrator:
                 completion status.
         """
         if force_stages:
-            paper_stages = [s for s in force_stages if s in PIPELINE_STAGES]
+            # Expand legacy stage names (e.g. "analyze_images" -> auto + llm)
+            expanded: list[str] = []
+            for s in force_stages:
+                if s in _LEGACY_STAGE_MAP:
+                    expanded.extend(_LEGACY_STAGE_MAP[s])
+                else:
+                    expanded.append(s)
+            paper_stages = [s for s in expanded if s in PIPELINE_STAGES]
         else:
             if from_stage:
                 try:
@@ -160,9 +194,10 @@ class PipelineOrchestrator:
         for stage in paper_stages:
             await self._log_stage(paper_id, stage, "started")
             try:
-                handler = getattr(self, f"_run_{stage}", None)
-                if handler:
-                    await handler(paper_id)
+                handler = self._stage_handlers.get(stage)
+                if handler is None:
+                    raise ValueError(f"Unknown pipeline stage: {stage!r}")
+                await handler(paper_id)
                 await self._log_stage(paper_id, stage, "completed")
             except Exception as e:
                 logger.error(f"Stage {stage} failed for paper {paper_id}: {e}")
@@ -210,7 +245,7 @@ class PipelineOrchestrator:
             paper = await session.get(Paper, paper_id)
             if not paper or not paper.pdf_path:
                 return
-            pages = extract_text(str(paper.pdf_path))
+            pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
             paper.full_text = "\n".join(p.text for p in pages)  # type: ignore[assignment]
             logger.info(f"Extracted {len(pages)} pages from {paper_id}")
 
@@ -224,11 +259,11 @@ class PipelineOrchestrator:
             fig_dir = Path(self.config.storage.figures_dir) / paper_id
             fig_dir.mkdir(parents=True, exist_ok=True)
 
-            figures = extract_figures(str(paper.pdf_path), str(fig_dir))
+            figures = await asyncio.to_thread(extract_figures, str(paper.pdf_path), str(fig_dir))
             for fig_info in figures:
                 # Compute and store perceptual hashes at extraction time
-                phash_val = compute_phash(fig_info.image_path)
-                ahash_val = compute_ahash(fig_info.image_path)
+                phash_val = await asyncio.to_thread(compute_phash, fig_info.image_path)
+                ahash_val = await asyncio.to_thread(compute_ahash, fig_info.image_path)
 
                 figure = Figure(
                     paper_id=paper_id,
@@ -252,7 +287,7 @@ class PipelineOrchestrator:
                 return
             full_text = str(paper.full_text or "")
             if not full_text:
-                pages = extract_text(str(paper.pdf_path))
+                pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
                 full_text = "\n".join(p.text for p in pages)
                 paper.full_text = full_text  # type: ignore[assignment]
             means = extract_means_and_ns(full_text)
@@ -273,8 +308,29 @@ class PipelineOrchestrator:
                         fig_type = await classify_figure(str(figure.image_path), self.llm_provider)
                         figure.image_type = fig_type  # type: ignore[assignment]
 
-    async def _run_analyze_images(self, paper_id: str) -> None:
-        """Run image forensics on all figures."""
+    @staticmethod
+    def _create_finding_from_analysis(
+        session: Any,
+        paper_id: str,
+        figure: Any,
+        analysis_type: str,
+        finding_dict: dict,
+    ) -> None:
+        """Create and add a Finding to the session from an analysis result dict."""
+        finding = Finding(
+            paper_id=paper_id,
+            figure_id=figure.id,
+            analysis_type=analysis_type,
+            severity=finding_dict["severity"],
+            confidence=finding_dict["confidence"],
+            title=finding_dict["title"],
+            description=finding_dict["description"],
+            evidence_json=json.dumps(finding_dict.get("evidence", {})),
+        )
+        session.add(finding)
+
+    async def _run_analyze_images_auto(self, paper_id: str) -> None:
+        """Run automated image forensics (ELA, clone detection, noise) on all figures."""
         async with get_async_session() as session:
             result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
             figures = result.scalars().all()
@@ -284,79 +340,130 @@ class PipelineOrchestrator:
                 if not img_path or not Path(img_path).exists():
                     continue
 
+                fig_label = figure.figure_label or "figure"
+
                 # ELA
-                ela = error_level_analysis(img_path, quality=self.config.analysis.ela_quality)
+                ela = await asyncio.to_thread(
+                    error_level_analysis, img_path, quality=self.config.analysis.ela_quality
+                )
                 if ela.suspicious:
-                    finding = Finding(
-                        paper_id=paper_id,
-                        figure_id=figure.id,
-                        analysis_type="ela",
-                        severity="medium",
-                        confidence=min(ela.max_difference / 100, 1.0),
-                        title=f"ELA anomaly in {figure.figure_label or 'figure'}",
-                        description=(
-                            f"Error Level Analysis detected inconsistent compression levels. "
-                            f"Max difference: {ela.max_difference:.1f}, "
-                            f"Mean: {ela.mean_difference:.1f}, Std: {ela.std_difference:.1f}"
-                        ),
-                        evidence_json=json.dumps(
-                            {
+                    self._create_finding_from_analysis(
+                        session,
+                        paper_id,
+                        figure,
+                        "ela",
+                        {
+                            "severity": "medium",
+                            "confidence": min(ela.max_difference / 100, 1.0),
+                            "title": f"ELA anomaly in {fig_label}",
+                            "description": (
+                                f"Error Level Analysis detected inconsistent compression levels. "
+                                f"Max difference: {ela.max_difference:.1f}, "
+                                f"Mean: {ela.mean_difference:.1f}, Std: {ela.std_difference:.1f}"
+                            ),
+                            "evidence": {
                                 "max_difference": ela.max_difference,
                                 "mean_difference": ela.mean_difference,
                                 "ela_image_path": ela.ela_image_path,
-                            }
-                        ),
+                            },
+                        },
                     )
-                    session.add(finding)
 
                 # Clone detection
-                clone = clone_detection(
-                    img_path, min_matches=self.config.analysis.clone_min_matches
+                clone = await asyncio.to_thread(
+                    clone_detection, img_path, min_matches=self.config.analysis.clone_min_matches
                 )
                 if clone.suspicious:
-                    finding = Finding(
-                        paper_id=paper_id,
-                        figure_id=figure.id,
-                        analysis_type="clone_detection",
-                        severity="high",
-                        confidence=min(clone.num_matches / 50, 1.0),
-                        title=f"Potential clone region in {figure.figure_label or 'figure'}",
-                        description=(
-                            f"Copy-move detection found {clone.num_matches} geometrically "
-                            f"consistent keypoint matches (inlier ratio: {clone.inlier_ratio:.2f})"
-                        ),
-                        evidence_json=json.dumps(
-                            {
+                    self._create_finding_from_analysis(
+                        session,
+                        paper_id,
+                        figure,
+                        "clone_detection",
+                        {
+                            "severity": "high",
+                            "confidence": min(clone.num_matches / 50, 1.0),
+                            "title": f"Potential clone region in {fig_label}",
+                            "description": (
+                                f"Copy-move detection found {clone.num_matches} geometrically "
+                                f"consistent keypoint matches (inlier ratio: {clone.inlier_ratio:.2f})"
+                            ),
+                            "evidence": {
                                 "num_matches": clone.num_matches,
                                 "inlier_ratio": clone.inlier_ratio,
                                 "clusters": clone.match_clusters,
-                            }
-                        ),
+                            },
+                        },
                     )
-                    session.add(finding)
 
                 # Noise analysis
-                noise = noise_analysis(img_path, block_size=self.config.analysis.noise_block_size)
+                noise = await asyncio.to_thread(
+                    noise_analysis, img_path, block_size=self.config.analysis.noise_block_size
+                )
                 if noise.suspicious:
-                    finding = Finding(
-                        paper_id=paper_id,
-                        figure_id=figure.id,
-                        analysis_type="noise_analysis",
-                        severity="medium",
-                        confidence=min(noise.max_ratio / 10, 1.0),
-                        title=f"Noise inconsistency in {figure.figure_label or 'figure'}",
-                        description=(
-                            f"Noise analysis detected inconsistent noise levels across image "
-                            f"regions. Max noise ratio: {noise.max_ratio:.1f}x"
-                        ),
-                        evidence_json=json.dumps(
-                            {
+                    self._create_finding_from_analysis(
+                        session,
+                        paper_id,
+                        figure,
+                        "noise_analysis",
+                        {
+                            "severity": "medium",
+                            "confidence": min(noise.max_ratio / 10, 1.0),
+                            "title": f"Noise inconsistency in {fig_label}",
+                            "description": (
+                                f"Noise analysis detected inconsistent noise levels across image "
+                                f"regions. Max noise ratio: {noise.max_ratio:.1f}x"
+                            ),
+                            "evidence": {
                                 "max_ratio": noise.max_ratio,
                                 "mean_noise": noise.mean_noise,
-                            }
-                        ),
+                            },
+                        },
                     )
-                    session.add(finding)
+
+                # DCT analysis (double JPEG compression)
+                dct_findings = await asyncio.to_thread(
+                    run_dct_analysis,
+                    img_path,
+                    figure_id=str(figure.figure_label or figure.id),
+                    config=self.config.analysis,
+                )
+                for fd in dct_findings:
+                    self._create_finding_from_analysis(
+                        session, paper_id, figure, "dct_analysis", fd
+                    )
+
+                # JPEG ghost detection
+                ghost_findings = await asyncio.to_thread(
+                    run_jpeg_ghost_analysis,
+                    img_path,
+                    figure_id=str(figure.figure_label or figure.id),
+                    config=self.config.analysis,
+                )
+                for fd in ghost_findings:
+                    self._create_finding_from_analysis(session, paper_id, figure, "jpeg_ghost", fd)
+
+                # FFT frequency analysis
+                fft_findings = await asyncio.to_thread(
+                    run_frequency_analysis,
+                    img_path,
+                    figure_id=str(figure.figure_label or figure.id),
+                    config=self.config.analysis,
+                )
+                for fd in fft_findings:
+                    self._create_finding_from_analysis(
+                        session, paper_id, figure, "fft_analysis", fd
+                    )
+
+    async def _run_analyze_images_llm(self, paper_id: str) -> None:
+        """Run LLM-based image analysis (screening + detailed) on all figures."""
+        async with get_async_session() as session:
+            result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
+            figures = result.scalars().all()
+
+            for figure in figures:
+                img_path = str(figure.image_path or "")
+                if not img_path or not Path(img_path).exists():
+                    continue
 
                 # LLM Vision - Stage 1 screening
                 async with self.semaphore:
@@ -472,7 +579,7 @@ class PipelineOrchestrator:
                         session.add(finding)
 
             # Benford's law on tables
-            tables = extract_tables(str(paper.pdf_path))
+            tables = await asyncio.to_thread(extract_tables, str(paper.pdf_path))
             all_values = []
             for table in tables:
                 for row in table.rows:
@@ -529,6 +636,63 @@ class PipelineOrchestrator:
                     )
                     session.add(finding)
 
+            # New statistical tests (GRIMMER, variance ratio, terminal digit)
+            stat_findings = await asyncio.to_thread(
+                run_statistical_tests, full_text, config=self.config.analysis
+            )
+            for fd in stat_findings:
+                finding = Finding(
+                    paper_id=paper_id,
+                    analysis_type=fd["analysis_type"],
+                    severity=fd["severity"],
+                    confidence=fd["confidence"],
+                    title=fd["title"],
+                    description=fd["description"],
+                    evidence_json=json.dumps(fd.get("evidence", {})),
+                )
+                session.add(finding)
+
+            # SPRITE test on mean/SD/N reports
+            from snoopy.extraction.stats_extractor import extract_means_sds_and_ns
+
+            mean_sd_reports = extract_means_sds_and_ns(full_text)
+            for mr in mean_sd_reports:
+                if mr.sd is not None and mr.n >= 2:
+                    sprite_findings = await asyncio.to_thread(
+                        run_sprite_analysis,
+                        mr.mean,
+                        mr.sd,
+                        mr.n,
+                        context=mr.context,
+                    )
+                    for fd in sprite_findings:
+                        finding = Finding(
+                            paper_id=paper_id,
+                            analysis_type="sprite",
+                            severity=fd["severity"],
+                            confidence=fd["confidence"],
+                            title=fd["title"],
+                            description=fd["description"],
+                            evidence_json=json.dumps(fd.get("evidence", {})),
+                        )
+                        session.add(finding)
+
+            # Tortured phrase detection
+            tp_findings = await asyncio.to_thread(
+                run_tortured_phrases, full_text, config=self.config.analysis
+            )
+            for fd in tp_findings:
+                finding = Finding(
+                    paper_id=paper_id,
+                    analysis_type="tortured_phrases",
+                    severity=fd["severity"],
+                    confidence=fd["confidence"],
+                    title=fd["title"],
+                    description=fd["description"],
+                    evidence_json=json.dumps(fd.get("evidence", {})),
+                )
+                session.add(finding)
+
     def _build_method_weights(self) -> dict[str, float]:
         """Build a mapping of analysis_type -> weight from config."""
         cfg = self.config.analysis
@@ -544,6 +708,16 @@ class PipelineOrchestrator:
             "duplicate_check": cfg.weight_duplicate_check,
             "llm_vision": cfg.weight_llm_vision,
             "llm_screening": cfg.weight_llm_vision,
+            "dct_analysis": cfg.weight_dct_analysis,
+            "jpeg_ghost": cfg.weight_jpeg_ghost,
+            "fft_analysis": cfg.weight_fft_analysis,
+            "grimmer": cfg.weight_grimmer,
+            "terminal_digit": cfg.weight_terminal_digit,
+            "distribution_fit": cfg.weight_distribution_fit,
+            "variance_ratio": cfg.weight_variance_ratio,
+            "tortured_phrases": cfg.weight_tortured_phrases,
+            "sprite": cfg.weight_sprite,
+            "temporal_patterns": cfg.weight_temporal_patterns,
         }
 
     async def _run_aggregate(self, paper_id: str) -> None:
@@ -694,18 +868,15 @@ class PipelineOrchestrator:
 
     async def run_batch(self, limit: int = 100) -> list[str]:
         """Process top-priority pending papers."""
-        with get_session() as session:
-            papers = (
-                session.execute(
-                    select(Paper)
-                    .where(Paper.status == "pending")
-                    .where(Paper.pdf_path.isnot(None))
-                    .order_by(Paper.priority_score.desc())
-                    .limit(limit)
-                )
-                .scalars()
-                .all()
+        async with get_async_session() as session:
+            result = await session.execute(
+                select(Paper)
+                .where(Paper.status == "pending")
+                .where(Paper.pdf_path.isnot(None))
+                .order_by(Paper.priority_score.desc())
+                .limit(limit)
             )
+            papers = result.scalars().all()
             paper_ids = [str(p.id) for p in papers]
 
         results = []

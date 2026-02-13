@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 
 from snoopy.config import load_config
-from snoopy.db.session import get_session, init_db
+from snoopy.db.session import get_session, init_async_db, init_db
 
 
 def setup_logging(verbose: bool, json_logs: bool = False) -> None:
@@ -60,6 +60,7 @@ def main(ctx: click.Context, config_path: str | None, verbose: bool, json_logs: 
     cfg = load_config(config_path)
     ctx.obj["config"] = cfg
     init_db(cfg.storage.database_url)
+    init_async_db(cfg.storage.database_url)
 
 
 @main.command()
@@ -455,6 +456,15 @@ def _make_alembic_config(database_url: str):
     alembic_cfg = AlembicConfig(str(ini_path))
     alembic_cfg.set_main_option("sqlalchemy.url", database_url)
     return alembic_cfg
+
+
+# ---------------------------------------------------------------------------
+# campaign subcommand group
+# ---------------------------------------------------------------------------
+
+from snoopy.cli_campaign import campaign  # noqa: E402
+
+main.add_command(campaign)
 
 
 if __name__ == "__main__":

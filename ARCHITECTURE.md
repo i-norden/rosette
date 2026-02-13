@@ -7,7 +7,7 @@ Snoopy is an academic integrity analysis system that detects image manipulation,
 - **Without AI** (default, `--skip-llm`): Runs all deterministic/CV-based methods
 - **With AI** (`--use-llm` + `ANTHROPIC_API_KEY`): Adds LLM vision screening and statistical analysis
 
-There are two execution paths: the **demo pipeline** (`snoopy demo`) for benchmarking against known fixtures, and the **production pipeline** (`snoopy analyze`/`snoopy batch`) for real papers with full DB persistence.
+There are three execution paths: the **demo pipeline** (`snoopy demo`) for benchmarking against known fixtures, the **production pipeline** (`snoopy analyze`/`snoopy batch`) for real papers with full DB persistence, and the **campaign investigation system** (`snoopy campaign`) for large-scale multi-paper investigations across co-author networks and research domains.
 
 ---
 
@@ -352,8 +352,10 @@ For standalone images (not from PDFs), only per-figure methods (ELA, clone detec
 
 ```
 snoopy/
-├── cli.py                    # Click CLI: demo, analyze, batch, discover, status, config
-├── config.py                 # Pydantic config: LLM, analysis weights, storage, discovery
+├── cli.py                    # Click CLI: demo, analyze, batch, discover, status, config, serve, db
+├── cli_campaign.py           # Campaign CLI: create, run, pause, status, list, dashboard, export
+├── config.py                 # Pydantic config: LLM, analysis weights, storage, discovery, campaign
+├── validation.py             # Input validation utilities (DOIs, paths, parameters)
 │
 ├── demo/
 │   ├── runner.py             # Standalone demo pipeline (no DB, benchmarks fixtures)
@@ -361,7 +363,14 @@ snoopy/
 │
 ├── pipeline/
 │   ├── orchestrator.py       # Production pipeline (DB-backed, resumable, async)
-│   └── stages.py             # Stage definitions and ordering
+│   └── stages.py             # Stage definitions and ordering (auto/LLM split)
+│
+├── campaign/
+│   ├── orchestrator.py       # Campaign execution engine (3 modes: network, domain, mill)
+│   ├── triage.py             # Two-tier funnel: auto risk scoring → LLM promotion
+│   ├── expander.py           # Co-author network expansion and seed discovery
+│   ├── hash_scanner.py       # Cross-paper image hash matching
+│   └── dashboard.py          # Campaign HTML dashboard generation
 │
 ├── extraction/
 │   ├── pdf_parser.py         # PyMuPDF: text, metadata, PDF download
@@ -374,12 +383,18 @@ snoopy/
 │   ├── statistical.py        # scipy: GRIM, Benford, p-value recheck, duplicate check
 │   ├── cross_reference.py    # imagehash: phash, ahash, distance, cross-paper lookup
 │   ├── llm_vision.py         # LLM vision: screening, detailed analysis, classification
-│   └── evidence.py           # Aggregation: convergence detection, risk assessment
+│   ├── evidence.py           # Aggregation: convergence detection, risk assessment
+│   ├── author_network.py     # Co-author graph analysis (Louvain community detection)
+│   ├── metadata_forensics.py # Metadata-based manipulation detection
+│   ├── western_blot.py       # Western blot-specific analysis
+│   ├── run_analysis.py       # Analysis orchestration and method dispatch
+│   └── sprite.py             # Sprite/gel band analysis
 │
 ├── llm/
 │   ├── base.py               # LLMProvider protocol / LLMResponse type
 │   ├── claude.py             # Anthropic Claude: vision, text, batch, retry logic
-│   └── prompts.py            # All prompt templates (screening, analysis, stats, proof)
+│   ├── prompts.py            # Prompt templates (screening, analysis, stats, proof)
+│   └── prompts_western_blot.py # Western blot-specific prompt templates
 │
 ├── discovery/
 │   ├── openalex.py           # OpenAlex API
@@ -387,17 +402,33 @@ snoopy/
 │   ├── semantic_scholar.py   # Semantic Scholar API
 │   ├── crossref.py           # Crossref API
 │   ├── unpaywall.py          # Unpaywall (OA PDF URLs)
+│   ├── retraction_watch.py   # Retraction Watch status lookups
+│   ├── pubpeer.py            # PubPeer comment checks
 │   └── priority.py           # Priority scoring algorithm
 │
+├── api/
+│   ├── app.py                # FastAPI application setup
+│   ├── routes.py             # REST endpoint handlers
+│   └── schemas.py            # Pydantic request/response schemas
+│
+├── calibration/
+│   ├── benchmark.py          # Benchmark suite runner
+│   └── metrics.py            # Accuracy, precision, recall metrics
+│
 ├── db/
-│   ├── models.py             # SQLAlchemy: Paper, Figure, Finding, Report, ProcessingLog
+│   ├── models.py             # SQLAlchemy models (see DB Models below)
 │   ├── session.py            # Session management
-│   └── migrations.py         # Schema migrations
+│   ├── migrations.py         # Schema migrations
+│   └── alembic/              # Alembic migration scripts
+│
+├── notifications/
+│   └── webhook.py            # Webhook notification dispatch
 │
 └── reporting/
     ├── dashboard.py          # HTML dashboard generation (demo results overview)
     ├── proof.py              # Per-paper HTML/Markdown evidence reports
     ├── pretty.py             # Rich terminal output
+    ├── evidence_package.py   # Evidence package export (campaign results)
     └── templates/
         ├── dashboard.html.j2 # Dashboard Jinja2 template
         └── report.html.j2    # Individual report template
@@ -434,3 +465,87 @@ Defined in `AnalysisConfig` (config.py), these weights reflect research-based re
 | Duplicate Check | 0.25 | Highly context-dependent |
 
 The evidence aggregation system uses convergence (2+ independent methods agreeing) as a stronger signal than any single method's weight.
+
+---
+
+## Pipeline Stages
+
+The production pipeline runs papers through a sequence of stages, each tracked in the DB for resumability:
+
+```
+discover → prioritize → download → extract_text → extract_figures → extract_stats
+→ analyze_images_auto → analyze_stats → classify_figures → analyze_images_llm
+→ aggregate → report
+```
+
+The `analyze_images` stage was split into two phases:
+- **`analyze_images_auto`**: Deterministic/CV methods (ELA, clone detection, noise analysis, perceptual hashing) — runs without LLM
+- **`analyze_images_llm`**: LLM-based screening and detailed analysis — opt-in, runs after auto tier
+
+The legacy stage name `analyze_images` is mapped to both for backward compatibility.
+
+---
+
+## DB Models
+
+SQLAlchemy models in `db/models.py`:
+
+| Model | Purpose |
+|-------|---------|
+| `Paper` | Core paper record (DOI, metadata, processing status, risk level) |
+| `Figure` | Extracted figure images with captions and hashes |
+| `Finding` | Individual detection findings (method, severity, confidence) |
+| `Report` | Generated analysis reports (HTML/Markdown) |
+| `ProcessingLog` | Stage-level processing log for resumability |
+| `Author` | Author records with risk scores |
+| `AuthorPaperLink` | Many-to-many author↔paper associations |
+| `Campaign` | Investigation campaign definition and state |
+| `CampaignPaper` | Paper membership in campaigns with triage tier tracking |
+| `ImageHashMatch` | Cross-paper perceptual hash matches |
+
+### DB / Alembic Migrations
+
+Schema migrations are managed via Alembic under `db/alembic/`. Run migrations with `snoopy db upgrade` / `snoopy db downgrade`.
+
+---
+
+## Campaign Investigation System
+
+The campaign system enables large-scale investigations spanning hundreds of papers. It operates in three modes and uses a two-tier triage funnel to manage LLM costs.
+
+### Three Investigation Modes
+
+| Mode | Description | Seed Input |
+|------|-------------|------------|
+| **Network Expansion** | Follow co-author networks outward from suspicious papers | Seed DOIs |
+| **Domain Scan** | Systematic sweep of a research field | Field name + filters |
+| **Paper Mill** | Trace image reuse connectivity across papers | Seed DOIs |
+
+### Two-Tier Triage Funnel
+
+```
+All papers → Auto tier (cheap CV/stats) → Risk scoring → Promoted papers → LLM tier (expensive)
+```
+
+Papers enter the **auto tier** first, where cheap deterministic methods run. An auto-risk score is computed from signal weights:
+
+| Signal | Points | Description |
+|--------|--------|-------------|
+| `hash_match` | +30 | Cross-paper perceptual hash match |
+| `clone_detection` | +25 | Copy-move forgery detected |
+| `ela_suspicious` | +15 | ELA anomaly above threshold |
+| `noise_inconsistency` | +15 | Noise variance ratio outlier |
+| `grim_failure` | +20 | GRIM test failure |
+| `pvalue_mismatch` | +20 | P-value recalculation mismatch |
+| `retraction_flagged` | +25 | Known retraction/expression of concern |
+| `pubpeer_comments` | +15 | PubPeer flags exist |
+
+Papers scoring above the promotion threshold (default 30) advance to the **LLM tier** for Claude-based vision screening and detailed analysis.
+
+### Campaign Execution Flow
+
+1. **Seed phase**: Collect initial papers (from DOIs, author search, or field query)
+2. **Expansion phase** (network/mill modes): Discover connected papers via co-author networks or image hash matching
+3. **Triage phase**: Run all papers through auto tier, promote high-risk to LLM tier
+4. **Analysis phase**: Full pipeline analysis on promoted papers
+5. **Reporting phase**: Generate campaign dashboard and evidence packages

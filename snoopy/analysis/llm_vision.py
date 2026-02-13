@@ -38,6 +38,7 @@ class ScreeningResult:
     confidence: float
     model_used: str
     raw_response: str
+    parse_failed: bool = False
 
 
 @dataclass
@@ -49,6 +50,7 @@ class DetailedAnalysisResult:
     manipulation_likelihood: float
     model_used: str
     raw_response: str
+    parse_failed: bool = False
 
 
 def _parse_json_response(raw: str) -> dict:
@@ -83,8 +85,8 @@ def _parse_json_response(raw: str) -> dict:
             except json.JSONDecodeError:
                 pass
 
-    logger.warning("Failed to parse JSON from model response: %s", raw[:200])
-    return {}
+    logger.warning("Failed to parse JSON from model response: %.200s", raw[:200])
+    return {"_parse_failed": True}
 
 
 async def screen_figure(
@@ -121,6 +123,7 @@ async def screen_figure(
         else _parse_json_response(raw_content)
     ) or {}
 
+    parse_failed = bool(parsed.get("_parse_failed", False))
     suspicious = bool(parsed.get("suspicious", False))
     reason = str(parsed.get("brief_reason", parsed.get("reason", "")))
     confidence = float(parsed.get("confidence", 0.0))
@@ -131,6 +134,7 @@ async def screen_figure(
         confidence=confidence,
         model_used=str(model_used),
         raw_response=raw_content,
+        parse_failed=parse_failed,
     )
 
 
@@ -171,6 +175,7 @@ async def analyze_figure_detailed(
         else _parse_json_response(raw_content)
     ) or {}
 
+    parse_failed = bool(parsed.get("_parse_failed", False))
     overall_assessment = str(parsed.get("overall_assessment", ""))
     manipulation_likelihood = float(parsed.get("manipulation_likelihood", 0.0))
 
@@ -194,6 +199,7 @@ async def analyze_figure_detailed(
         manipulation_likelihood=manipulation_likelihood,
         model_used=str(model_used),
         raw_response=raw_content,
+        parse_failed=parse_failed,
     )
 
 

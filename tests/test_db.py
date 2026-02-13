@@ -1,6 +1,9 @@
-"""Tests for database models and session management."""
+"""Tests for database models, session management, and migrations."""
 
-from snoopy.db.models import Finding, Figure, Paper, Report
+from sqlalchemy import select
+
+from snoopy.db.migrations import check_schema, create_all_tables, get_paper_counts, reset_database
+from snoopy.db.models import Base, Finding, Figure, Paper, Report
 from snoopy.db.session import get_session, init_db
 
 
@@ -77,3 +80,59 @@ class TestDatabaseInit:
 
         found = db_session.get(Report, "report-1")
         assert found.overall_risk == "low"
+
+
+class TestMigrations:
+    def test_create_all_tables(self, test_config):
+        init_db(test_config.storage.database_url)
+        schema = check_schema()
+        expected_tables = set(Base.metadata.tables.keys())
+        for table in expected_tables:
+            assert schema.get(table) is True, f"Table {table} was not created"
+
+    def test_create_all_tables_idempotent(self, test_config):
+        init_db(test_config.storage.database_url)
+        create_all_tables()
+        schema = check_schema()
+        assert all(schema.values())
+
+    def test_check_schema_returns_booleans(self, test_config):
+        init_db(test_config.storage.database_url)
+        schema = check_schema()
+        assert isinstance(schema, dict)
+        for table, exists in schema.items():
+            assert isinstance(table, str)
+            assert isinstance(exists, bool)
+
+    def test_reset_database(self, test_config):
+        init_db(test_config.storage.database_url)
+
+        with get_session() as session:
+            paper = Paper(id="reset-test-1", title="Test", source="test", status="pending")
+            session.add(paper)
+
+        reset_database()
+        schema = check_schema()
+        assert all(schema.values())
+
+        with get_session() as session:
+            result = session.execute(select(Paper)).scalars().all()
+            assert len(result) == 0
+
+    def test_get_paper_counts_empty(self, test_config):
+        init_db(test_config.storage.database_url)
+        counts = get_paper_counts()
+        assert counts == {}
+
+    def test_get_paper_counts_by_status(self, test_config):
+        init_db(test_config.storage.database_url)
+
+        with get_session() as session:
+            for i in range(3):
+                session.add(Paper(id=f"pending-{i}", title="P", source="test", status="pending"))
+            for i in range(2):
+                session.add(Paper(id=f"complete-{i}", title="C", source="test", status="complete"))
+
+        counts = get_paper_counts()
+        assert counts.get("pending") == 3
+        assert counts.get("complete") == 2

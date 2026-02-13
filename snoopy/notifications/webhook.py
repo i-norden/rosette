@@ -128,6 +128,13 @@ class WebhookNotifier:
         Returns:
             True if delivery succeeded, False otherwise.
         """
+        # Re-validate URL at delivery time to prevent DNS rebinding attacks
+        if not _is_safe_url(url):
+            logger.error(
+                "Webhook URL %s failed safety check at delivery time (possible DNS rebinding)", url
+            )
+            return False
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             for attempt in range(self.max_retries):
                 try:

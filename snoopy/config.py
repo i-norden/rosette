@@ -25,6 +25,8 @@ class LLMConfig(BaseModel):
     model_proof: str = "claude-opus-4-6"
     use_batch_api: bool = True
     max_concurrent_requests: int = 5
+    cache_enabled: bool = True
+    cache_dir: str = "data/llm_cache"
 
 
 class DiscoveryConfig(BaseModel):
@@ -32,6 +34,7 @@ class DiscoveryConfig(BaseModel):
     semantic_scholar_api_key: str | None = None
     ncbi_api_key: str | None = None
     unpaywall_email: str | None = None
+    contact_email: str = "research@example.com"
     scimago_csv_path: str = "data/scimago.csv"
 
 
@@ -42,7 +45,8 @@ class PriorityConfig(BaseModel):
 
 
 class AnalysisConfig(BaseModel):
-    ela_quality: int = 95
+    # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
+    ela_quality: int = 80
     clone_min_matches: int = 10
     noise_block_size: int = 64
     llm_screening_confidence_threshold: float = 0.5
@@ -89,6 +93,64 @@ class AnalysisConfig(BaseModel):
     min_figure_width: int = 50
     min_figure_height: int = 50
 
+    # Image forensics defaults (used by direct callers; orchestrator passes these)
+    ela_min_max_diff: float = 15.0
+    clone_spatial_distance: float = 20.0
+    clone_ransac_threshold: float = 5.0
+    clone_cluster_radius: float = 50.0
+    clone_feature_extractor: str = "sift"
+    noise_max_ratio_threshold: float = 10.0
+
+    # Western blot thresholds
+    western_blot_lane_threshold_multiplier: float = 0.7
+    western_blot_duplicate_correlation: float = 0.95
+    western_blot_splice_border_px: int = 3
+
+    # Phase 2 new detection method weights
+    weight_dct_analysis: float = 0.70
+    weight_jpeg_ghost: float = 0.65
+    weight_fft_analysis: float = 0.55
+    weight_grimmer: float = 0.60
+    weight_terminal_digit: float = 0.45
+    weight_distribution_fit: float = 0.40
+    weight_variance_ratio: float = 0.70
+    weight_tortured_phrases: float = 0.80
+    weight_temporal_patterns: float = 0.50
+    weight_sprite: float = 0.65
+
+    # DCT analysis
+    dct_periodicity_threshold: float = 0.3
+
+    # JPEG ghost detection
+    jpeg_ghost_quality_range_start: int = 50
+    jpeg_ghost_quality_range_end: int = 95
+    jpeg_ghost_step: int = 5
+
+    # FFT frequency analysis
+    fft_spectral_anomaly_threshold: float = 2.5
+
+    # SSIM cross-reference
+    ssim_duplicate_threshold: float = 0.95
+
+    # Terminal digit analysis
+    terminal_digit_uniformity_alpha: float = 0.01
+
+    # Variance ratio test
+    variance_ratio_min_sds: int = 3
+
+    # Tortured phrases
+    tortured_phrase_min_matches: int = 2
+
+
+class CampaignConfig(BaseModel):
+    auto_risk_promotion_threshold: float = 30.0
+    max_authors_per_paper: int = 20  # cap on co-authors to expand per paper
+    max_papers_per_author: int = 50  # cap on papers to fetch per author
+    hash_match_max_distance: int = 10  # perceptual hash Hamming distance threshold
+    network_min_cluster_size: int = 3  # minimum authors for fraud cluster reporting
+    batch_concurrency: int = 5  # concurrent papers in batch processing
+    hash_prefix_length: int = 2  # prefix length for hash bucketing (256 buckets)
+
 
 class StorageConfig(BaseModel):
     database_url: str = "sqlite:///snoopy.db"
@@ -102,10 +164,23 @@ class SnoopyConfig(BaseSettings):
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     priority: PriorityConfig = Field(default_factory=PriorityConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    require_authentication: bool = Field(
+        default=True,
+        description="When true, API keys must be configured. Set to false for dev mode.",
+    )
     api_keys: list[str] | None = Field(
         default=None,
         description="List of valid API keys. When None, all requests are allowed.",
+    )
+    cors_origins: list[str] = Field(
+        default_factory=list,
+        description="Allowed CORS origins. Empty list blocks all cross-origin requests.",
+    )
+    rate_limit: str = Field(
+        default="60/minute",
+        description="Default rate limit (slowapi format, e.g. '60/minute').",
     )
 
     model_config = {"env_prefix": "SNOOPY_", "env_nested_delimiter": "__"}

@@ -16,7 +16,8 @@ priority:
   min_priority_score: 40
 
 analysis:
-  ela_quality: 95
+  # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
+  ela_quality: 80
   clone_min_matches: 10
   noise_block_size: 64
   llm_screening_confidence_threshold: 0.5

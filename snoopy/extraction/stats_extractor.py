@@ -20,6 +20,8 @@ class MeanReport:
     mean: float
     n: int
     context: str
+    sd: float | None = None
+    se: float | None = None
 
 
 @dataclass
@@ -47,6 +49,10 @@ class PValue:
 # ---------------------------------------------------------------------------
 
 _CONTEXT_CHARS = 80
+
+# Maximum input text length for regex matching (500KB).
+# Academic papers shouldn't exceed this; truncation prevents regex DoS on adversarial inputs.
+_MAX_TEXT_LENGTH = 512_000
 
 
 def _surrounding(text: str, match: re.Match, chars: int = _CONTEXT_CHARS) -> str:
@@ -116,17 +122,45 @@ _R_RE = re.compile(
 
 # Standalone p-value -------------------------------------------------------
 _P_VALUE_RE = re.compile(
-    r"(?<![a-zA-Z])"
-    r"p\s*(?P<cmp>[<>=])\s*"
-    r"(?P<val>\.?\d+(?:\.\d+)?)",
+    r"(?<![a-zA-Z])" r"p\s*(?P<cmp>[<>=])\s*" r"(?P<val>\.?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 # General decimal number (for extract_numerical_values) --------------------
 _DECIMAL_RE = re.compile(
-    r"(?<![a-zA-Z])"
-    r"(-?\d+\.\d+)"
-    r"(?![a-zA-Z])",
+    r"(?<![a-zA-Z])" r"(-?\d+\.\d+)" r"(?![a-zA-Z])",
+)
+
+# SD/SE extraction patterns ------------------------------------------------
+# M = X.XX (SD = Y.YY)  or  M = X.XX (SD = Y.YY), N = ZZ
+_MEAN_SD_N_RE = re.compile(
+    r"(?:M|mean)\s*=\s*"
+    r"(?P<mean>-?\d+(?:\.\d+)?)"
+    r"\s*[\(\[]\s*(?:SD|sd|s\.d\.)\s*=\s*"
+    r"(?P<sd>-?\d+(?:\.\d+)?)"
+    r"\s*[\)\]]"
+    r"(?:\s*[,;]\s*(?:N|n)\s*=\s*(?P<n>\d+))?",
+    re.IGNORECASE,
+)
+
+# X.XX ± Y.YY (N = ZZ) — mean ± SD or SE
+_MEAN_PLUSMINUS_RE = re.compile(
+    r"(?P<mean>-?\d+(?:\.\d+)?)"
+    r"\s*[±\u00b1]\s*"
+    r"(?P<sdse>-?\d+(?:\.\d+)?)"
+    r"(?:\s*[\(\[]\s*(?:N|n)\s*=\s*(?P<n>\d+)\s*[\)\]])?",
+)
+
+# mean ± SD or mean ± SE with explicit label
+_MEAN_SD_LABELED_RE = re.compile(
+    r"(?:M|mean)\s*[±\u00b1]\s*"
+    r"(?:SD|SE|sd|se|s\.d\.)\s*"
+    r"[:=]?\s*"
+    r"(?P<mean>-?\d+(?:\.\d+)?)"
+    r"\s*[±\u00b1]\s*"
+    r"(?P<sdse>-?\d+(?:\.\d+)?)"
+    r"(?:\s*[\(\[,;]\s*(?:N|n)\s*=\s*(?P<n>\d+))?",
+    re.IGNORECASE,
 )
 
 
@@ -157,6 +191,7 @@ def extract_means_and_ns(text: str) -> list[MeanReport]:
     Returns:
         A list of :class:`MeanReport` instances.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[MeanReport] = []
     for m in _MEAN_N_RE.finditer(text):
         try:
@@ -183,6 +218,7 @@ def extract_test_statistics(text: str) -> list[TestStatistic]:
     Returns:
         A list of :class:`TestStatistic` instances.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[TestStatistic] = []
 
     # t-test
@@ -278,6 +314,7 @@ def extract_p_values(text: str) -> list[PValue]:
     Returns:
         A list of :class:`PValue` instances.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     results: list[PValue] = []
     for m in _P_VALUE_RE.finditer(text):
         try:
@@ -308,6 +345,7 @@ def extract_numerical_values(text: str) -> list[float]:
     Returns:
         A list of floats in the order they appear in the text.
     """
+    text = text[:_MAX_TEXT_LENGTH]
     values: list[float] = []
     for m in _DECIMAL_RE.finditer(text):
         try:
@@ -315,3 +353,60 @@ def extract_numerical_values(text: str) -> list[float]:
         except ValueError:
             pass
     return values
+
+
+def extract_means_sds_and_ns(text: str) -> list[MeanReport]:
+    """Find reported mean, SD/SE, and N values in *text*.
+
+    Matches patterns like:
+    - ``M = 3.45 (SD = 1.20), N = 30``
+    - ``3.45 ± 1.20 (N = 30)``
+    - ``mean ± SD: 3.45 ± 1.20``
+
+    Args:
+        text: The source text to search.
+
+    Returns:
+        A list of :class:`MeanReport` with SD/SE fields populated.
+    """
+    text = text[:_MAX_TEXT_LENGTH]
+    results: list[MeanReport] = []
+    seen_positions: set[int] = set()
+
+    # Pattern 1: M = X.XX (SD = Y.YY), N = ZZ
+    for m in _MEAN_SD_N_RE.finditer(text):
+        try:
+            mean = _parse_float(m.group("mean"))
+            sd = _parse_float(m.group("sd"))
+            n = int(m.group("n")) if m.group("n") else 0
+            results.append(MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sd))
+            seen_positions.add(m.start())
+        except (ValueError, TypeError):
+            logger.debug("Could not parse mean/SD/N match: %s", m.group(0))
+
+    # Pattern 2: X.XX ± Y.YY (N = ZZ)
+    for m in _MEAN_PLUSMINUS_RE.finditer(text):
+        if m.start() in seen_positions:
+            continue
+        try:
+            mean = _parse_float(m.group("mean"))
+            sdse = _parse_float(m.group("sdse"))
+            n = int(m.group("n")) if m.group("n") else 0
+            results.append(MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sdse))
+            seen_positions.add(m.start())
+        except (ValueError, TypeError):
+            logger.debug("Could not parse mean±SD match: %s", m.group(0))
+
+    # Pattern 3: mean ± SD: X.XX ± Y.YY
+    for m in _MEAN_SD_LABELED_RE.finditer(text):
+        if m.start() in seen_positions:
+            continue
+        try:
+            mean = _parse_float(m.group("mean"))
+            sdse = _parse_float(m.group("sdse"))
+            n = int(m.group("n")) if m.group("n") else 0
+            results.append(MeanReport(mean=mean, n=n, context=_surrounding(text, m), sd=sdse))
+        except (ValueError, TypeError):
+            logger.debug("Could not parse labeled mean±SD match: %s", m.group(0))
+
+    return results

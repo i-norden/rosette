@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from snoopy.api.schemas import (
     AuthorRiskResponse,
@@ -31,7 +34,16 @@ async def _verify_api_key(request: Request) -> None:
     config = request.app.state.config
     api_keys = getattr(config, "api_keys", None)
     if not api_keys:
-        # No keys configured — allow all requests (development mode)
+        require_auth = getattr(config, "require_authentication", True)
+        if require_auth:
+            raise HTTPException(
+                status_code=500,
+                detail="Server misconfigured: API keys are required but none are configured. "
+                "Set api_keys in config or set require_authentication: false for dev mode.",
+            )
+        logger.warning(
+            "SECURITY: No API keys configured - all requests allowed (require_authentication=false)"
+        )
         return
     key = request.headers.get("X-API-Key")
     if not key or key not in api_keys:
@@ -64,6 +76,14 @@ async def submit_paper(
     if not body.doi and not body.pdf_upload:
         raise HTTPException(status_code=422, detail="Provide either a DOI or PDF upload")
 
+    if body.pdf_upload:
+        try:
+            pdf_bytes = base64.b64decode(body.pdf_upload, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=422, detail="Invalid base64 encoding for pdf_upload")
+        if not pdf_bytes[:5].startswith(b"%PDF-"):
+            raise HTTPException(status_code=422, detail="Uploaded content is not a valid PDF")
+
     if body.doi:
         try:
             body.doi = validate_doi(body.doi)
@@ -72,8 +92,42 @@ async def submit_paper(
 
     paper_id = str(uuid.uuid4())
 
-    async with get_async_session() as session:
-        if body.doi:
+    try:
+        async with get_async_session() as session:
+            if body.doi:
+                existing = (
+                    (await session.execute(select(Paper).where(Paper.doi == body.doi)))
+                    .scalars()
+                    .first()
+                )
+                if existing:
+                    return PaperStatusResponse(
+                        paper_id=existing.id,  # type: ignore[arg-type]
+                        status=existing.status,  # type: ignore[arg-type]
+                        risk_level=None,
+                        overall_confidence=None,
+                        num_findings=None,
+                    )
+
+                paper = Paper(
+                    id=paper_id,
+                    doi=body.doi,
+                    title=body.doi,
+                    source="api",
+                    status="pending",
+                )
+                session.add(paper)
+            else:
+                paper = Paper(
+                    id=paper_id,
+                    title="uploaded_pdf",
+                    source="api_upload",
+                    status="pending",
+                )
+                session.add(paper)
+    except IntegrityError:
+        # Race condition: another request inserted the same DOI concurrently
+        async with get_async_session() as session:
             existing = (
                 (await session.execute(select(Paper).where(Paper.doi == body.doi)))
                 .scalars()
@@ -87,23 +141,7 @@ async def submit_paper(
                     overall_confidence=None,
                     num_findings=None,
                 )
-
-            paper = Paper(
-                id=paper_id,
-                doi=body.doi,
-                title=body.doi,
-                source="api",
-                status="pending",
-            )
-            session.add(paper)
-        else:
-            paper = Paper(
-                id=paper_id,
-                title="uploaded_pdf",
-                source="api_upload",
-                status="pending",
-            )
-            session.add(paper)
+            raise HTTPException(status_code=500, detail="Unexpected database error")
 
     background_tasks.add_task(_run_pipeline, request, paper_id)
 
