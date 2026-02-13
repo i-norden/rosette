@@ -398,7 +398,6 @@ def dct_analysis(
     # Collect per-block first-AC energy for inconsistency detection
     block_energies: list[float] = []
 
-    mode_idx = 0
     mode_coords: list[tuple[int, int]] = []
     for u in range(8):
         for v in range(8):

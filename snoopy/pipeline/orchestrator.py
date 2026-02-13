@@ -15,10 +15,7 @@ from snoopy.analysis.cross_reference import compute_ahash, compute_phash
 from snoopy.analysis.evidence import aggregate_findings
 from snoopy.analysis.image_forensics import (
     clone_detection,
-    dct_analysis,
     error_level_analysis,
-    frequency_analysis,
-    jpeg_ghost_detection,
     noise_analysis,
 )
 from snoopy.analysis.llm_vision import analyze_figure_detailed, classify_figure, screen_figure

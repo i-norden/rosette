@@ -1,10 +1,26 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from snoopy.analysis.text_forensics import (
     TorturedPhraseMatch,
     TorturedPhraseResult,
     detect_tortured_phrases,
 )
+
+# Small phrase dict for tests (the full data file is gitignored)
+_TEST_PHRASES = {
+    "fake neural system": "artificial neural network",
+    "profound learning": "deep learning",
+    "arbitrary woodland": "random forest",
+}
+
+
+def _mock_phrases():
+    """Patch _load_phrases so tests don't depend on the data file."""
+    return patch(
+        "snoopy.analysis.text_forensics._load_phrases", return_value=_TEST_PHRASES
+    )
 
 
 class TestTorturedPhrasesDetection:
@@ -14,7 +30,8 @@ class TestTorturedPhrasesDetection:
             "then used profound learning for feature extraction. "
             "Finally, an arbitrary woodland model was trained on the dataset."
         )
-        result = detect_tortured_phrases(text)
+        with _mock_phrases():
+            result = detect_tortured_phrases(text)
         assert isinstance(result, TorturedPhraseResult)
         assert result.suspicious is True
         assert result.match_count >= 3
@@ -29,7 +46,8 @@ class TestTorturedPhrasesCleanText:
             "then used deep learning for feature extraction. "
             "Finally, a random forest model was trained on the dataset."
         )
-        result = detect_tortured_phrases(text)
+        with _mock_phrases():
+            result = detect_tortured_phrases(text)
         assert result.suspicious is False
         assert result.match_count == 0
         assert result.matches == []
@@ -41,7 +59,8 @@ class TestTorturedPhrasesSingleMatch:
             "The experiment used a fake neural system to process data. "
             "Results were analyzed using standard statistical methods."
         )
-        result = detect_tortured_phrases(text, min_matches=2)
+        with _mock_phrases():
+            result = detect_tortured_phrases(text, min_matches=2)
         assert result.suspicious is False
         assert result.match_count == 1
 
@@ -52,7 +71,8 @@ class TestTorturedPhrasesMinMatchesConfig:
             "The experiment used a fake neural system to process data. "
             "Results were analyzed using standard statistical methods."
         )
-        result = detect_tortured_phrases(text, min_matches=1)
+        with _mock_phrases():
+            result = detect_tortured_phrases(text, min_matches=1)
         assert result.suspicious is True
         assert result.match_count >= 1
 
@@ -71,7 +91,8 @@ class TestTorturedPhrasesCaseInsensitive:
             "We used a Fake Neural System and Profound Learning approach "
             "to solve the classification task."
         )
-        result = detect_tortured_phrases(text, min_matches=1)
+        with _mock_phrases():
+            result = detect_tortured_phrases(text, min_matches=1)
         assert result.suspicious is True
         assert result.match_count >= 1
         found_phrases = [m.tortured_phrase.lower() for m in result.matches]
@@ -85,7 +106,8 @@ class TestTorturedPhrasesMatchDetails:
             "A profound learning framework was also evaluated. "
             "The arbitrary woodland classifier outperformed baselines."
         )
-        result = detect_tortured_phrases(text, min_matches=1)
+        with _mock_phrases():
+            result = detect_tortured_phrases(text, min_matches=1)
         assert len(result.matches) >= 3
         for match in result.matches:
             assert isinstance(match, TorturedPhraseMatch)

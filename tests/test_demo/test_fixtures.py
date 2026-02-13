@@ -5,12 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from snoopy.demo.fixtures import (
     CLEAN_PAPERS,
     RETRACTED_PAPERS,
-    RETRACTION_WATCH_PAPERS,
     RSIIL_BASE,
     RSIIL_CLEAN_IMAGES,
     RSIIL_FORGERY_IMAGES,

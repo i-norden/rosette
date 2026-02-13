@@ -6,8 +6,6 @@ and match persistence.
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 
 from snoopy.campaign.hash_scanner import CampaignHashScanner, _DEFAULT_PREFIX_LEN
