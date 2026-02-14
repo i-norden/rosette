@@ -53,6 +53,11 @@ class TestPrepareContext:
         ctx = _prepare_paper_context(_make_paper(authors_json=None))
         assert ctx["authors_display"] == "Unknown"
 
+    def test_corrupt_authors_json(self):
+        """Corrupt authors_json should be handled gracefully."""
+        ctx = _prepare_paper_context(_make_paper(authors_json="not valid json{{{"))
+        assert ctx["authors_display"] == "Unknown"
+
     def test_many_authors_truncated(self):
         authors = [{"name": f"Author {i}"} for i in range(10)]
         import json
@@ -76,6 +81,13 @@ class TestPrepareFindings:
 
     def test_empty_findings(self):
         assert _prepare_findings([], {}) == []
+
+    def test_corrupt_evidence_json(self):
+        """Corrupt evidence_json should fall back to string representation."""
+        finding = _make_finding(evidence_json="not valid json{{{")
+        prepared = _prepare_findings([finding], {})
+        assert len(prepared) == 1
+        assert "not valid json" in prepared[0]["evidence_details"]
 
 
 class TestMethodsSummary:

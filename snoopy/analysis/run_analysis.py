@@ -94,7 +94,7 @@ def run_image_forensics(
                 }
             )
     except Exception as exc:
-        logger.debug("ELA failed on %s: %s", fig_id, exc)
+        logger.warning("ELA failed on %s: %s", fig_id, exc)
 
     # 2. Clone detection
     try:
@@ -137,7 +137,7 @@ def run_image_forensics(
                 }
             )
     except Exception as exc:
-        logger.debug("Clone detection failed on %s: %s", fig_id, exc)
+        logger.warning("Clone detection failed on %s: %s", fig_id, exc)
 
     # 3. Noise analysis
     try:
@@ -182,7 +182,7 @@ def run_image_forensics(
                 }
             )
     except Exception as exc:
-        logger.debug("Noise analysis failed on %s: %s", fig_id, exc)
+        logger.warning("Noise analysis failed on %s: %s", fig_id, exc)
 
     # 4. Metadata forensics
     try:
@@ -207,7 +207,7 @@ def run_image_forensics(
                     }
                 )
     except Exception as exc:
-        logger.debug("Metadata forensics failed on %s: %s", fig_id, exc)
+        logger.warning("Metadata forensics failed on %s: %s", fig_id, exc)
 
     return findings
 
@@ -319,7 +319,7 @@ def run_dct_analysis(
                 }
             )
     except Exception as exc:
-        logger.debug("DCT analysis failed on %s: %s", fig_id, exc)
+        logger.warning("DCT analysis failed on %s: %s", fig_id, exc)
 
     return findings
 
@@ -372,7 +372,7 @@ def run_jpeg_ghost_analysis(
                 }
             )
     except Exception as exc:
-        logger.debug("JPEG ghost detection failed on %s: %s", fig_id, exc)
+        logger.warning("JPEG ghost detection failed on %s: %s", fig_id, exc)
 
     return findings
 
@@ -424,7 +424,7 @@ def run_frequency_analysis(
                 }
             )
     except Exception as exc:
-        logger.debug("FFT analysis failed on %s: %s", fig_id, exc)
+        logger.warning("FFT analysis failed on %s: %s", fig_id, exc)
 
     return findings
 
@@ -478,7 +478,7 @@ def run_sprite_analysis(
                 }
             )
     except Exception as exc:
-        logger.debug("SPRITE test failed: %s", exc)
+        logger.warning("SPRITE test failed: %s", exc)
 
     return findings
 
@@ -533,7 +533,7 @@ def run_statistical_tests(
                         }
                     )
     except Exception as exc:
-        logger.debug("GRIMMER test failed: %s", exc)
+        logger.warning("GRIMMER test failed: %s", exc)
 
     # Variance ratio test on collected SD/N pairs
     try:
@@ -559,7 +559,7 @@ def run_statistical_tests(
                     }
                 )
     except Exception as exc:
-        logger.debug("Variance ratio test failed: %s", exc)
+        logger.warning("Variance ratio test failed: %s", exc)
 
     # Terminal digit test on all extracted numerical values
     try:
@@ -585,7 +585,7 @@ def run_statistical_tests(
                     }
                 )
     except Exception as exc:
-        logger.debug("Terminal digit test failed: %s", exc)
+        logger.warning("Terminal digit test failed: %s", exc)
 
     return findings
 
@@ -643,7 +643,7 @@ def run_tortured_phrases(
                 }
             )
     except Exception as exc:
-        logger.debug("Tortured phrase detection failed: %s", exc)
+        logger.warning("Tortured phrase detection failed: %s", exc)
 
     return findings
 
@@ -729,6 +729,6 @@ def run_western_blot_analysis(
                     }
                 )
     except Exception as exc:
-        logger.debug("Western blot analysis failed on %s: %s", fig_id, exc)
+        logger.warning("Western blot analysis failed on %s: %s", fig_id, exc)
 
     return findings

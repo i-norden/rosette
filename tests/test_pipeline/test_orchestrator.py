@@ -46,6 +46,23 @@ def seeded_db(orchestrator_config) -> str:
     return paper_id
 
 
+def _mock_all_stages():
+    """Return a context manager that mocks all orchestrator stage handlers."""
+    return (
+        patch.object(PipelineOrchestrator, "_run_download", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_extract_text", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_extract_figures", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_extract_stats", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_classify_figures", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_analyze_images_auto", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_analyze_images_llm", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
+        patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
+        patch("snoopy.pipeline.orchestrator.ClaudeProvider"),
+    )
+
+
 class TestProcessPaperFullPipeline:
     @pytest.mark.asyncio
     async def test_process_paper_full_pipeline(self, orchestrator_config, seeded_db) -> None:
@@ -194,3 +211,121 @@ class TestBuildMethodWeights:
         assert weights["clone_detection"] == cfg.weight_clone_detection
         assert weights["ela"] == cfg.weight_ela
         assert weights["llm_vision"] == cfg.weight_llm_vision
+
+
+class TestStageFailureAndResumability:
+    @pytest.mark.asyncio
+    async def test_stage_failure_marks_paper_as_error(self, orchestrator_config, seeded_db) -> None:
+        """When a stage fails, the paper should be marked as 'error'."""
+        paper_id = seeded_db
+
+        with (
+            patch.object(PipelineOrchestrator, "_run_download", new_callable=AsyncMock),
+            patch.object(
+                PipelineOrchestrator,
+                "_run_extract_text",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("Text extraction failed"),
+            ),
+            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+        ):
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+
+            with pytest.raises(RuntimeError, match="Text extraction failed"):
+                await orchestrator.process_paper(paper_id)
+
+        with get_session() as session:
+            paper = session.get(Paper, paper_id)
+            assert paper.status == "error"
+            assert "Text extraction failed" in (paper.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_resume_from_last_completed_stage(self, orchestrator_config, seeded_db) -> None:
+        """After a failure, resuming should start from the last completed stage."""
+        paper_id = seeded_db
+
+        # First run: succeeds through download, fails at extract_text
+        with (
+            patch.object(PipelineOrchestrator, "_run_download", new_callable=AsyncMock),
+            patch.object(
+                PipelineOrchestrator,
+                "_run_extract_text",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("boom"),
+            ),
+            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+        ):
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+
+            with pytest.raises(RuntimeError):
+                await orchestrator.process_paper(paper_id)
+
+        # Second run: all stages succeed - should resume from extract_text
+        with (
+            patch.object(
+                PipelineOrchestrator, "_run_download", new_callable=AsyncMock
+            ) as mock_download,
+            patch.object(
+                PipelineOrchestrator, "_run_extract_text", new_callable=AsyncMock
+            ) as mock_extract_text,
+            patch.object(PipelineOrchestrator, "_run_extract_figures", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_extract_stats", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_classify_figures", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_images_auto", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_images_llm", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
+            patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
+            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+        ):
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+            await orchestrator.process_paper(paper_id)
+
+            # Download was already completed, so it should NOT be called again
+            mock_download.assert_not_called()
+            # extract_text should be called (it was the failed stage)
+            mock_extract_text.assert_called_once_with(paper_id)
+
+        with get_session() as session:
+            paper = session.get(Paper, paper_id)
+            assert paper.status == "complete"
+
+    @pytest.mark.asyncio
+    async def test_stage_failure_logs_failed_status(self, orchestrator_config, seeded_db) -> None:
+        """A failed stage should have a 'failed' ProcessingLog entry."""
+        paper_id = seeded_db
+
+        with (
+            patch.object(PipelineOrchestrator, "_run_download", new_callable=AsyncMock),
+            patch.object(
+                PipelineOrchestrator,
+                "_run_extract_text",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("extraction error"),
+            ),
+            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+        ):
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+
+            with pytest.raises(RuntimeError):
+                await orchestrator.process_paper(paper_id)
+
+        with get_session() as session:
+            from sqlalchemy import select
+
+            logs = (
+                session.execute(
+                    select(ProcessingLog)
+                    .where(ProcessingLog.paper_id == paper_id)
+                    .where(ProcessingLog.status == "failed")
+                )
+                .scalars()
+                .all()
+            )
+            assert len(logs) == 1
+            assert logs[0].stage == "extract_text"
+            assert "extraction error" in (logs[0].details or "")

@@ -1,6 +1,15 @@
 """Tests for configuration loading."""
 
-from snoopy.config import SnoopyConfig, load_config
+from snoopy.config import (
+    AnalysisConfig,
+    CloneConfig,
+    ELAConfig,
+    NoiseConfig,
+    SnoopyConfig,
+    StatisticalConfig,
+    WesternBlotConfig,
+    load_config,
+)
 
 
 class TestConfigDefaults:
@@ -41,3 +50,41 @@ storage:
         assert config.llm.provider == "test_provider"
         assert config.llm.max_concurrent_requests == 3
         assert config.storage.database_url == "sqlite:///test.db"
+
+
+class TestNestedSubConfigs:
+    """Tests for the new nested sub-configs in AnalysisConfig."""
+
+    def test_ela_sub_config_defaults(self):
+        config = AnalysisConfig()
+        assert isinstance(config.ela, ELAConfig)
+        assert config.ela.quality == 80
+        assert config.ela.high_threshold == 60.0
+
+    def test_clone_sub_config_defaults(self):
+        config = AnalysisConfig()
+        assert isinstance(config.clone, CloneConfig)
+        assert config.clone.min_matches == 10
+        assert config.clone.feature_extractor == "sift"
+
+    def test_noise_sub_config_defaults(self):
+        config = AnalysisConfig()
+        assert isinstance(config.noise, NoiseConfig)
+        assert config.noise.block_size == 64
+
+    def test_statistical_sub_config_defaults(self):
+        config = AnalysisConfig()
+        assert isinstance(config.statistical, StatisticalConfig)
+        assert config.statistical.terminal_digit_uniformity_alpha == 0.01
+
+    def test_western_blot_sub_config_defaults(self):
+        config = AnalysisConfig()
+        assert isinstance(config.western_blot, WesternBlotConfig)
+        assert config.western_blot.duplicate_correlation == 0.95
+
+    def test_backward_compatible_flat_fields(self):
+        """Flat fields should still work for backward compat."""
+        config = AnalysisConfig()
+        assert config.ela_quality == 80
+        assert config.clone_min_matches == 10
+        assert config.noise_block_size == 64

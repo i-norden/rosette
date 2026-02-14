@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 _MIN_WIDTH = 50
 _MIN_HEIGHT = 50
 
+# Maximum image dimensions (pixels) -- anything larger could cause OOM.
+_MAX_WIDTH = 10000
+_MAX_HEIGHT = 10000
+
+# Allowed image file extensions from PDF extraction.
+_ALLOWED_EXTENSIONS = frozenset({"png", "jpg", "jpeg", "gif", "bmp", "tiff", "webp"})
+
 # Regex patterns for figure captions.
 _FIGURE_LABEL_RE = re.compile(
     r"(Fig(?:ure)?\.?\s*\d+[a-zA-Z]?)",
@@ -116,7 +123,18 @@ def extract_figures(pdf_path: str, output_dir: str) -> list[FigureInfo]:
                     )
                     continue
 
-                ext = base_image.get("ext", "png")
+                if width > _MAX_WIDTH or height > _MAX_HEIGHT:
+                    logger.warning(
+                        "Skipping oversized image (%dx%d) on page %d",
+                        width,
+                        height,
+                        page_num + 1,
+                    )
+                    continue
+
+                ext = base_image.get("ext", "png").lower()
+                if ext not in _ALLOWED_EXTENSIONS:
+                    ext = "png"
                 image_bytes = base_image.get("image", b"")
                 if not image_bytes:
                     continue

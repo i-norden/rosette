@@ -1,10 +1,11 @@
 """Tests for database models, session management, and migrations."""
 
+import pytest
 from sqlalchemy import select
 
 from snoopy.db.migrations import check_schema, create_all_tables, get_paper_counts, reset_database
 from snoopy.db.models import Base, Finding, Figure, Paper, Report
-from snoopy.db.session import get_session, init_db
+from snoopy.db.session import get_engine, get_session, init_async_db, init_db, reset_db
 
 
 class TestDatabaseInit:
@@ -80,6 +81,41 @@ class TestDatabaseInit:
 
         found = db_session.get(Report, "report-1")
         assert found.overall_risk == "low"
+
+
+class TestResetDb:
+    def test_reset_db_clears_state(self, test_config):
+        """reset_db should clear the global engine and session factory."""
+        init_db(test_config.storage.database_url)
+        reset_db()
+        # After reset, get_session should raise
+        with pytest.raises(RuntimeError, match="not initialized"):
+            with get_session():
+                pass
+
+    def test_reset_db_allows_reinit(self, test_config):
+        """After reset_db, init_db should work again."""
+        init_db(test_config.storage.database_url)
+        reset_db()
+        init_db(test_config.storage.database_url)
+        with get_session() as session:
+            papers = session.query(Paper).all()
+            assert papers == []
+
+    def test_get_engine_before_init_raises(self):
+        """get_engine before init_db raises RuntimeError."""
+        reset_db()
+        with pytest.raises(RuntimeError, match="not initialized"):
+            get_engine()
+
+    def test_reset_db_with_async_engine(self, test_config):
+        """reset_db also clears async engine/session."""
+        init_db(test_config.storage.database_url)
+        init_async_db(test_config.storage.database_url)
+        reset_db()
+        with pytest.raises(RuntimeError, match="not initialized"):
+            with get_session():
+                pass
 
 
 class TestMigrations:

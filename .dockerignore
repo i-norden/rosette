@@ -15,7 +15,7 @@ __pycache__
 *.pyo
 
 data/
-tests/fixtures/
+tests/
 
 *.egg-info
 dist/

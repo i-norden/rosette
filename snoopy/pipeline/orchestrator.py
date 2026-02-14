@@ -13,19 +13,16 @@ from sqlalchemy import select
 
 from snoopy.analysis.cross_reference import compute_ahash, compute_phash
 from snoopy.analysis.evidence import aggregate_findings
-from snoopy.analysis.image_forensics import (
-    clone_detection,
-    error_level_analysis,
-    noise_analysis,
-)
 from snoopy.analysis.llm_vision import analyze_figure_detailed, classify_figure, screen_figure
 from snoopy.analysis.run_analysis import (
     run_dct_analysis,
     run_frequency_analysis,
+    run_image_forensics,
     run_jpeg_ghost_analysis,
     run_sprite_analysis,
     run_statistical_tests,
     run_tortured_phrases,
+    run_western_blot_analysis,
 )
 from snoopy.analysis.statistical import benford_test, duplicate_value_check, grim_test, pvalue_check
 from snoopy.config import SnoopyConfig
@@ -297,16 +294,28 @@ class PipelineOrchestrator:
             )
 
     async def _run_classify_figures(self, paper_id: str) -> None:
-        """Classify figure types using LLM."""
+        """Classify figure types using LLM.
+
+        Gracefully degrades if the LLM provider is unavailable.
+        """
         async with get_async_session() as session:
             result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
             figures = result.scalars().all()
 
             for figure in figures:
                 if figure.image_path and Path(str(figure.image_path)).exists():
-                    async with self.semaphore:
-                        fig_type = await classify_figure(str(figure.image_path), self.llm_provider)
-                        figure.image_type = fig_type  # type: ignore[assignment]
+                    try:
+                        async with self.semaphore:
+                            fig_type = await classify_figure(
+                                str(figure.image_path), self.llm_provider
+                            )
+                            figure.image_type = fig_type  # type: ignore[assignment]
+                    except Exception as e:
+                        logger.warning(
+                            "LLM classification unavailable for figure %s, skipping: %s",
+                            figure.id,
+                            e,
+                        )
 
     @staticmethod
     def _create_finding_from_analysis(
@@ -330,7 +339,12 @@ class PipelineOrchestrator:
         session.add(finding)
 
     async def _run_analyze_images_auto(self, paper_id: str) -> None:
-        """Run automated image forensics (ELA, clone detection, noise) on all figures."""
+        """Run automated image forensics on all figures.
+
+        Uses ``run_image_forensics`` from ``run_analysis.py`` for consistent
+        severity/confidence thresholds, and runs ELA, clone, noise, DCT,
+        JPEG ghost, and FFT in parallel per figure.
+        """
         async with get_async_session() as session:
             result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
             figures = result.scalars().all()
@@ -340,122 +354,67 @@ class PipelineOrchestrator:
                 if not img_path or not Path(img_path).exists():
                     continue
 
-                fig_label = figure.figure_label or "figure"
+                fig_id = str(figure.figure_label or figure.id)
 
-                # ELA
-                ela = await asyncio.to_thread(
-                    error_level_analysis, img_path, quality=self.config.analysis.ela_quality
+                # Run all forensics methods in parallel via asyncio.gather
+                tasks: list[Any] = [
+                    asyncio.to_thread(
+                        run_image_forensics,
+                        img_path,
+                        figure_id=fig_id,
+                        config=self.config.analysis,
+                    ),
+                    asyncio.to_thread(
+                        run_dct_analysis,
+                        img_path,
+                        figure_id=fig_id,
+                        config=self.config.analysis,
+                    ),
+                    asyncio.to_thread(
+                        run_jpeg_ghost_analysis,
+                        img_path,
+                        figure_id=fig_id,
+                        config=self.config.analysis,
+                    ),
+                    asyncio.to_thread(
+                        run_frequency_analysis,
+                        img_path,
+                        figure_id=fig_id,
+                        config=self.config.analysis,
+                    ),
+                ]
+
+                # Wire western blot analysis for appropriate figure types (6.2)
+                is_western = str(figure.image_type or "").lower() in (
+                    "western_blot",
+                    "gel",
                 )
-                if ela.suspicious:
-                    self._create_finding_from_analysis(
-                        session,
-                        paper_id,
-                        figure,
-                        "ela",
-                        {
-                            "severity": "medium",
-                            "confidence": min(ela.max_difference / 100, 1.0),
-                            "title": f"ELA anomaly in {fig_label}",
-                            "description": (
-                                f"Error Level Analysis detected inconsistent compression levels. "
-                                f"Max difference: {ela.max_difference:.1f}, "
-                                f"Mean: {ela.mean_difference:.1f}, Std: {ela.std_difference:.1f}"
-                            ),
-                            "evidence": {
-                                "max_difference": ela.max_difference,
-                                "mean_difference": ela.mean_difference,
-                                "ela_image_path": ela.ela_image_path,
-                            },
-                        },
+                if is_western:
+                    tasks.append(
+                        asyncio.to_thread(
+                            run_western_blot_analysis,
+                            img_path,
+                            figure_id=fig_id,
+                        )
                     )
 
-                # Clone detection
-                clone = await asyncio.to_thread(
-                    clone_detection, img_path, min_matches=self.config.analysis.clone_min_matches
-                )
-                if clone.suspicious:
-                    self._create_finding_from_analysis(
-                        session,
-                        paper_id,
-                        figure,
-                        "clone_detection",
-                        {
-                            "severity": "high",
-                            "confidence": min(clone.num_matches / 50, 1.0),
-                            "title": f"Potential clone region in {fig_label}",
-                            "description": (
-                                f"Copy-move detection found {clone.num_matches} geometrically "
-                                f"consistent keypoint matches (inlier ratio: {clone.inlier_ratio:.2f})"
-                            ),
-                            "evidence": {
-                                "num_matches": clone.num_matches,
-                                "inlier_ratio": clone.inlier_ratio,
-                                "clusters": clone.match_clusters,
-                            },
-                        },
-                    )
+                results = await asyncio.gather(*tasks)
 
-                # Noise analysis
-                noise = await asyncio.to_thread(
-                    noise_analysis, img_path, block_size=self.config.analysis.noise_block_size
-                )
-                if noise.suspicious:
+                all_findings: list[dict] = []
+                for r in results:
+                    all_findings.extend(r)
+                for fd in all_findings:
                     self._create_finding_from_analysis(
-                        session,
-                        paper_id,
-                        figure,
-                        "noise_analysis",
-                        {
-                            "severity": "medium",
-                            "confidence": min(noise.max_ratio / 10, 1.0),
-                            "title": f"Noise inconsistency in {fig_label}",
-                            "description": (
-                                f"Noise analysis detected inconsistent noise levels across image "
-                                f"regions. Max noise ratio: {noise.max_ratio:.1f}x"
-                            ),
-                            "evidence": {
-                                "max_ratio": noise.max_ratio,
-                                "mean_noise": noise.mean_noise,
-                            },
-                        },
-                    )
-
-                # DCT analysis (double JPEG compression)
-                dct_findings = await asyncio.to_thread(
-                    run_dct_analysis,
-                    img_path,
-                    figure_id=str(figure.figure_label or figure.id),
-                    config=self.config.analysis,
-                )
-                for fd in dct_findings:
-                    self._create_finding_from_analysis(
-                        session, paper_id, figure, "dct_analysis", fd
-                    )
-
-                # JPEG ghost detection
-                ghost_findings = await asyncio.to_thread(
-                    run_jpeg_ghost_analysis,
-                    img_path,
-                    figure_id=str(figure.figure_label or figure.id),
-                    config=self.config.analysis,
-                )
-                for fd in ghost_findings:
-                    self._create_finding_from_analysis(session, paper_id, figure, "jpeg_ghost", fd)
-
-                # FFT frequency analysis
-                fft_findings = await asyncio.to_thread(
-                    run_frequency_analysis,
-                    img_path,
-                    figure_id=str(figure.figure_label or figure.id),
-                    config=self.config.analysis,
-                )
-                for fd in fft_findings:
-                    self._create_finding_from_analysis(
-                        session, paper_id, figure, "fft_analysis", fd
+                        session, paper_id, figure, fd.get("analysis_type", "unknown"), fd
                     )
 
     async def _run_analyze_images_llm(self, paper_id: str) -> None:
-        """Run LLM-based image analysis (screening + detailed) on all figures."""
+        """Run LLM-based image analysis (screening + detailed) on all figures.
+
+        Gracefully degrades if the LLM provider is unavailable (no API key,
+        rate limited, network error): logs a warning and continues with
+        CV-only results.
+        """
         async with get_async_session() as session:
             result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
             figures = result.scalars().all()
@@ -465,47 +424,56 @@ class PipelineOrchestrator:
                 if not img_path or not Path(img_path).exists():
                     continue
 
-                # LLM Vision - Stage 1 screening
-                async with self.semaphore:
-                    screening = await screen_figure(
-                        img_path, self.llm_provider, caption=str(figure.caption or "")
-                    )
-
-                if (
-                    screening.suspicious
-                    and screening.confidence
-                    >= self.config.analysis.llm_screening_confidence_threshold
-                ):
-                    # Stage 2 detailed analysis
+                try:
+                    # LLM Vision - Stage 1 screening
                     async with self.semaphore:
-                        detailed = await analyze_figure_detailed(
-                            img_path,
-                            self.llm_provider,
-                            caption=str(figure.caption or ""),
-                            figure_type=str(figure.image_type or ""),
+                        screening = await screen_figure(
+                            img_path, self.llm_provider, caption=str(figure.caption or "")
                         )
 
-                    for vf in detailed.findings:
-                        severity = (
-                            "high"
-                            if vf.confidence > 0.7
-                            else "medium"
-                            if vf.confidence > 0.4
-                            else "low"
-                        )
-                        finding = Finding(
-                            paper_id=paper_id,
-                            figure_id=figure.id,
-                            analysis_type="llm_vision",
-                            severity=severity,
-                            confidence=vf.confidence,
-                            title=vf.finding_type,
-                            description=vf.description,
-                            evidence_json=json.dumps({"location": vf.location}),
-                            model_used=detailed.model_used,
-                            raw_response=detailed.raw_response,
-                        )
-                        session.add(finding)
+                    if (
+                        screening.suspicious
+                        and screening.confidence
+                        >= self.config.analysis.llm_screening_confidence_threshold
+                    ):
+                        # Stage 2 detailed analysis
+                        async with self.semaphore:
+                            detailed = await analyze_figure_detailed(
+                                img_path,
+                                self.llm_provider,
+                                caption=str(figure.caption or ""),
+                                figure_type=str(figure.image_type or ""),
+                            )
+
+                        for vf in detailed.findings:
+                            severity = (
+                                "high"
+                                if vf.confidence > 0.7
+                                else "medium"
+                                if vf.confidence > 0.4
+                                else "low"
+                            )
+                            finding = Finding(
+                                paper_id=paper_id,
+                                figure_id=figure.id,
+                                analysis_type="llm_vision",
+                                severity=severity,
+                                confidence=vf.confidence,
+                                title=vf.finding_type,
+                                description=vf.description,
+                                evidence_json=json.dumps({"location": vf.location}),
+                                model_used=detailed.model_used,
+                                raw_response=detailed.raw_response,
+                            )
+                            session.add(finding)
+                except Exception as e:
+                    logger.warning(
+                        "LLM analysis unavailable for figure %s in paper %s, "
+                        "continuing with CV-only results: %s",
+                        figure.id,
+                        paper_id,
+                        e,
+                    )
 
     async def _run_analyze_stats(self, paper_id: str) -> None:
         """Run statistical integrity checks."""
@@ -516,7 +484,7 @@ class PipelineOrchestrator:
 
             full_text = str(paper.full_text or "")
             if not full_text:
-                pages = extract_text(str(paper.pdf_path))
+                pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
                 full_text = "\n".join(p.text for p in pages)
                 paper.full_text = full_text  # type: ignore[assignment]
 
@@ -779,9 +747,9 @@ class PipelineOrchestrator:
             ]
             figure_dict: dict[str, dict[str, str | None]] = {
                 str(fig.id): {
-                    "figure_label": fig.figure_label,  # type: ignore[dict-item]
-                    "caption": fig.caption,  # type: ignore[dict-item]
-                    "image_type": fig.image_type,  # type: ignore[dict-item]
+                    "figure_label": str(fig.figure_label) if fig.figure_label else None,
+                    "caption": str(fig.caption) if fig.caption else None,
+                    "image_type": str(fig.image_type) if fig.image_type else None,
                 }
                 for fig in figures
             }

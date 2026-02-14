@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import re
 
-_DOI_PATTERN = re.compile(r"^10\.\d{4,}/\S+$")
+_DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[a-zA-Z0-9./_\-()]+$")
+
+_DOI_MAX_LENGTH = 256
 
 _DOI_PREFIXES = ("https://doi.org/", "http://doi.org/", "http://dx.doi.org/", "doi:", "DOI:")
 
@@ -28,6 +30,8 @@ def validate_doi(doi: str) -> str:
         if doi.startswith(prefix):
             doi = doi[len(prefix) :]
     doi = doi.strip()
+    if len(doi) > _DOI_MAX_LENGTH:
+        raise ValueError(f"DOI too long ({len(doi)} chars, max {_DOI_MAX_LENGTH})")
     if not _DOI_PATTERN.match(doi):
         raise ValueError(f"Invalid DOI format: {doi!r}. Expected 10.XXXX/...")
     return doi

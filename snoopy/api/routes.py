@@ -58,8 +58,8 @@ async def _run_pipeline(request: Request, paper_id: str) -> None:
         return
     try:
         await orchestrator.process_paper(paper_id)
-    except Exception as e:
-        logger.error("Pipeline failed for paper %s: %s", paper_id, e)
+    except Exception:
+        logger.exception("Pipeline failed for paper %s", paper_id)
 
 
 @router.post("/papers", status_code=202, response_model=PaperStatusResponse)
@@ -102,8 +102,8 @@ async def submit_paper(
                 )
                 if existing:
                     return PaperStatusResponse(
-                        paper_id=existing.id,  # type: ignore[arg-type]
-                        status=existing.status,  # type: ignore[arg-type]
+                        paper_id=str(existing.id),
+                        status=str(existing.status),
                         risk_level=None,
                         overall_confidence=None,
                         num_findings=None,
@@ -125,8 +125,13 @@ async def submit_paper(
                     status="pending",
                 )
                 session.add(paper)
+
+        # Only start pipeline for newly created papers (not duplicates returned above)
+        background_tasks.add_task(_run_pipeline, request, paper_id)
     except IntegrityError:
         # Race condition: another request inserted the same DOI concurrently
+        if not body.doi:
+            raise HTTPException(status_code=500, detail="Unexpected database error")
         async with get_async_session() as session:
             existing = (
                 (await session.execute(select(Paper).where(Paper.doi == body.doi)))
@@ -135,15 +140,13 @@ async def submit_paper(
             )
             if existing:
                 return PaperStatusResponse(
-                    paper_id=existing.id,  # type: ignore[arg-type]
-                    status=existing.status,  # type: ignore[arg-type]
+                    paper_id=str(existing.id),
+                    status=str(existing.status),
                     risk_level=None,
                     overall_confidence=None,
                     num_findings=None,
                 )
             raise HTTPException(status_code=500, detail="Unexpected database error")
-
-    background_tasks.add_task(_run_pipeline, request, paper_id)
 
     return PaperStatusResponse(
         paper_id=paper_id,
@@ -176,11 +179,13 @@ async def get_paper_status(
         )
 
         return PaperStatusResponse(
-            paper_id=paper.id,  # type: ignore[arg-type]
-            status=paper.status,  # type: ignore[arg-type]
-            risk_level=report.overall_risk if report else None,  # type: ignore[arg-type]
-            overall_confidence=report.overall_confidence if report else None,  # type: ignore[arg-type]
-            num_findings=report.num_findings if report else None,  # type: ignore[arg-type]
+            paper_id=str(paper.id),
+            status=str(paper.status),
+            risk_level=str(report.overall_risk) if report else None,
+            overall_confidence=float(report.overall_confidence) if report else None,
+            num_findings=int(report.num_findings)
+            if report and report.num_findings is not None
+            else None,
         )
 
 
@@ -219,23 +224,23 @@ async def get_paper_report(
 
         finding_responses = [
             FindingResponse(
-                id=f.id,  # type: ignore[arg-type]
-                analysis_type=f.analysis_type,  # type: ignore[arg-type]
-                severity=f.severity,  # type: ignore[arg-type]
-                confidence=f.confidence,  # type: ignore[arg-type]
-                title=f.title,  # type: ignore[arg-type]
-                description=f.description,  # type: ignore[arg-type]
+                id=str(f.id),
+                analysis_type=str(f.analysis_type),
+                severity=str(f.severity),
+                confidence=float(f.confidence),
+                title=str(f.title),
+                description=str(f.description) if f.description else None,
             )
             for f in findings
         ]
 
         return ReportResponse(
             paper_id=paper_id,
-            overall_risk=report.overall_risk,  # type: ignore[arg-type]
-            overall_confidence=report.overall_confidence,  # type: ignore[arg-type]
-            summary=report.summary,  # type: ignore[arg-type]
+            overall_risk=str(report.overall_risk),
+            overall_confidence=float(report.overall_confidence),
+            summary=str(report.summary) if report.summary else None,
             findings=finding_responses,
-            converging_evidence=report.converging_evidence,  # type: ignore[arg-type]
+            converging_evidence=bool(report.converging_evidence),
         )
 
 
@@ -268,8 +273,8 @@ async def submit_batch(
             if existing:
                 papers.append(
                     PaperStatusResponse(
-                        paper_id=existing.id,  # type: ignore[arg-type]
-                        status=existing.status,  # type: ignore[arg-type]
+                        paper_id=str(existing.id),
+                        status=str(existing.status),
                     )
                 )
                 continue
@@ -309,10 +314,10 @@ async def get_author_risk(
             raise HTTPException(status_code=404, detail="Author not found")
 
         return AuthorRiskResponse(
-            author_id=author.id,  # type: ignore[arg-type]
-            name=author.name,  # type: ignore[arg-type]
-            risk_score=author.risk_score,  # type: ignore[arg-type]
-            total_papers=author.total_papers or 0,  # type: ignore[arg-type]
-            flagged_papers=author.flagged_papers or 0,  # type: ignore[arg-type]
-            retraction_count=author.retraction_count or 0,  # type: ignore[arg-type]
+            author_id=str(author.id),
+            name=str(author.name),
+            risk_score=float(author.risk_score) if author.risk_score is not None else None,
+            total_papers=int(author.total_papers or 0),
+            flagged_papers=int(author.flagged_papers or 0),
+            retraction_count=int(author.retraction_count or 0),
         )

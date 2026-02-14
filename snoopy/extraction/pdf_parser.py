@@ -141,19 +141,27 @@ async def download_pdf(url: str, output_path: str) -> str:
     out.parent.mkdir(parents=True, exist_ok=True)
 
     sha256 = hashlib.sha256()
+    tmp_path = out.with_suffix(".tmp")
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("GET", url, follow_redirects=True) as response:
                 response.raise_for_status()
-                with open(out, "wb") as fh:
+                with open(tmp_path, "wb") as fh:
                     async for chunk in response.aiter_bytes(chunk_size=8192):
                         fh.write(chunk)
                         sha256.update(chunk)
     except httpx.HTTPStatusError:
+        tmp_path.unlink(missing_ok=True)
         raise
     except Exception as exc:
+        tmp_path.unlink(missing_ok=True)
         raise RuntimeError(f"Failed to download PDF from {url}") from exc
+
+    # Atomic rename to final path on success
+    import os
+
+    os.rename(tmp_path, out)
 
     # Validate the downloaded file starts with the PDF magic bytes
     try:

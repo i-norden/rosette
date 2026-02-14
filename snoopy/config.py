@@ -44,7 +44,68 @@ class PriorityConfig(BaseModel):
     min_priority_score: float = 40.0
 
 
+class ELAConfig(BaseModel):
+    """Error Level Analysis configuration."""
+
+    quality: int = 80  # Quality 80 per forensics literature (75-85 range)
+    high_threshold: float = 60.0
+    medium_threshold: float = 40.0
+    low_threshold: float = 25.0
+    min_max_diff: float = 15.0
+
+
+class CloneConfig(BaseModel):
+    """Clone / copy-move detection configuration."""
+
+    min_matches: int = 10
+    high_inliers: int = 60
+    high_ratio: float = 0.35
+    medium_inliers: int = 40
+    medium_ratio: float = 0.25
+    low_inliers: int = 20
+    low_ratio: float = 0.15
+    spatial_distance: float = 20.0
+    ransac_threshold: float = 5.0
+    cluster_radius: float = 50.0
+    feature_extractor: str = "sift"
+
+
+class NoiseConfig(BaseModel):
+    """Noise analysis configuration."""
+
+    block_size: int = 64
+    intensity_bin_width: int = 32
+    high_ratio: float = 20.0
+    medium_ratio: float = 10.0
+    low_ratio: float = 5.0
+    max_ratio_threshold: float = 10.0
+
+
+class StatisticalConfig(BaseModel):
+    """Statistical test configuration."""
+
+    terminal_digit_uniformity_alpha: float = 0.01
+    variance_ratio_min_sds: int = 3
+    tortured_phrase_min_matches: int = 2
+
+
+class WesternBlotConfig(BaseModel):
+    """Western blot analysis configuration."""
+
+    lane_threshold_multiplier: float = 0.7
+    duplicate_correlation: float = 0.95
+    splice_border_px: int = 3
+
+
 class AnalysisConfig(BaseModel):
+    # Nested sub-configs
+    ela: ELAConfig = Field(default_factory=ELAConfig)
+    clone: CloneConfig = Field(default_factory=CloneConfig)
+    noise: NoiseConfig = Field(default_factory=NoiseConfig)
+    statistical: StatisticalConfig = Field(default_factory=StatisticalConfig)
+    western_blot: WesternBlotConfig = Field(default_factory=WesternBlotConfig)
+
+    # --- Flat fields preserved for backward compatibility ---
     # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
     ela_quality: int = 80
     clone_min_matches: int = 10

@@ -28,6 +28,7 @@ FROM python:3.11-slim
 
 # Runtime system deps for PyMuPDF, opencv-python-headless, Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -62,7 +63,7 @@ ENV SNOOPY__STORAGE__PDF_DIR="/data/pdfs" \
     PYTHONUNBUFFERED=1
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=15s \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+    CMD curl -f http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["snoopy"]
 CMD ["serve"]
