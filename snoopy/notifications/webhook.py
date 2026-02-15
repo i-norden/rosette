@@ -36,7 +36,7 @@ def _resolve_safe_ips(url: str) -> list[str]:
         infos = socket.getaddrinfo(hostname, None)
         safe_ips: list[str] = []
         for info in infos:
-            ip_str = info[4][0]
+            ip_str = str(info[4][0])
             addr = ipaddress.ip_address(ip_str)
             if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
                 return []
@@ -107,6 +107,7 @@ class WebhookNotifier:
             url: The URL to unregister.
         """
         self.urls.discard(url)
+        self._pinned_ips.pop(url, None)
         logger.info("Unregistered webhook URL: %s", url)
 
     async def notify(self, payload: dict) -> dict[str, bool]:
@@ -165,7 +166,7 @@ class WebhookNotifier:
         delivery_url = url.replace(parsed.hostname or "", pinned[0], 1)
         headers = {"Host": parsed.hostname or ""}
 
-        async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             for attempt in range(self.max_retries):
                 try:
                     response = await client.post(delivery_url, json=payload, headers=headers)

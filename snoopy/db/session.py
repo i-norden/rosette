@@ -29,7 +29,8 @@ def reset_db() -> None:
 
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(_async_engine.dispose())
+            future = asyncio.run_coroutine_threadsafe(_async_engine.dispose(), loop)
+            future.result(timeout=5)
         except RuntimeError:
             asyncio.run(_async_engine.dispose())
     _engine = None

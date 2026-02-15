@@ -137,6 +137,9 @@ async def download_pdf(url: str, output_path: str) -> str:
     if parsed.scheme not in ("https",):
         raise ValueError(f"Only HTTPS URLs are allowed for PDF download, got: {parsed.scheme}")
 
+    # Max file size: 100 MB
+    _MAX_PDF_SIZE = 100 * 1024 * 1024
+
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
@@ -147,8 +150,24 @@ async def download_pdf(url: str, output_path: str) -> str:
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("GET", url, follow_redirects=True) as response:
                 response.raise_for_status()
+                # Validate that redirects haven't landed on a non-HTTPS URL
+                if response.url.scheme != "https":
+                    raise ValueError(f"Redirect led to non-HTTPS URL: {response.url}")
+                # Check Content-Length if available
+                content_length = response.headers.get("content-length")
+                if content_length and int(content_length) > _MAX_PDF_SIZE:
+                    raise ValueError(
+                        f"PDF exceeds maximum size of {_MAX_PDF_SIZE} bytes "
+                        f"(Content-Length: {content_length})"
+                    )
+                downloaded_size = 0
                 with open(tmp_path, "wb") as fh:
                     async for chunk in response.aiter_bytes(chunk_size=8192):
+                        downloaded_size += len(chunk)
+                        if downloaded_size > _MAX_PDF_SIZE:
+                            raise ValueError(
+                                f"PDF download exceeded maximum size of {_MAX_PDF_SIZE} bytes"
+                            )
                         fh.write(chunk)
                         sha256.update(chunk)
     except httpx.HTTPStatusError:
@@ -158,10 +177,10 @@ async def download_pdf(url: str, output_path: str) -> str:
         tmp_path.unlink(missing_ok=True)
         raise RuntimeError(f"Failed to download PDF from {url}") from exc
 
-    # Atomic rename to final path on success
-    import os
+    # Move to final path on success (shutil.move handles cross-filesystem)
+    import shutil
 
-    os.rename(tmp_path, out)
+    shutil.move(str(tmp_path), str(out))
 
     # Validate the downloaded file starts with the PDF magic bytes
     try:

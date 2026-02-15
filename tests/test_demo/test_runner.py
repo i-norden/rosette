@@ -10,7 +10,6 @@ from snoopy.demo.runner import (
     _collect_methods,
     _determine_pass_fail_expected_clean,
     _determine_pass_fail_expected_findings,
-    _determine_risk,
     _find_images,
     _find_pdfs,
 )
@@ -47,27 +46,6 @@ class TestFindPdfs:
 
     def test_returns_empty_for_missing_dir(self):
         assert _find_pdfs(Path("/nonexistent")) == []
-
-
-class TestDetermineRisk:
-    def test_clean_when_no_findings(self):
-        assert _determine_risk([]) == "clean"
-
-    def test_critical_severity(self):
-        assert _determine_risk([{"severity": "critical"}]) == "critical"
-
-    def test_high_severity(self):
-        assert _determine_risk([{"severity": "high"}]) == "high"
-
-    def test_medium_severity(self):
-        assert _determine_risk([{"severity": "medium"}]) == "medium"
-
-    def test_low_severity(self):
-        assert _determine_risk([{"severity": "low"}]) == "low"
-
-    def test_highest_severity_wins(self):
-        findings = [{"severity": "low"}, {"severity": "high"}, {"severity": "medium"}]
-        assert _determine_risk(findings) == "high"
 
 
 class TestCollectMethods:

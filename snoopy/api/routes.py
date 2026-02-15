@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hmac
 import logging
 import uuid
 
@@ -46,7 +47,7 @@ async def _verify_api_key(request: Request) -> None:
         )
         return
     key = request.headers.get("X-API-Key")
-    if not key or key not in api_keys:
+    if not key or not any(hmac.compare_digest(key, k) for k in api_keys):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 

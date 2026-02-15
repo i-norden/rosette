@@ -51,7 +51,7 @@ CATEGORY_META: dict[str, dict[str, str]] = {
 
 
 def _get_jinja_env() -> Environment:
-    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=False)
+    return Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
 
 
 def _methods_for_result(result: dict) -> list[str]:

@@ -102,7 +102,7 @@ async def check_pubpeer(doi: str) -> PubPeerResult:
                 has_comments=False,
                 error=f"HTTP error: {e}",
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.warning("Error checking PubPeer for %s: %s", doi, e)
             return PubPeerResult(
                 has_comments=False,

@@ -47,7 +47,6 @@ class PipelineOrchestrator:
         self.llm_provider = ClaudeProvider(
             default_model=config.llm.model_analyze,
         )
-        self.semaphore = asyncio.Semaphore(config.llm.max_concurrent_requests)
         # NOTE: Callers must call init_async_db() before constructing the orchestrator.
         # The FastAPI lifespan and CLI entry points handle this.
         # Explicit stage handler dispatch table
@@ -305,11 +304,8 @@ class PipelineOrchestrator:
             for figure in figures:
                 if figure.image_path and Path(str(figure.image_path)).exists():
                     try:
-                        async with self.semaphore:
-                            fig_type = await classify_figure(
-                                str(figure.image_path), self.llm_provider
-                            )
-                            figure.image_type = fig_type  # type: ignore[assignment]
+                        fig_type = await classify_figure(str(figure.image_path), self.llm_provider)
+                        figure.image_type = fig_type  # type: ignore[assignment]
                     except Exception as e:
                         logger.warning(
                             "LLM classification unavailable for figure %s, skipping: %s",
@@ -426,10 +422,9 @@ class PipelineOrchestrator:
 
                 try:
                     # LLM Vision - Stage 1 screening
-                    async with self.semaphore:
-                        screening = await screen_figure(
-                            img_path, self.llm_provider, caption=str(figure.caption or "")
-                        )
+                    screening = await screen_figure(
+                        img_path, self.llm_provider, caption=str(figure.caption or "")
+                    )
 
                     if (
                         screening.suspicious
@@ -437,13 +432,12 @@ class PipelineOrchestrator:
                         >= self.config.analysis.llm_screening_confidence_threshold
                     ):
                         # Stage 2 detailed analysis
-                        async with self.semaphore:
-                            detailed = await analyze_figure_detailed(
-                                img_path,
-                                self.llm_provider,
-                                caption=str(figure.caption or ""),
-                                figure_type=str(figure.image_type or ""),
-                            )
+                        detailed = await analyze_figure_detailed(
+                            img_path,
+                            self.llm_provider,
+                            caption=str(figure.caption or ""),
+                            figure_type=str(figure.image_type or ""),
+                        )
 
                         for vf in detailed.findings:
                             severity = (
@@ -519,7 +513,7 @@ class PipelineOrchestrator:
             # P-value check
             test_stats = extract_test_statistics(full_text)
             for ts in test_stats:
-                if ts.p_value is not None:
+                if ts.p_value is not None and ts.df is not None:
                     pval_result = pvalue_check(ts.test_type, ts.statistic, ts.df, ts.p_value)
                     if not pval_result.consistent:
                         finding = Finding(
@@ -709,11 +703,14 @@ class PipelineOrchestrator:
                 )
 
             method_weights = self._build_method_weights()
-            aggregate_findings(finding_dicts, method_weights=method_weights)
+            evidence = aggregate_findings(finding_dicts, method_weights=method_weights)
             # Store aggregated result as paper metadata for report stage
             paper = await session.get(Paper, paper_id)
             if paper:
                 paper.status = "analyzed"  # type: ignore[assignment]
+                paper.risk_level = evidence.paper_risk  # type: ignore[assignment]
+                paper.overall_confidence = evidence.overall_confidence  # type: ignore[assignment]
+                paper.converging_evidence = evidence.converging_evidence  # type: ignore[assignment]
 
     async def _run_report(self, paper_id: str) -> None:
         """Generate the final proof report."""
@@ -848,7 +845,15 @@ class PipelineOrchestrator:
             paper_ids = [str(p.id) for p in papers]
 
         results = []
-        sem = asyncio.Semaphore(5)
+        concurrency = 5
+        # SQLite cannot handle concurrent writes; force serial processing
+        db_url = self.config.storage.database_url
+        if db_url.startswith("sqlite"):
+            logger.warning(
+                "SQLite detected — forcing batch concurrency to 1 to avoid write contention"
+            )
+            concurrency = 1
+        sem = asyncio.Semaphore(concurrency)
 
         async def _process(pid: str) -> str:
             async with sem:

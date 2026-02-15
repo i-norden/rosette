@@ -7,7 +7,7 @@ format:
 	ruff format .
 
 test:
-	pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing
+	pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=75
 
 test-integration:
 	pytest -m integration --tb=short
