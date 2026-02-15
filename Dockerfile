@@ -1,5 +1,5 @@
 # ---- Builder stage ----
-FROM python:3.11-slim@sha256:7ae2d10e4bdc6f69ba2daf031647568fec08f3191621d7a5c8760abb236d16ab AS builder
+FROM python:3.14-slim@sha256:486b8092bfb12997e10d4920897213a06563449c951c5506c2a2cfaf591c599f AS builder
 
 LABEL org.opencontainers.image.source="https://github.com/i-norden/sniffer"
 LABEL org.opencontainers.image.description="LLM-powered academic integrity analyzer"
@@ -24,7 +24,7 @@ COPY config/ config/
 RUN pip install --no-cache-dir --no-deps --prefix=/install .
 
 # ---- Runtime stage ----
-FROM python:3.11-slim@sha256:7ae2d10e4bdc6f69ba2daf031647568fec08f3191621d7a5c8760abb236d16ab
+FROM python:3.14-slim@sha256:486b8092bfb12997e10d4920897213a06563449c951c5506c2a2cfaf591c599f
 
 # Runtime system deps for PyMuPDF, opencv-python-headless, Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
