@@ -342,9 +342,21 @@ def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
         try:
             if archive_name.endswith(".zip"):
                 with zipfile.ZipFile(archive_path, "r") as zf:
+                    for member in zf.namelist():
+                        member_path = (target_dir / member).resolve()
+                        if not str(member_path).startswith(str(target_dir.resolve())):
+                            raise ValueError(
+                                f"Zip Slip detected: {member!r} escapes target directory"
+                            )
                     zf.extractall(target_dir)
             elif archive_name.endswith(".7z"):
                 with py7zr.SevenZipFile(archive_path, "r") as sz:
+                    for member in sz.getnames():
+                        member_path = (target_dir / member).resolve()
+                        if not str(member_path).startswith(str(target_dir.resolve())):
+                            raise ValueError(
+                                f"Zip Slip detected: {member!r} escapes target directory"
+                            )
                     sz.extractall(target_dir)
         except Exception as exc:
             console.print(f"  [red]Extraction failed for {archive_name}: {exc}[/red]")

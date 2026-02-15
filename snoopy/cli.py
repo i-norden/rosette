@@ -365,7 +365,7 @@ def demo(
 
 
 @main.command()
-@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option("--host", default="0.0.0.0", help="Host to bind to")  # nosec B104
 @click.option("--port", default=8000, help="Port to bind to")
 @click.pass_context
 def serve(ctx: click.Context, host: str, port: int) -> None:

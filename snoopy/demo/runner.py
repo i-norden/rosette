@@ -347,26 +347,6 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
     }
 
 
-def _determine_risk(findings: list[dict]) -> str:
-    """Determine risk level from a list of findings.
-
-    Kept for backwards compatibility but callers should prefer
-    ``aggregate_findings()`` from ``snoopy.analysis.evidence``.
-    """
-    if not findings:
-        return "clean"
-    severities = [f.get("severity", "info") for f in findings]
-    if "critical" in severities:
-        return "critical"
-    if "high" in severities:
-        return "high"
-    if "medium" in severities:
-        return "medium"
-    if "low" in severities:
-        return "low"
-    return "clean"
-
-
 def _collect_methods(findings: list[dict]) -> list[str]:
     """Collect unique method names from findings, preserving order."""
     methods: list[str] = []

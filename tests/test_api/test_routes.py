@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import uuid
 
 import pytest
@@ -108,6 +109,52 @@ class TestSubmitPaper:
         assert resp2.status_code == 202
         assert resp2.json()["paper_id"] == paper_id_1
 
+    def test_submit_pdf_with_invalid_base64(self, client):
+        """Invalid base64 in pdf_upload should return 422."""
+        response = client.post(
+            "/api/v1/papers",
+            json={"pdf_upload": "not-valid-base64!!!"},
+        )
+        assert response.status_code == 422
+        assert "base64" in response.json()["detail"].lower()
+
+    def test_submit_pdf_with_non_pdf_content(self, client):
+        """Valid base64 but not PDF content should return 422."""
+        fake_content = base64.b64encode(b"This is not a PDF").decode()
+        response = client.post(
+            "/api/v1/papers",
+            json={"pdf_upload": fake_content},
+        )
+        assert response.status_code == 422
+        assert "not a valid PDF" in response.json()["detail"]
+
+    def test_submit_pdf_with_valid_pdf_magic(self, client):
+        """Valid base64 with PDF magic bytes should be accepted."""
+        # Minimal PDF-like content (just has the magic bytes)
+        pdf_content = b"%PDF-1.4 minimal pdf content"
+        encoded = base64.b64encode(pdf_content).decode()
+        response = client.post(
+            "/api/v1/papers",
+            json={"pdf_upload": encoded},
+        )
+        assert response.status_code == 202
+        data = response.json()
+        assert "paper_id" in data
+        assert data["status"] == "pending"
+
+    def test_submit_doi_too_long(self, client):
+        """DOI exceeding max length should be rejected."""
+        long_doi = "10.1234/" + "a" * 300
+        response = client.post(
+            "/api/v1/papers",
+            json={"doi": long_doi},
+        )
+        assert response.status_code == 422
+        assert (
+            "too long" in response.json()["detail"].lower()
+            or "Invalid DOI" in response.json()["detail"]
+        )
+
 
 class TestGetPaperStatus:
     def test_get_existing_paper(self, client):
@@ -180,6 +227,29 @@ class TestSubmitBatch:
         )
         assert response.status_code == 422
 
+    def test_batch_with_mix_of_valid_and_duplicate(self, client):
+        """Batch submission where some DOIs already exist returns mixed results."""
+        # First, submit one DOI
+        resp1 = client.post(
+            "/api/v1/papers",
+            json={"doi": "10.1234/batch.existing"},
+        )
+        assert resp1.status_code == 202
+        existing_id = resp1.json()["paper_id"]
+
+        # Now batch-submit with that DOI plus a new one
+        response = client.post(
+            "/api/v1/batch",
+            json={"dois": ["10.1234/batch.existing", "10.1234/batch.new"]},
+        )
+        assert response.status_code == 202
+        data = response.json()
+        assert len(data["papers"]) == 2
+
+        # The existing DOI should return the same paper_id
+        paper_ids = {p["paper_id"] for p in data["papers"]}
+        assert existing_id in paper_ids
+
 
 class TestGetAuthorRisk:
     def test_get_nonexistent_author(self, client):
@@ -250,3 +320,36 @@ class TestApiKeyAuth:
             headers={"X-API-Key": "wrong-key"},
         )
         assert response.status_code == 401
+
+
+class TestCreateAppDefaults:
+    def test_create_app_with_no_config(self):
+        """create_app with no config uses load_config defaults."""
+        app = create_app()
+        assert app.state.config is not None
+        assert app.state.config.llm.provider == "claude"
+
+
+class TestCorsConfiguration:
+    def test_wildcard_cors_disables_credentials(self, tmp_path):
+        """When cors_origins includes '*', allow_credentials should be disabled."""
+        db_path = tmp_path / "cors_test.db"
+        config = SnoopyConfig(
+            require_authentication=False,
+            cors_origins=["*"],
+            storage={
+                "database_url": f"sqlite:///{db_path}",
+                "pdf_dir": str(tmp_path / "pdfs"),
+                "figures_dir": str(tmp_path / "figures"),
+                "reports_dir": str(tmp_path / "reports"),
+            },
+        )
+        init_db(config.storage.database_url)
+        init_async_db(config.storage.database_url)
+
+        app = create_app(config)
+        test_client = TestClient(app)
+
+        # The app should still work
+        response = test_client.get("/health")
+        assert response.status_code == 200

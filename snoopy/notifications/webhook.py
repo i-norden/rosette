@@ -14,33 +14,44 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
+def _resolve_safe_ips(url: str) -> list[str]:
+    """Validate that a URL does not point to private/internal IP ranges.
+
+    Returns a list of safe resolved IP addresses, or an empty list if the URL
+    is unsafe or cannot be resolved.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return []
+
+    if parsed.scheme not in ("https",):
+        return []
+
+    hostname = parsed.hostname
+    if not hostname:
+        return []
+
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+        safe_ips: list[str] = []
+        for info in infos:
+            ip_str = str(info[4][0])
+            addr = ipaddress.ip_address(ip_str)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                return []
+            safe_ips.append(ip_str)
+        return safe_ips
+    except (socket.gaierror, ValueError):
+        return []
+
+
 def _is_safe_url(url: str) -> bool:
     """Validate that a URL does not point to private/internal IP ranges.
 
     Returns True if the URL is safe to request, False otherwise.
     """
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return False
-
-    if parsed.scheme not in ("https",):
-        return False
-
-    hostname = parsed.hostname
-    if not hostname:
-        return False
-
-    try:
-        infos = socket.getaddrinfo(hostname, None)
-        for info in infos:
-            addr = ipaddress.ip_address(info[4][0])
-            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-                return False
-    except (socket.gaierror, ValueError):
-        return False
-
-    return True
+    return len(_resolve_safe_ips(url)) > 0
 
 
 # Default retry configuration
@@ -61,12 +72,16 @@ class WebhookNotifier:
     """
 
     urls: set[str] = field(default_factory=set)
+    _pinned_ips: dict[str, list[str]] = field(default_factory=dict, repr=False)
     max_retries: int = _DEFAULT_MAX_RETRIES
     retry_delay: float = _DEFAULT_RETRY_DELAY
     timeout: float = _DEFAULT_TIMEOUT
 
     def register_url(self, url: str) -> None:
         """Register a webhook URL to receive notifications.
+
+        Resolves the URL's hostname and pins the resulting IPs to prevent
+        DNS rebinding attacks between registration and delivery.
 
         Args:
             url: The URL to register.
@@ -75,13 +90,15 @@ class WebhookNotifier:
             ValueError: If the URL is not a safe HTTPS URL or resolves
                 to a private/internal IP address.
         """
-        if not _is_safe_url(url):
+        safe_ips = _resolve_safe_ips(url)
+        if not safe_ips:
             raise ValueError(
                 f"Rejected webhook URL {url!r}: only HTTPS URLs "
                 "resolving to public IP addresses are allowed"
             )
         self.urls.add(url)
-        logger.info("Registered webhook URL: %s", url)
+        self._pinned_ips[url] = safe_ips
+        logger.info("Registered webhook URL: %s (pinned IPs: %s)", url, safe_ips)
 
     def unregister_url(self, url: str) -> None:
         """Remove a webhook URL from the notification list.
@@ -90,6 +107,7 @@ class WebhookNotifier:
             url: The URL to unregister.
         """
         self.urls.discard(url)
+        self._pinned_ips.pop(url, None)
         logger.info("Unregistered webhook URL: %s", url)
 
     async def notify(self, payload: dict) -> dict[str, bool]:
@@ -119,7 +137,9 @@ class WebhookNotifier:
     async def _deliver(self, url: str, payload: dict) -> bool:
         """Deliver a payload to a single URL with retry logic.
 
-        Uses exponential backoff: delay * 2^attempt for each retry.
+        Uses the IP address pinned at registration time to prevent DNS
+        rebinding attacks.  Uses exponential backoff: delay * 2^attempt
+        for each retry.
 
         Args:
             url: The target webhook URL.
@@ -128,17 +148,28 @@ class WebhookNotifier:
         Returns:
             True if delivery succeeded, False otherwise.
         """
-        # Re-validate URL at delivery time to prevent DNS rebinding attacks
-        if not _is_safe_url(url):
-            logger.error(
-                "Webhook URL %s failed safety check at delivery time (possible DNS rebinding)", url
-            )
+        pinned = self._pinned_ips.get(url)
+        if not pinned:
+            logger.error("Webhook URL %s has no pinned IPs (not properly registered)", url)
             return False
+
+        # Re-validate the pinned IPs are still safe (they shouldn't change,
+        # but defend against manual mutation of _pinned_ips)
+        for ip_str in pinned:
+            addr = ipaddress.ip_address(ip_str)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                logger.error("Pinned IP %s for webhook URL %s is not public", ip_str, url)
+                return False
+
+        # Build the delivery URL using the pinned IP and set the Host header
+        parsed = urlparse(url)
+        delivery_url = url.replace(parsed.hostname or "", pinned[0], 1)
+        headers = {"Host": parsed.hostname or ""}
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             for attempt in range(self.max_retries):
                 try:
-                    response = await client.post(url, json=payload)
+                    response = await client.post(delivery_url, json=payload, headers=headers)
                     if 200 <= response.status_code < 300:
                         logger.info(
                             "Webhook delivery to %s succeeded (status %d)",

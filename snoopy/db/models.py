@@ -49,6 +49,9 @@ class Paper(Base):
     full_text = Column(Text, nullable=True)
     source = Column(Text, nullable=True)  # 'openalex', 'pubmed', 'manual', etc.
     status = Column(Text, default="pending")
+    risk_level = Column(Text, nullable=True)  # Aggregated risk: critical/high/medium/low/clean
+    overall_confidence = Column(Float, nullable=True)  # Aggregated confidence score
+    converging_evidence = Column(Boolean, nullable=True)  # Whether multiple methods converge
     error_message = Column(Text, nullable=True)
     retraction_status = Column(Text, nullable=True)  # 'retracted', 'expression_of_concern', etc.
     retraction_date = Column(DateTime, nullable=True)

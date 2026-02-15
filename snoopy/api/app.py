@@ -71,10 +71,18 @@ def create_app(config: SnoopyConfig | None = None) -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     # --- CORS middleware ---
+    allow_credentials = True
+    if "*" in config.cors_origins:
+        logger.warning(
+            "CORS wildcard origin '*' is incompatible with allow_credentials=True; "
+            "disabling credentials to prevent credential leakage."
+        )
+        allow_credentials = False
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.cors_origins,
-        allow_credentials=True,
+        allow_credentials=allow_credentials,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "X-API-Key", "Authorization"],
     )

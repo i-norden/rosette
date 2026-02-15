@@ -1,5 +1,5 @@
 # ---- Builder stage ----
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim@sha256:7ae2d10e4bdc6f69ba2daf031647568fec08f3191621d7a5c8760abb236d16ab AS builder
 
 LABEL org.opencontainers.image.source="https://github.com/i-norden/sniffer"
 LABEL org.opencontainers.image.description="LLM-powered academic integrity analyzer"
@@ -24,10 +24,11 @@ COPY config/ config/
 RUN pip install --no-cache-dir --no-deps --prefix=/install .
 
 # ---- Runtime stage ----
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:7ae2d10e4bdc6f69ba2daf031647568fec08f3191621d7a5c8760abb236d16ab
 
 # Runtime system deps for PyMuPDF, opencv-python-headless, Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -61,8 +62,10 @@ ENV SNOOPY__STORAGE__PDF_DIR="/data/pdfs" \
     SNOOPY__LLM__PROVIDER="claude" \
     PYTHONUNBUFFERED=1
 
+EXPOSE 8000
+
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=15s \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+    CMD curl -f http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["snoopy"]
 CMD ["serve"]

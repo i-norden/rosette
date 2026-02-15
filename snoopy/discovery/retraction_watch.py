@@ -106,7 +106,7 @@ async def check_retraction_status(doi: str, contact_email: str | None = None) ->
 
         except httpx.HTTPError as e:
             logger.warning("Crossref API error for DOI %s: %s", doi, e)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.warning("Error checking retraction status for %s: %s", doi, e)
 
     return RetractionInfo(is_retracted=False)
@@ -157,7 +157,7 @@ async def check_author_retractions(
 
         except httpx.HTTPError as e:
             logger.warning("Crossref API error for author %s: %s", author_name, e)
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.warning("Error checking author retractions for %s: %s", author_name, e)
 
     return AuthorRetractionHistory(

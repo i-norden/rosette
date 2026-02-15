@@ -19,6 +19,26 @@ _async_engine = None
 _AsyncSessionFactory = None
 
 
+def reset_db() -> None:
+    """Reset all database state.  Intended for use in test teardown."""
+    global _engine, _SessionFactory, _async_engine, _AsyncSessionFactory
+    if _engine is not None:
+        _engine.dispose()
+    if _async_engine is not None:
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+            future = asyncio.run_coroutine_threadsafe(_async_engine.dispose(), loop)
+            future.result(timeout=5)
+        except RuntimeError:
+            asyncio.run(_async_engine.dispose())
+    _engine = None
+    _SessionFactory = None
+    _async_engine = None
+    _AsyncSessionFactory = None
+
+
 def init_db(database_url: str = "sqlite:///snoopy.db") -> None:
     """Initialize the database engine and create all tables.
 

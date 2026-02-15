@@ -13,7 +13,6 @@ from snoopy.demo.runner import (
     _analyze_pdf,
     _build_result,
     _collect_methods,
-    _determine_risk,
     _find_images,
     _find_pdfs,
 )
@@ -85,37 +84,6 @@ class TestFindPdfs:
         result = _find_pdfs(tmp_path)
         assert result[0].name == "a.pdf"
         assert result[1].name == "z.pdf"
-
-
-class TestDetermineRisk:
-    def test_no_findings_returns_clean(self) -> None:
-        assert _determine_risk([]) == "clean"
-
-    def test_critical_finding(self) -> None:
-        assert _determine_risk([{"severity": "critical"}]) == "critical"
-
-    def test_high_finding(self) -> None:
-        assert _determine_risk([{"severity": "high"}]) == "high"
-
-    def test_medium_finding(self) -> None:
-        assert _determine_risk([{"severity": "medium"}]) == "medium"
-
-    def test_low_finding(self) -> None:
-        assert _determine_risk([{"severity": "low"}]) == "low"
-
-    def test_info_only_returns_clean(self) -> None:
-        assert _determine_risk([{"severity": "info"}]) == "clean"
-
-    def test_highest_severity_wins(self) -> None:
-        findings = [
-            {"severity": "low"},
-            {"severity": "critical"},
-            {"severity": "medium"},
-        ]
-        assert _determine_risk(findings) == "critical"
-
-    def test_missing_severity_defaults_to_info(self) -> None:
-        assert _determine_risk([{}]) == "clean"
 
 
 class TestAnalyzeImage:
