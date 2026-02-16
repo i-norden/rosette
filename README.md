@@ -76,12 +76,30 @@ snoopy campaign export     Export evidence packages
 
 ### snoopy demo
 
-Runs the full demo pipeline: downloads test fixtures, runs image forensics on all test cases, prints Rich-formatted results, and generates HTML reports.
+End-to-end showcase of the forensic analysis pipeline. Downloads ~3 GB of test fixtures across six categories, runs multi-method analysis on each, and generates an interactive HTML dashboard that opens in your browser.
+
+**Fixture categories:**
+
+| Category | Count | Source | Purpose |
+|----------|-------|--------|---------|
+| Synthetic forgeries | 10 images | Generated locally | Copy-move, splicing, retouching |
+| RSIIL benchmark | 3 images | RSIIL GitHub | Known manipulations with ground truth |
+| Retracted papers | 10 PDFs | PMC Open Access | Papers retracted for image issues |
+| Bik survey | 1 PDF | PMC Open Access | Reference study on image duplication |
+| Retraction Watch | 2 PDFs | PMC Open Access | Papers flagged for manipulation |
+| Clean controls | 21 PDFs | PMC Open Access | Landmark papers (false positive control) |
+
+**Analysis applied per item:**
+- **Images:** ELA, clone detection, noise analysis, perceptual hashing
+- **PDFs:** Figure extraction + image forensics, text extraction + GRIM/Benford tests, table extraction + duplicate value checks, intra-paper cross-reference
+- **LLM (opt-in):** Claude vision screening and detailed analysis
 
 ```bash
-snoopy demo                        # Full demo
+snoopy demo                        # Full demo (no LLM)
 snoopy demo --download-only        # Only download fixtures
+snoopy demo --use-llm              # Enable LLM analysis (needs ANTHROPIC_API_KEY)
 snoopy demo --output-dir ./out     # Custom report output directory
+snoopy demo --download-rsiil       # Also download full RSIIL dataset (~57 GB)
 ```
 
 ### snoopy analyze
@@ -145,7 +163,7 @@ Snoopy supports webhook notifications for delivering analysis results to externa
 from snoopy.notifications.webhook import WebhookNotifier
 
 notifier = WebhookNotifier()
-notifier.register_url("https://example.com/webhook")  # HTTPS only, public IPs only
+await notifier.register_url("https://example.com/webhook")  # HTTPS only, public IPs only
 
 # Deliver findings to all registered webhooks
 results = await notifier.notify({"paper_doi": "10.1234/example", "risk": "high"})
@@ -195,11 +213,11 @@ campaign:
 
 Start the REST API with `snoopy serve`. Key endpoints:
 
-- `POST /papers` — Submit a paper for analysis
-- `GET /papers/{id}` — Get paper status and metadata
-- `GET /papers/{id}/report` — Get analysis report
-- `POST /batch` — Submit a batch of papers
-- `GET /authors/{id}/risk` — Get author risk profile
+- `POST /api/v1/papers` — Submit a paper for analysis (DOI or base64 PDF)
+- `GET /api/v1/papers/{id}` — Get paper status and metadata
+- `GET /api/v1/papers/{id}/report` — Get analysis report
+- `POST /api/v1/batch` — Submit a batch of papers
+- `GET /api/v1/authors/{id}/risk` — Get author risk profile
 - `GET /health` — Health check
 
 ## Testing
