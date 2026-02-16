@@ -119,6 +119,9 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         grim_findings: list[dict] = []
         benford_findings: list[dict] = []
         pvalue_findings: list[dict] = []
+        means_and_ns: list = []
+        test_stats: list = []
+        numerical_values: list = []
 
         # 2a. GRIM test on extracted means
         try:
@@ -261,14 +264,14 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         except Exception as exc:
             logger.debug("Benford test failed on %s: %s", pdf_path.name, exc)
 
-        # Collect p-value overview
+        # Collect p-value overview (reuse already-extracted values)
         try:
             p_values = extract_p_values(full_text)
             statistical_summary = {
-                "means_extracted": len(extract_means_and_ns(full_text)),
-                "test_stats_extracted": len(extract_test_statistics(full_text)),
+                "means_extracted": len(means_and_ns),
+                "test_stats_extracted": len(test_stats),
                 "p_values_extracted": len(p_values),
-                "numerical_values_extracted": len(extract_numerical_values(full_text)),
+                "numerical_values_extracted": len(numerical_values),
                 "grim_findings": len(grim_findings),
                 "pvalue_findings": len(pvalue_findings),
                 "benford_findings": len(benford_findings),

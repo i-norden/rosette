@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-_DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[a-zA-Z0-9./_\-()]+$")
+_DOI_PATTERN = re.compile(r"^10\.\d{4,9}/[a-zA-Z0-9./_\-();:]+$")
 
 _DOI_MAX_LENGTH = 256
 

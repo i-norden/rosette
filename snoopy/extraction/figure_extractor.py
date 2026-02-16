@@ -105,6 +105,7 @@ def extract_figures(pdf_path: str, output_dir: str) -> list[FigureInfo]:
                         "Could not extract image xref=%d on page %d",
                         xref,
                         page_num + 1,
+                        exc_info=True,
                     )
                     continue
 

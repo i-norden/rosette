@@ -59,6 +59,7 @@ class NetworkExpander:
             try:
                 authors = json.loads(str(paper.authors_json))
             except (json.JSONDecodeError, TypeError):
+                logger.warning("Corrupt authors_json for paper %s, skipping expansion", paper_id)
                 return []
 
             # Limit authors per paper
@@ -157,8 +158,8 @@ class NetworkExpander:
                     session.add(cp)
 
                     # Update campaign counter
-                    campaign.papers_discovered = (campaign.papers_discovered or 0) + 1  # type: ignore[assignment]
-                    campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                    campaign.papers_discovered = (campaign.papers_discovered or 0) + 1
+                    campaign.updated_at = datetime.now(timezone.utc)
 
                     new_paper_ids.append(candidate["paper_id"])
 
@@ -206,8 +207,8 @@ class NetworkExpander:
             async with get_async_session() as session:
                 author = await session.get(Author, author_id)
                 if author:
-                    author.retraction_count = history.total_retractions  # type: ignore[assignment]
-                    author.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                    author.retraction_count = history.total_retractions
+                    author.updated_at = datetime.now(timezone.utc)
 
         return {
             "author_name": author_name,

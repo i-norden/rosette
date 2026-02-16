@@ -26,7 +26,7 @@ jobs:
           cache: pip
 
       - name: Install ruff
-        run: pip install ruff==0.8.0
+        run: pip install ruff==0.15.1
 
       - name: Ruff check
         run: ruff check .
@@ -54,7 +54,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
 
       - name: Install package with dev dependencies
-        run: pip install ".[dev]"
+        run: |
+          pip install -r requirements.lock
+          pip install ".[dev]"
 
       - name: Run tests (skip integration) with coverage
         run: pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=75

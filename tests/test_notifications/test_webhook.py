@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
-from snoopy.notifications.webhook import WebhookNotifier, _is_safe_url, _resolve_safe_ips
+from snoopy.notifications.webhook import (
+    WebhookNotifier,
+    _is_safe_url,
+    _resolve_safe_ips,
+    _resolve_safe_ips_sync,
+)
 
 
 class TestIsSafeUrl:
@@ -103,43 +109,72 @@ class TestSSRFProtection:
 
 
 class TestResolveSafeIps:
-    """Tests for _resolve_safe_ips which returns pinned IPs."""
+    """Tests for _resolve_safe_ips (async) and _resolve_safe_ips_sync."""
 
     @patch("snoopy.notifications.webhook.socket.getaddrinfo")
-    def test_returns_ips_for_public_url(self, mock_getaddrinfo):
+    def test_sync_returns_ips_for_public_url(self, mock_getaddrinfo):
         mock_getaddrinfo.return_value = [
             (2, 1, 6, "", ("93.184.216.34", 443)),
         ]
-        ips = _resolve_safe_ips("https://example.com/hook")
+        ips = _resolve_safe_ips_sync("https://example.com/hook")
         assert ips == ["93.184.216.34"]
 
     @patch("snoopy.notifications.webhook.socket.getaddrinfo")
-    def test_returns_empty_for_private_ip(self, mock_getaddrinfo):
+    def test_sync_returns_empty_for_private_ip(self, mock_getaddrinfo):
         mock_getaddrinfo.return_value = [
             (2, 1, 6, "", ("10.0.0.1", 443)),
         ]
-        ips = _resolve_safe_ips("https://internal.example.com/hook")
+        ips = _resolve_safe_ips_sync("https://internal.example.com/hook")
         assert ips == []
 
-    def test_returns_empty_for_bad_scheme(self):
-        ips = _resolve_safe_ips("http://example.com/hook")
+    def test_sync_returns_empty_for_bad_scheme(self):
+        ips = _resolve_safe_ips_sync("http://example.com/hook")
+        assert ips == []
+
+    @pytest.mark.asyncio
+    async def test_async_returns_ips_for_public_url(self):
+        async def mock_getaddrinfo(host, port, **kwargs):
+            return [(2, 1, 6, "", ("93.184.216.34", 443))]
+
+        with patch.object(asyncio.get_running_loop(), "getaddrinfo", side_effect=mock_getaddrinfo):
+            ips = await _resolve_safe_ips("https://example.com/hook")
+        assert ips == ["93.184.216.34"]
+
+    @pytest.mark.asyncio
+    async def test_async_returns_empty_for_bad_scheme(self):
+        ips = await _resolve_safe_ips("http://example.com/hook")
         assert ips == []
 
 
 class TestWebhookRegistration:
-    def test_register_url(self):
+    @pytest.mark.asyncio
+    async def test_register_url(self):
         notifier = WebhookNotifier()
+
+        async def _mock_resolve(url):
+            return ["93.184.216.34"]
+
         with patch(
-            "snoopy.notifications.webhook._resolve_safe_ips", return_value=["93.184.216.34"]
+            "snoopy.notifications.webhook._resolve_safe_ips",
+            side_effect=_mock_resolve,
         ):
-            notifier.register_url("https://example.com/hook")
+            await notifier.register_url("https://example.com/hook")
         assert "https://example.com/hook" in notifier.urls
         assert notifier._pinned_ips["https://example.com/hook"] == ["93.184.216.34"]
 
-    def test_register_unsafe_url_raises(self):
+    @pytest.mark.asyncio
+    async def test_register_unsafe_url_raises(self):
         notifier = WebhookNotifier()
-        with pytest.raises(ValueError, match="Rejected webhook URL"):
-            notifier.register_url("http://localhost/hook")
+
+        async def _mock_resolve(url):
+            return []
+
+        with patch(
+            "snoopy.notifications.webhook._resolve_safe_ips",
+            side_effect=_mock_resolve,
+        ):
+            with pytest.raises(ValueError, match="Rejected webhook URL"):
+                await notifier.register_url("http://localhost/hook")
 
     def test_unregister_url(self):
         notifier = WebhookNotifier()

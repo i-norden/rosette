@@ -53,20 +53,20 @@ def run_image_forensics(
     # 1. ELA
     try:
         ela: ELAResult = error_level_analysis(
-            path_str, quality=cfg.ela_quality, output_dir=output_dir
+            path_str, quality=cfg.ela.quality, output_dir=output_dir
         )
         if ela.suspicious:
             max_diff = ela.max_difference
             mean_diff = ela.mean_difference
             std_diff = ela.std_difference
 
-            if max_diff >= cfg.ela_high_threshold and max_diff > mean_diff + 3 * std_diff:
+            if max_diff >= cfg.ela.high_threshold and max_diff > mean_diff + 3 * std_diff:
                 severity = "high"
                 confidence = min(max_diff / 255.0 * 0.6, 1.0)
-            elif max_diff >= cfg.ela_medium_threshold and max_diff > mean_diff + 3 * std_diff:
+            elif max_diff >= cfg.ela.medium_threshold and max_diff > mean_diff + 3 * std_diff:
                 severity = "medium"
                 confidence = min(max_diff / 255.0 * 0.5, 1.0)
-            elif max_diff >= cfg.ela_low_threshold and max_diff > mean_diff + 2 * std_diff:
+            elif max_diff >= cfg.ela.low_threshold and max_diff > mean_diff + 2 * std_diff:
                 severity = "low"
                 confidence = min(max_diff / 255.0 * 0.4, 1.0)
             else:
@@ -93,23 +93,25 @@ def run_image_forensics(
                     },
                 }
             )
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("ELA failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("ELA unexpected error on %s: %s", fig_id, exc)
 
     # 2. Clone detection
     try:
-        clone: CloneResult = clone_detection(path_str, min_matches=cfg.clone_min_matches)
+        clone: CloneResult = clone_detection(path_str, min_matches=cfg.clone.min_matches)
         if clone.suspicious:
             inliers = clone.num_matches
             ratio = clone.inlier_ratio
 
-            if inliers >= cfg.clone_high_inliers and ratio >= cfg.clone_high_ratio:
+            if inliers >= cfg.clone.high_inliers and ratio >= cfg.clone.high_ratio:
                 severity = "high"
                 confidence = min(ratio, 1.0) * 0.85
-            elif inliers >= cfg.clone_medium_inliers and ratio >= cfg.clone_medium_ratio:
+            elif inliers >= cfg.clone.medium_inliers and ratio >= cfg.clone.medium_ratio:
                 severity = "medium"
                 confidence = min(ratio, 1.0) * 0.7
-            elif inliers >= cfg.clone_low_inliers and ratio >= cfg.clone_low_ratio:
+            elif inliers >= cfg.clone.low_inliers and ratio >= cfg.clone.low_ratio:
                 severity = "low"
                 confidence = min(ratio, 1.0) * 0.5
             else:
@@ -136,26 +138,28 @@ def run_image_forensics(
                     },
                 }
             )
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("Clone detection failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("Clone detection unexpected error on %s: %s", fig_id, exc)
 
     # 3. Noise analysis
     try:
         noise_result: NoiseResult = noise_analysis(
             path_str,
-            block_size=cfg.noise_block_size,
-            intensity_bin_width=cfg.noise_intensity_bin_width,
+            block_size=cfg.noise.block_size,
+            intensity_bin_width=cfg.noise.intensity_bin_width,
         )
         if noise_result.suspicious:
             max_ratio = noise_result.max_ratio
 
-            if max_ratio > cfg.noise_high_ratio:
+            if max_ratio > cfg.noise.high_ratio:
                 severity = "high"
                 confidence = min(max_ratio / 30.0, 0.85)
-            elif max_ratio > cfg.noise_medium_ratio:
+            elif max_ratio > cfg.noise.medium_ratio:
                 severity = "medium"
                 confidence = min(max_ratio / 20.0, 0.7)
-            elif max_ratio > cfg.noise_low_ratio:
+            elif max_ratio > cfg.noise.low_ratio:
                 severity = "low"
                 confidence = min(max_ratio / 20.0, 0.5)
             else:
@@ -181,8 +185,10 @@ def run_image_forensics(
                     },
                 }
             )
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("Noise analysis failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("Noise analysis unexpected error on %s: %s", fig_id, exc)
 
     # 4. Metadata forensics
     try:
@@ -206,8 +212,10 @@ def run_image_forensics(
                         },
                     }
                 )
-    except Exception as exc:
+    except (OSError, ValueError, ImportError) as exc:
         logger.warning("Metadata forensics failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("Metadata forensics unexpected error on %s: %s", fig_id, exc)
 
     return findings
 
@@ -318,8 +326,10 @@ def run_dct_analysis(
                     },
                 }
             )
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("DCT analysis failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("DCT analysis unexpected error on %s: %s", fig_id, exc)
 
     return findings
 
@@ -371,8 +381,10 @@ def run_jpeg_ghost_analysis(
                     },
                 }
             )
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("JPEG ghost detection failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("JPEG ghost detection unexpected error on %s: %s", fig_id, exc)
 
     return findings
 
@@ -423,8 +435,10 @@ def run_frequency_analysis(
                     },
                 }
             )
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         logger.warning("FFT analysis failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("FFT analysis unexpected error on %s: %s", fig_id, exc)
 
     return findings
 
@@ -477,8 +491,10 @@ def run_sprite_analysis(
                     },
                 }
             )
-    except Exception as exc:
+    except (ValueError, ImportError) as exc:
         logger.warning("SPRITE test failed: %s", exc)
+    except Exception as exc:
+        logger.exception("SPRITE test unexpected error: %s", exc)
 
     return findings
 
@@ -532,12 +548,14 @@ def run_statistical_tests(
                             },
                         }
                     )
-    except Exception as exc:
+    except (ValueError, TypeError) as exc:
         logger.warning("GRIMMER test failed: %s", exc)
+    except Exception as exc:
+        logger.exception("GRIMMER test unexpected error: %s", exc)
 
     # Variance ratio test on collected SD/N pairs
     try:
-        if len(sd_n_pairs) >= cfg.variance_ratio_min_sds:
+        if len(sd_n_pairs) >= cfg.statistical.variance_ratio_min_sds:
             vr_result = variance_ratio_test(sd_n_pairs)
             if vr_result.suspicious:
                 findings.append(
@@ -558,14 +576,18 @@ def run_statistical_tests(
                         },
                     }
                 )
-    except Exception as exc:
+    except (ValueError, TypeError) as exc:
         logger.warning("Variance ratio test failed: %s", exc)
+    except Exception as exc:
+        logger.exception("Variance ratio test unexpected error: %s", exc)
 
     # Terminal digit test on all extracted numerical values
     try:
         values = extract_numerical_values(text)
         if len(values) >= 20:
-            td_result = terminal_digit_test(values, alpha=cfg.terminal_digit_uniformity_alpha)
+            td_result = terminal_digit_test(
+                values, alpha=cfg.statistical.terminal_digit_uniformity_alpha
+            )
             if td_result.suspicious:
                 findings.append(
                     {
@@ -584,8 +606,10 @@ def run_statistical_tests(
                         },
                     }
                 )
-    except Exception as exc:
+    except (ValueError, TypeError) as exc:
         logger.warning("Terminal digit test failed: %s", exc)
+    except Exception as exc:
+        logger.exception("Terminal digit test unexpected error: %s", exc)
 
     return findings
 
@@ -604,7 +628,9 @@ def run_tortured_phrases(
     try:
         from snoopy.analysis.text_forensics import detect_tortured_phrases
 
-        result = detect_tortured_phrases(text, min_matches=cfg.tortured_phrase_min_matches)
+        result = detect_tortured_phrases(
+            text, min_matches=cfg.statistical.tortured_phrase_min_matches
+        )
         if result.suspicious:
             if result.unique_phrases >= 5:
                 severity = "critical"
@@ -642,8 +668,10 @@ def run_tortured_phrases(
                     },
                 }
             )
-    except Exception as exc:
+    except (ValueError, ImportError) as exc:
         logger.warning("Tortured phrase detection failed: %s", exc)
+    except Exception as exc:
+        logger.exception("Tortured phrase detection unexpected error: %s", exc)
 
     return findings
 
@@ -728,7 +756,9 @@ def run_western_blot_analysis(
                         "evidence": {"lane_count": result.lane_count},
                     }
                 )
-    except Exception as exc:
+    except (OSError, ValueError, ImportError) as exc:
         logger.warning("Western blot analysis failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("Western blot analysis unexpected error on %s: %s", fig_id, exc)
 
     return findings

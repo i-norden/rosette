@@ -167,7 +167,11 @@ class ClaudeProvider:
         response_schema: dict | None = None,
     ) -> dict:
         """Convert an Anthropic ``Message`` to the standard response dict."""
-        raw_content = message.content[0].text if message.content else ""  # type: ignore[union-attr]
+        raw_content = (
+            message.content[0].text  # type: ignore[union-attr]
+            if message.content and hasattr(message.content[0], "text")
+            else ""
+        )
         parsed = _try_parse_json(raw_content) if response_schema else None
         return {
             "content": raw_content,

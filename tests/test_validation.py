@@ -92,3 +92,15 @@ class TestValidateDoi:
     def test_allows_registrant_9_digits(self):
         """DOI registrant code with exactly 9 digits should be valid."""
         assert validate_doi("10.123456789/abc") == "10.123456789/abc"
+
+    def test_allows_semicolons(self):
+        """DOI with semicolons should be valid (per DOI handbook)."""
+        assert validate_doi("10.1234/abc;def") == "10.1234/abc;def"
+
+    def test_allows_colons(self):
+        """DOI with colons should be valid (per DOI handbook)."""
+        assert validate_doi("10.1234/abc:def") == "10.1234/abc:def"
+
+    def test_allows_mixed_special_chars(self):
+        """DOI with semicolons, colons, parens, and dashes should be valid."""
+        assert validate_doi("10.1234/abc;def:ghi(1)-2") == "10.1234/abc;def:ghi(1)-2"

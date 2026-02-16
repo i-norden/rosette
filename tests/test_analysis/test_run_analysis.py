@@ -148,7 +148,7 @@ class TestRunImageForensicsWithConfig:
         """Custom config values should be passed through."""
         from snoopy.config import AnalysisConfig
 
-        config = AnalysisConfig(ela_quality=50, clone_min_matches=5)
+        config = AnalysisConfig(ela={"quality": 50}, clone={"min_matches": 5})
         findings = run_image_forensics(sample_image, config=config)
         assert isinstance(findings, list)
 
@@ -280,7 +280,7 @@ class TestRunWesternBlotAnalysis:
 class TestDefaultConfig:
     def test_default_config_returns_analysis_config(self) -> None:
         cfg = _default_config()
-        assert cfg.ela_quality == 80
+        assert cfg.ela.quality == 80
 
 
 class TestFindingDictType:

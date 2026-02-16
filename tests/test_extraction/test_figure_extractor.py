@@ -219,6 +219,196 @@ class TestAssociateCaptions:
             associate_captions(str(tmp_path / "missing.pdf"), [fig])
 
 
+class TestMalformedPDFs:
+    """Tests for malformed, truncated, and edge-case PDFs."""
+
+    def test_truncated_pdf_raises_runtime_error(self, tmp_path) -> None:
+        """A truncated PDF (valid header, incomplete content) should raise RuntimeError."""
+        pdf_path = tmp_path / "truncated.pdf"
+        # Valid PDF header but truncated body
+        pdf_path.write_bytes(b"%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n")
+
+        # fitz.open will fail on a truly truncated PDF
+        with pytest.raises((RuntimeError, Exception)):
+            extract_figures(str(pdf_path), str(tmp_path / "out"))
+
+    def test_password_protected_pdf(self, tmp_path, monkeypatch) -> None:
+        """A password-protected PDF should raise RuntimeError."""
+        import fitz
+
+        pdf_path = tmp_path / "protected.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+
+        def _raise_on_open(path):
+            raise RuntimeError("cannot open encrypted PDF")
+
+        monkeypatch.setattr(fitz, "open", _raise_on_open)
+
+        with pytest.raises(RuntimeError, match="Failed to open PDF"):
+            extract_figures(str(pdf_path), str(tmp_path / "out"))
+
+    def test_pdf_with_zero_extractable_images(self, tmp_path, monkeypatch) -> None:
+        """A PDF with pages but no images should return an empty list."""
+        import fitz
+
+        class _FakePage:
+            def get_images(self, full=True):
+                return []
+
+        class _FakeDoc:
+            def __len__(self):
+                return 5  # 5 pages, no images
+
+            def __getitem__(self, idx):
+                return _FakePage()
+
+            def close(self):
+                pass
+
+        pdf_path = tmp_path / "no_images.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        monkeypatch.setattr(fitz, "open", lambda path: _FakeDoc())
+
+        result = extract_figures(str(pdf_path), str(tmp_path / "out"))
+        assert result == []
+
+    def test_image_extraction_failure_continues(self, tmp_path, monkeypatch) -> None:
+        """When extract_image raises for one xref, other images should still be extracted."""
+        import fitz
+
+        class _FakePage:
+            def get_images(self, full=True):
+                # Two images: xref 1 will fail, xref 2 will succeed
+                return [
+                    (1, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                    (2, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ]
+
+        class _FakeDoc:
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, idx):
+                return _FakePage()
+
+            def extract_image(self, xref):
+                if xref == 1:
+                    raise Exception("corrupt image data")
+                return {
+                    "width": 200,
+                    "height": 200,
+                    "ext": "png",
+                    "image": b"\x89PNG" + b"\x00" * 100,
+                }
+
+            def close(self):
+                pass
+
+        pdf_path = tmp_path / "partial.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        monkeypatch.setattr(fitz, "open", lambda path: _FakeDoc())
+
+        result = extract_figures(str(pdf_path), str(tmp_path / "out"))
+        # Only the second image should be extracted
+        assert len(result) == 1
+        assert result[0].width == 200
+
+    def test_extract_image_returns_none(self, tmp_path, monkeypatch) -> None:
+        """When extract_image returns None, the image should be skipped."""
+        import fitz
+
+        class _FakePage:
+            def get_images(self, full=True):
+                return [(1, 0, 0, 0, 0, 0, 0, 0, 0, 0)]
+
+        class _FakeDoc:
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, idx):
+                return _FakePage()
+
+            def extract_image(self, xref):
+                return None
+
+            def close(self):
+                pass
+
+        pdf_path = tmp_path / "none_image.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        monkeypatch.setattr(fitz, "open", lambda path: _FakeDoc())
+
+        result = extract_figures(str(pdf_path), str(tmp_path / "out"))
+        assert result == []
+
+    def test_extract_image_empty_bytes(self, tmp_path, monkeypatch) -> None:
+        """When image bytes are empty, the image should be skipped."""
+        import fitz
+
+        class _FakePage:
+            def get_images(self, full=True):
+                return [(1, 0, 0, 0, 0, 0, 0, 0, 0, 0)]
+
+        class _FakeDoc:
+            def __len__(self):
+                return 1
+
+            def __getitem__(self, idx):
+                return _FakePage()
+
+            def extract_image(self, xref):
+                return {
+                    "width": 200,
+                    "height": 200,
+                    "ext": "png",
+                    "image": b"",
+                }
+
+            def close(self):
+                pass
+
+        pdf_path = tmp_path / "empty_bytes.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        monkeypatch.setattr(fitz, "open", lambda path: _FakeDoc())
+
+        result = extract_figures(str(pdf_path), str(tmp_path / "out"))
+        assert result == []
+
+    def test_duplicate_xrefs_deduplicated(self, tmp_path, monkeypatch) -> None:
+        """Duplicate xrefs across pages should only be extracted once."""
+        import fitz
+
+        class _FakePage:
+            def get_images(self, full=True):
+                # Same xref on every page
+                return [(42, 0, 0, 0, 0, 0, 0, 0, 0, 0)]
+
+        class _FakeDoc:
+            def __len__(self):
+                return 3
+
+            def __getitem__(self, idx):
+                return _FakePage()
+
+            def extract_image(self, xref):
+                return {
+                    "width": 200,
+                    "height": 200,
+                    "ext": "png",
+                    "image": b"\x89PNG" + b"\x00" * 100,
+                }
+
+            def close(self):
+                pass
+
+        pdf_path = tmp_path / "dup_xref.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        monkeypatch.setattr(fitz, "open", lambda path: _FakeDoc())
+
+        result = extract_figures(str(pdf_path), str(tmp_path / "out"))
+        assert len(result) == 1
+
+
 class TestSha256File:
     def test_computes_correct_hash(self, tmp_path) -> None:
         import hashlib

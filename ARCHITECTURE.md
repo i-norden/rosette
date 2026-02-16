@@ -274,15 +274,96 @@ The detection pipeline runs all applicable methods on each input, then aggregate
 │  ╚══════════════════════════════════════════════════════╝ │
 │                                                          │
 │  ╔══════════════════════════════════════════════════════╗ │
+│  ║      PHASE 2: ADVANCED IMAGE FORENSICS (per fig)   ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.70           ║ │
+│  ║  │ 10. DCT Analysis       │  Periodicity score:     ║ │
+│  ║  │     dct_analysis()     │  >0.3 → suspicious      ║ │
+│  ║  │     Double JPEG comp.  │  >0.5 → medium          ║ │
+│  ║  │                        │  >0.7 → high            ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.65           ║ │
+│  ║  │ 11. JPEG Ghost         │  Ghost regions:         ║ │
+│  ║  │     jpeg_ghost_        │  0 regions → low        ║ │
+│  ║  │     detection()        │  1-2 regions → medium   ║ │
+│  ║  │     Mixed compression  │  3+ regions → high      ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.55           ║ │
+│  ║  │ 12. FFT Frequency      │  Spectral score:        ║ │
+│  ║  │     frequency_         │  >2.5 → suspicious      ║ │
+│  ║  │     analysis()         │  >3.0 → medium          ║ │
+│  ║  │     Manipulation det.  │  >5.0 → high            ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  (No weight — used for  ║ │
+│  ║  │ 13. Metadata Forensics │   context, not scoring) ║ │
+│  ║  │     analyze_metadata() │  Software mismatch,     ║ │
+│  ║  │     metadata_          │  ICC profile anomalies  ║ │
+│  ║  │     forensics.py       │                         ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ╚══════════════════════════════════════════════════════╝ │
+│                                                          │
+│  ╔══════════════════════════════════════════════════════╗ │
+│  ║      PHASE 2: ADVANCED STATISTICAL METHODS          ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.60           ║ │
+│  ║  │ 14. GRIMMER Test       │  Mean/SD/N consistency  ║ │
+│  ║  │     grimmer_test()     │  Inconsistency → high   ║ │
+│  ║  │     statistical.py     │                         ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.45           ║ │
+│  ║  │ 15. Terminal Digit     │  Chi-squared on last    ║ │
+│  ║  │     terminal_digit_    │  digit distribution:    ║ │
+│  ║  │     test()             │  p<0.001 → medium       ║ │
+│  ║  │                        │  p<0.01  → low          ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.70           ║ │
+│  ║  │ 16. Variance Ratio     │  Suspiciously uniform   ║ │
+│  ║  │     variance_ratio_    │  SDs across groups:     ║ │
+│  ║  │     test()             │  p<0.01 → high          ║ │
+│  ║  │                        │  else   → medium        ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ╚══════════════════════════════════════════════════════╝ │
+│                                                          │
+│  ╔══════════════════════════════════════════════════════╗ │
+│  ║      PHASE 2: TEXT & SPECIALIZED ANALYSIS           ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.80           ║ │
+│  ║  │ 17. Tortured Phrases   │  Unique phrases:        ║ │
+│  ║  │     detect_tortured_   │  1-2 → medium           ║ │
+│  ║  │     phrases()          │  3-4 → high             ║ │
+│  ║  │     text_forensics.py  │  5+  → critical         ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.65           ║ │
+│  ║  │ 18. SPRITE Test        │  Mean/SD achievability  ║ │
+│  ║  │     sprite_test()      │  on Likert scales:      ║ │
+│  ║  │     sprite.py          │  SD not achievable→high ║ │
+│  ║  │                        │  Mean not achievable→med║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ║                                                     ║ │
+│  ║  ┌────────────────────────┐  (No weight — per-image ║ │
+│  ║  │ 19. Western Blot       │   specialized)          ║ │
+│  ║  │     analyze_western_   │  Duplicate lanes,       ║ │
+│  ║  │     blot()             │  splice boundaries,     ║ │
+│  ║  │     western_blot.py    │  uniform profiles       ║ │
+│  ║  └────────────────────────┘                         ║ │
+│  ╚══════════════════════════════════════════════════════╝ │
+│                                                          │
+│  ╔══════════════════════════════════════════════════════╗ │
 │  ║      LLM METHODS (opt-in only, --use-llm)          ║ │
 │  ║                                                     ║ │
 │  ║  ┌────────────────────────┐  Weight: 0.70           ║ │
-│  ║  │ 10. LLM Screening     │  Haiku (fast)           ║ │
+│  ║  │ 20. LLM Screening     │  Haiku (fast)           ║ │
 │  ║  │     screen_figure()    │  suspicious + conf>0.5  ║ │
 │  ║  │                        │  triggers detailed:     ║ │
 │  ║  │     ─────────────────  │                         ║ │
 │  ║  │                        │                         ║ │
-│  ║  │ 11. LLM Detailed      │  Sonnet (thorough)      ║ │
+│  ║  │ 21. LLM Detailed      │  Sonnet (thorough)      ║ │
 │  ║  │     analyze_figure_    │  Per-anomaly findings   ║ │
 │  ║  │     detailed()         │  with locations         ║ │
 │  ║  └────────────────────────┘                         ║ │
@@ -338,7 +419,11 @@ Within the detection layer, methods are **not** sequentially ordered — they ru
 |-------|-----------|------------|
 | **Extraction** | `extract_figures()`, `extract_text()`, `extract_tables()` | PDF input |
 | **Per-figure analysis** | ELA, Clone Detection, Noise Analysis, phash/ahash | Extracted figures |
+| **Advanced image forensics** | DCT Analysis, JPEG Ghost, FFT Frequency, Metadata Forensics | Extracted figures |
 | **Statistical analysis** | GRIM, p-value recheck, Benford's Law | Extracted text → stats |
+| **Advanced statistical** | GRIMMER, Terminal Digit, Variance Ratio | Extracted text → stats |
+| **Text analysis** | Tortured Phrase Detection | Extracted text |
+| **Specialized** | SPRITE Consistency, Western Blot Analysis | Extracted stats / figures |
 | **Table analysis** | Duplicate value check | Extracted tables |
 | **Cross-reference** | Intra-paper phash pairwise comparison | Per-figure phash values |
 | **LLM analysis** (opt-in) | Screening → Detailed (sequential per figure) | Extracted figures |
@@ -456,10 +541,18 @@ Defined in `AnalysisConfig` (config.py), these weights reflect research-based re
 |--------|--------|-----------|
 | Perceptual Hash | 0.90 | Very low false-positive rate |
 | Clone Detection | 0.85 | High specificity with RANSAC geometric verification |
+| Tortured Phrases | 0.80 | Strong signal for paper mill output |
 | P-value Recheck | 0.80 | Deterministic mathematical check |
+| DCT Analysis | 0.70 | Reliable double-JPEG compression detector |
+| Variance Ratio | 0.70 | Detects suspiciously uniform standard deviations |
 | LLM Vision | 0.70 | Good but model-dependent |
+| JPEG Ghost | 0.65 | Detects mixed compression history regions |
+| SPRITE | 0.65 | Mean/SD achievability on Likert scales |
 | GRIM Test | 0.60 | Reliable for integer-scale data |
+| GRIMMER Test | 0.60 | Extends GRIM to SD/N consistency |
+| FFT Frequency | 0.55 | Frequency-domain manipulation detection |
 | Noise Analysis | 0.50 | Moderate — depends on image type |
+| Terminal Digit | 0.45 | Uniformity test on last digits |
 | ELA | 0.35 | High false-positive rate in literature |
 | Benford's Law | 0.30 | Many legitimate non-conformity reasons |
 | Duplicate Check | 0.25 | Highly context-dependent |
@@ -549,3 +642,17 @@ Papers scoring above the promotion threshold (default 30) advance to the **LLM t
 3. **Triage phase**: Run all papers through auto tier, promote high-risk to LLM tier
 4. **Analysis phase**: Full pipeline analysis on promoted papers
 5. **Reporting phase**: Generate campaign dashboard and evidence packages
+
+---
+
+## Three-Tier LLM Model Strategy
+
+The system uses three Claude models, each chosen for a specific cost/capability trade-off:
+
+| Tier | Model | Purpose | Rationale |
+|------|-------|---------|-----------|
+| **Screening** | Haiku (`model_screen`) | Fast pass over every figure | Low cost per image, sufficient for binary suspicious/not flagging |
+| **Analysis** | Sonnet (`model_analyze`) | Detailed per-anomaly analysis of flagged figures | Strong vision capability at moderate cost; only runs on figures that pass screening |
+| **Proof Reports** | Opus (`model_proof`) | Generating publication-quality evidence reports | Highest reasoning capability for nuanced write-ups; called rarely (once per paper) |
+
+This tiered approach keeps LLM costs manageable: Haiku screens many figures cheaply, Sonnet analyzes only the suspicious subset, and Opus generates final reports only for papers with confirmed findings. Models are configured in `LLMConfig` (`config.py`) and can be overridden via YAML or environment variables

@@ -155,6 +155,37 @@ class TestSubmitPaper:
             or "Invalid DOI" in response.json()["detail"]
         )
 
+    def test_submit_oversized_pdf(self, client, monkeypatch):
+        """PDF exceeding 100MB should be rejected with 422."""
+        # Mock base64.b64decode to return oversized content without actually
+        # sending 100MB+ over the wire
+        import snoopy.api.routes as routes_module
+
+        def _mock_b64decode(data, validate=False):
+            # Return oversized content with PDF magic bytes
+            return b"%PDF-1.4 " + b"\x00" * (100 * 1024 * 1024 + 1)
+
+        monkeypatch.setattr(routes_module.base64, "b64decode", _mock_b64decode)
+
+        # Send a small valid base64 payload (the mock will override the decode)
+        pdf_content = b"%PDF-1.4 small"
+        encoded = base64.b64encode(pdf_content).decode()
+        response = client.post(
+            "/api/v1/papers",
+            json={"pdf_upload": encoded},
+        )
+        assert response.status_code == 422
+        assert "100MB" in response.json()["detail"]
+
+    def test_submit_neither_doi_nor_pdf_explicit(self, client):
+        """Explicitly sending null for both doi and pdf_upload returns 422."""
+        response = client.post(
+            "/api/v1/papers",
+            json={"doi": None, "pdf_upload": None},
+        )
+        assert response.status_code == 422
+        assert "Provide either" in response.json()["detail"]
+
 
 class TestGetPaperStatus:
     def test_get_existing_paper(self, client):

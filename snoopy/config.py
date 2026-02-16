@@ -105,79 +105,40 @@ class AnalysisConfig(BaseModel):
     statistical: StatisticalConfig = Field(default_factory=StatisticalConfig)
     western_blot: WesternBlotConfig = Field(default_factory=WesternBlotConfig)
 
-    # --- Flat fields preserved for backward compatibility ---
-    # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
-    ela_quality: int = 80
-    clone_min_matches: int = 10
-    noise_block_size: int = 64
     llm_screening_confidence_threshold: float = 0.5
     convergence_required: bool = True
 
     # Method weights for composite scoring (research-based)
-    weight_clone_detection: float = 0.85
-    weight_phash: float = 0.90
-    weight_pvalue_check: float = 0.80
-    weight_grim: float = 0.60
-    weight_noise: float = 0.50
-    weight_ela: float = 0.35
-    weight_benford: float = 0.30
-    weight_duplicate_check: float = 0.25
-    weight_llm_vision: float = 0.70
+    weight_clone_detection: float = Field(default=0.85, ge=0.0, le=1.0)
+    weight_phash: float = Field(default=0.90, ge=0.0, le=1.0)
+    weight_pvalue_check: float = Field(default=0.80, ge=0.0, le=1.0)
+    weight_grim: float = Field(default=0.60, ge=0.0, le=1.0)
+    weight_noise: float = Field(default=0.50, ge=0.0, le=1.0)
+    weight_ela: float = Field(default=0.35, ge=0.0, le=1.0)
+    weight_benford: float = Field(default=0.30, ge=0.0, le=1.0)
+    weight_duplicate_check: float = Field(default=0.25, ge=0.0, le=1.0)
+    weight_llm_vision: float = Field(default=0.70, ge=0.0, le=1.0)
 
     # Convergence thresholds (previously magic numbers)
     convergence_confidence_threshold: float = 0.6
     convergence_confidence_boost: float = 0.1
     single_method_max_severity: str = "medium"
 
-    # ELA severity thresholds
-    ela_high_threshold: float = 60.0
-    ela_medium_threshold: float = 40.0
-    ela_low_threshold: float = 25.0
-
-    # Clone severity thresholds
-    clone_high_inliers: int = 60
-    clone_high_ratio: float = 0.35
-    clone_medium_inliers: int = 40
-    clone_medium_ratio: float = 0.25
-    clone_low_inliers: int = 20
-    clone_low_ratio: float = 0.15
-
-    # Noise severity thresholds
-    noise_high_ratio: float = 20.0
-    noise_medium_ratio: float = 10.0
-    noise_low_ratio: float = 5.0
-
-    # Noise analysis
-    noise_intensity_bin_width: int = 32
-
     # Figure extraction
     min_figure_width: int = 50
     min_figure_height: int = 50
 
-    # Image forensics defaults (used by direct callers; orchestrator passes these)
-    ela_min_max_diff: float = 15.0
-    clone_spatial_distance: float = 20.0
-    clone_ransac_threshold: float = 5.0
-    clone_cluster_radius: float = 50.0
-    clone_feature_extractor: str = "sift"
-    noise_max_ratio_threshold: float = 10.0
-
-    # Western blot thresholds
-    western_blot_lane_threshold_multiplier: float = 0.7
-    western_blot_duplicate_correlation: float = 0.95
-    western_blot_splice_border_px: int = 3
-
     # Phase 2 new detection method weights
-    weight_dct_analysis: float = 0.70
-    weight_jpeg_ghost: float = 0.65
-    weight_fft_analysis: float = 0.55
-    weight_grimmer: float = 0.60
-    weight_terminal_digit: float = 0.45
-    weight_distribution_fit: float = 0.40
-    weight_variance_ratio: float = 0.70
-    weight_tortured_phrases: float = 0.80
-    weight_temporal_patterns: float = 0.50
-    weight_sprite: float = 0.65
+    weight_dct_analysis: float = Field(default=0.70, ge=0.0, le=1.0)
+    weight_jpeg_ghost: float = Field(default=0.65, ge=0.0, le=1.0)
+    weight_fft_analysis: float = Field(default=0.55, ge=0.0, le=1.0)
+    weight_grimmer: float = Field(default=0.60, ge=0.0, le=1.0)
+    weight_terminal_digit: float = Field(default=0.45, ge=0.0, le=1.0)
+    weight_distribution_fit: float = Field(default=0.40, ge=0.0, le=1.0)
+    weight_variance_ratio: float = Field(default=0.70, ge=0.0, le=1.0)
+    weight_tortured_phrases: float = Field(default=0.80, ge=0.0, le=1.0)
+    weight_temporal_patterns: float = Field(default=0.50, ge=0.0, le=1.0)
+    weight_sprite: float = Field(default=0.65, ge=0.0, le=1.0)
 
     # DCT analysis
     dct_periodicity_threshold: float = 0.3
@@ -192,15 +153,6 @@ class AnalysisConfig(BaseModel):
 
     # SSIM cross-reference
     ssim_duplicate_threshold: float = 0.95
-
-    # Terminal digit analysis
-    terminal_digit_uniformity_alpha: float = 0.01
-
-    # Variance ratio test
-    variance_ratio_min_sds: int = 3
-
-    # Tortured phrases
-    tortured_phrase_min_matches: int = 2
 
 
 class CampaignConfig(BaseModel):
