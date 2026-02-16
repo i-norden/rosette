@@ -67,7 +67,6 @@ services:
       - SETUID
       - SETGID
       - FOWNER
-      - DAC_READ_SEARCH
     deploy:
       resources:
         limits:

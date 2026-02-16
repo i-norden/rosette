@@ -82,6 +82,8 @@ async def submit_paper(
             pdf_bytes = base64.b64decode(body.pdf_upload, validate=True)
         except (binascii.Error, ValueError):
             raise HTTPException(status_code=422, detail="Invalid base64 encoding for pdf_upload")
+        if len(pdf_bytes) > 100 * 1024 * 1024:
+            raise HTTPException(status_code=422, detail="PDF exceeds 100MB limit")
         if not pdf_bytes[:5].startswith(b"%PDF-"):
             raise HTTPException(status_code=422, detail="Uploaded content is not a valid PDF")
 

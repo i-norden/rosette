@@ -585,7 +585,9 @@ def run_statistical_tests(
     try:
         values = extract_numerical_values(text)
         if len(values) >= 20:
-            td_result = terminal_digit_test(values, alpha=cfg.statistical.terminal_digit_uniformity_alpha)
+            td_result = terminal_digit_test(
+                values, alpha=cfg.statistical.terminal_digit_uniformity_alpha
+            )
             if td_result.suspicious:
                 findings.append(
                     {
@@ -626,7 +628,9 @@ def run_tortured_phrases(
     try:
         from snoopy.analysis.text_forensics import detect_tortured_phrases
 
-        result = detect_tortured_phrases(text, min_matches=cfg.statistical.tortured_phrase_min_matches)
+        result = detect_tortured_phrases(
+            text, min_matches=cfg.statistical.tortured_phrase_min_matches
+        )
         if result.suspicious:
             if result.unique_phrases >= 5:
                 severity = "critical"

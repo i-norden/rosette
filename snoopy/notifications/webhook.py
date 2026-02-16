@@ -14,8 +14,51 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-def _resolve_safe_ips(url: str) -> list[str]:
-    """Validate that a URL does not point to private/internal IP ranges.
+def _resolve_safe_ips_sync(url: str) -> list[str]:
+    """Validate that a URL does not point to private/internal IP ranges (sync).
+
+    Returns a list of safe resolved IP addresses, or an empty list if the URL
+    is unsafe or cannot be resolved. Used internally and in synchronous contexts.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return []
+
+    if parsed.scheme not in ("https",):
+        return []
+
+    hostname = parsed.hostname
+    if not hostname:
+        return []
+
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+        return _filter_safe_ips(infos)
+    except (socket.gaierror, ValueError):
+        return []
+
+
+def _filter_safe_ips(infos: list) -> list[str]:
+    """Filter DNS results, returning only safe public IPs.
+
+    Returns an empty list if any resolved address is private/loopback/reserved.
+    """
+    safe_ips: list[str] = []
+    for info in infos:
+        ip_str = str(info[4][0])
+        addr = ipaddress.ip_address(ip_str)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+            return []
+        safe_ips.append(ip_str)
+    return safe_ips
+
+
+async def _resolve_safe_ips(url: str) -> list[str]:
+    """Validate that a URL does not point to private/internal IP ranges (async).
+
+    Uses the event loop's non-blocking ``getaddrinfo`` to avoid blocking the
+    event loop under load.
 
     Returns a list of safe resolved IP addresses, or an empty list if the URL
     is unsafe or cannot be resolved.
@@ -33,25 +76,18 @@ def _resolve_safe_ips(url: str) -> list[str]:
         return []
 
     try:
-        infos = socket.getaddrinfo(hostname, None)
-        safe_ips: list[str] = []
-        for info in infos:
-            ip_str = str(info[4][0])
-            addr = ipaddress.ip_address(ip_str)
-            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-                return []
-            safe_ips.append(ip_str)
-        return safe_ips
-    except (socket.gaierror, ValueError):
+        infos = await asyncio.get_running_loop().getaddrinfo(hostname, None)
+        return _filter_safe_ips(infos)
+    except (socket.gaierror, ValueError, OSError):
         return []
 
 
 def _is_safe_url(url: str) -> bool:
-    """Validate that a URL does not point to private/internal IP ranges.
+    """Validate that a URL does not point to private/internal IP ranges (sync).
 
     Returns True if the URL is safe to request, False otherwise.
     """
-    return len(_resolve_safe_ips(url)) > 0
+    return len(_resolve_safe_ips_sync(url)) > 0
 
 
 # Default retry configuration
@@ -77,7 +113,7 @@ class WebhookNotifier:
     retry_delay: float = _DEFAULT_RETRY_DELAY
     timeout: float = _DEFAULT_TIMEOUT
 
-    def register_url(self, url: str) -> None:
+    async def register_url(self, url: str) -> None:
         """Register a webhook URL to receive notifications.
 
         Resolves the URL's hostname and pins the resulting IPs to prevent
@@ -90,7 +126,7 @@ class WebhookNotifier:
             ValueError: If the URL is not a safe HTTPS URL or resolves
                 to a private/internal IP address.
         """
-        safe_ips = _resolve_safe_ips(url)
+        safe_ips = await _resolve_safe_ips(url)
         if not safe_ips:
             raise ValueError(
                 f"Rejected webhook URL {url!r}: only HTTPS URLs "

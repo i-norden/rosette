@@ -213,9 +213,8 @@ class CampaignOrchestrator:
                         triage_status="pending",
                     )
                     session.add(cp)
-                    campaign.papers_discovered = (campaign.papers_discovered or 0) + 1  # type: ignore[assignment]
-
-            campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                    campaign.papers_discovered = (campaign.papers_discovered or 0) + 1
+            campaign.updated_at = datetime.now(timezone.utc)
 
         if self._paused:
             return
@@ -288,7 +287,7 @@ class CampaignOrchestrator:
 
                             campaign = await session.get(Campaign, self.campaign_id)
                             if campaign:
-                                campaign.papers_discovered = (campaign.papers_discovered or 0) + 1  # type: ignore[assignment]
+                                campaign.papers_discovered = (campaign.papers_discovered or 0) + 1
 
             # Also expand to co-authors of matched papers
             for pid in new_paper_ids:
@@ -358,9 +357,8 @@ class CampaignOrchestrator:
                         triage_status="pending",
                     )
                     session.add(cp)
-                    campaign.papers_discovered = (campaign.papers_discovered or 0) + 1  # type: ignore[assignment]
-
-            campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                    campaign.papers_discovered = (campaign.papers_discovered or 0) + 1
+            campaign.updated_at = datetime.now(timezone.utc)
 
     async def _process_batch_auto(self, paper_ids: list[str]) -> dict[str, float]:
         """Process papers through auto-tier with bounded concurrency."""
@@ -390,9 +388,8 @@ class CampaignOrchestrator:
                     for s in results.values()
                     if s >= self.config.campaign.auto_risk_promotion_threshold
                 )
-                campaign.papers_flagged = (campaign.papers_flagged or 0) + flagged  # type: ignore[assignment]
-                campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
-
+                campaign.papers_flagged = (campaign.papers_flagged or 0) + flagged
+                campaign.updated_at = datetime.now(timezone.utc)
         return results
 
     async def _process_batch_llm(self, paper_ids: list[str]) -> None:
@@ -461,9 +458,8 @@ class CampaignOrchestrator:
                 )
                 cp = cp_result.scalars().first()
                 if cp:
-                    cp.llm_promoted = True  # type: ignore[assignment]
-                    cp.triage_status = "llm_queued"  # type: ignore[assignment]
-
+                    cp.llm_promoted = True
+                    cp.triage_status = "llm_queued"
             return paper_ids
 
     async def _set_status(self, status: str) -> None:
@@ -471,8 +467,8 @@ class CampaignOrchestrator:
         async with get_async_session() as session:
             campaign = await session.get(Campaign, self.campaign_id)
             if campaign:
-                campaign.status = status  # type: ignore[assignment]
-                campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                campaign.status = status
+                campaign.updated_at = datetime.now(timezone.utc)
 
     async def _run_author_network_analysis(self) -> None:
         """Run Louvain community detection on co-author graph."""

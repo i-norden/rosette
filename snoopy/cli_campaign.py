@@ -122,8 +122,7 @@ def pause_campaign(ctx: click.Context, campaign_id: str) -> None:
         if not c:
             click.echo(f"Campaign {campaign_id} not found", err=True)
             raise SystemExit(1)
-        c.status = "paused"  # type: ignore[assignment]
-
+        c.status = "paused"
     click.echo(f"Campaign {campaign_id} paused.")
 
 

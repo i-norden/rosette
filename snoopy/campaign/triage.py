@@ -83,21 +83,18 @@ class TriagePipeline:
             )
             cp = result.scalars().first()
             if cp:
-                cp.auto_risk_score = score  # type: ignore[assignment]
-                cp.triage_status = "auto_done"  # type: ignore[assignment]
-
+                cp.auto_risk_score = score
+                cp.triage_status = "auto_done"
                 # Count auto findings
                 findings_result = await session.execute(
                     select(func.count(Finding.id)).where(Finding.paper_id == paper_id)
                 )
-                cp.auto_findings_count = findings_result.scalar() or 0  # type: ignore[assignment]
-
+                cp.auto_findings_count = findings_result.scalar() or 0
             # Update campaign counter
             campaign = await session.get(Campaign, self.campaign_id)
             if campaign:
-                campaign.papers_triaged = (campaign.papers_triaged or 0) + 1  # type: ignore[assignment]
-                campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
-
+                campaign.papers_triaged = (campaign.papers_triaged or 0) + 1
+                campaign.updated_at = datetime.now(timezone.utc)
         return score
 
     async def run_llm_tier(self, paper_id: str) -> None:
@@ -110,8 +107,7 @@ class TriagePipeline:
             )
             cp = result.scalars().first()
             if cp:
-                cp.triage_status = "llm_analyzing"  # type: ignore[assignment]
-
+                cp.triage_status = "llm_analyzing"
         await self.orchestrator.process_paper_stages(paper_id, force_stages=LLM_TIER_STAGES)
 
         async with get_async_session() as session:
@@ -122,8 +118,7 @@ class TriagePipeline:
             )
             cp = result.scalars().first()
             if cp:
-                cp.triage_status = "complete"  # type: ignore[assignment]
-
+                cp.triage_status = "complete"
                 # Determine final risk from report
                 from snoopy.db.models import Report
 
@@ -134,13 +129,12 @@ class TriagePipeline:
                 )
                 report = report_result.scalars().first()
                 if report:
-                    cp.final_risk = str(report.overall_risk)  # type: ignore[assignment]
-
+                    cp.final_risk = str(report.overall_risk)
             # Update campaign counter
             campaign = await session.get(Campaign, self.campaign_id)
             if campaign:
-                campaign.papers_llm_analyzed = (campaign.papers_llm_analyzed or 0) + 1  # type: ignore[assignment]
-                campaign.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                campaign.papers_llm_analyzed = (campaign.papers_llm_analyzed or 0) + 1
+                campaign.updated_at = datetime.now(timezone.utc)
 
     async def run_paper_through_funnel(self, paper_id: str) -> str:
         """Complete funnel for a paper. Returns final triage_status."""
@@ -153,8 +147,7 @@ class TriagePipeline:
             )
             cp = result.scalars().first()
             if cp:
-                cp.triage_status = "auto_analyzing"  # type: ignore[assignment]
-
+                cp.triage_status = "auto_analyzing"
         # Run auto tier
         score = await self.run_auto_tier(paper_id)
 
@@ -170,9 +163,8 @@ class TriagePipeline:
                 )
                 cp = result.scalars().first()
                 if cp:
-                    cp.llm_promoted = True  # type: ignore[assignment]
-                    cp.triage_status = "llm_queued"  # type: ignore[assignment]
-
+                    cp.llm_promoted = True
+                    cp.triage_status = "llm_queued"
             await self.run_llm_tier(paper_id)
             return "complete"
         else:
@@ -186,10 +178,10 @@ class TriagePipeline:
                 cp = result.scalars().first()
                 if cp:
                     if score < self.promotion_threshold:
-                        cp.triage_status = "dismissed"  # type: ignore[assignment]
-                        cp.final_risk = "clean"  # type: ignore[assignment]
+                        cp.triage_status = "dismissed"
+                        cp.final_risk = "clean"
                     else:
-                        cp.triage_status = "complete"  # type: ignore[assignment]
+                        cp.triage_status = "complete"
             return "dismissed" if score < self.promotion_threshold else "complete"
 
     async def _compute_auto_risk_score(self, paper_id: str) -> float:
@@ -273,7 +265,7 @@ class TriagePipeline:
                     from snoopy.discovery.pubpeer import check_pubpeer
 
                     pp_result = await check_pubpeer(doi)
-                    paper.pubpeer_comments = pp_result.total_comments  # type: ignore[assignment]
+                    paper.pubpeer_comments = pp_result.total_comments
                 except Exception as e:
                     logger.debug("PubPeer check failed for %s: %s", doi, e)
 
@@ -284,9 +276,9 @@ class TriagePipeline:
 
                     retraction = await check_retraction_status(doi)
                     if retraction.is_retracted:
-                        paper.retraction_status = "retracted"  # type: ignore[assignment]
-                        paper.retraction_reason = retraction.retraction_reason  # type: ignore[assignment]
+                        paper.retraction_status = "retracted"
+                        paper.retraction_reason = retraction.retraction_reason
                     elif retraction.has_expression_of_concern:
-                        paper.retraction_status = "expression_of_concern"  # type: ignore[assignment]
+                        paper.retraction_status = "expression_of_concern"
                 except Exception as e:
                     logger.debug("Retraction check failed for %s: %s", doi, e)

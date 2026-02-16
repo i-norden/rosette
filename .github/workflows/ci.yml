@@ -54,7 +54,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0
 
       - name: Install package with dev dependencies
-        run: pip install ".[dev]"
+        run: |
+          pip install -r requirements.lock
+          pip install ".[dev]" --no-deps
 
       - name: Run tests (skip integration) with coverage
         run: pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=75

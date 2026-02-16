@@ -93,9 +93,9 @@ class PipelineOrchestrator:
         async with get_async_session() as session:
             paper = await session.get(Paper, paper_id)
             if paper:
-                paper.status = status  # type: ignore[assignment]
-                paper.error_message = error  # type: ignore[assignment]
-                paper.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                paper.status = status
+                paper.error_message = error
+                paper.updated_at = datetime.now(timezone.utc)
 
     async def process_paper(self, paper_id: str) -> None:
         """Process a single paper through all remaining stages."""
@@ -232,8 +232,8 @@ class PipelineOrchestrator:
             output_path = str(pdf_dir / f"{paper_id}.pdf")
 
             sha256 = await download_pdf(pdf_url, output_path)
-            paper.pdf_path = output_path  # type: ignore[assignment]
-            paper.pdf_sha256 = sha256  # type: ignore[assignment]
+            paper.pdf_path = output_path
+            paper.pdf_sha256 = sha256
 
     async def _run_extract_text(self, paper_id: str) -> None:
         """Extract text from the paper's PDF and cache it on the Paper model."""
@@ -242,7 +242,7 @@ class PipelineOrchestrator:
             if not paper or not paper.pdf_path:
                 return
             pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
-            paper.full_text = "\n".join(p.text for p in pages)  # type: ignore[assignment]
+            paper.full_text = "\n".join(p.text for p in pages)
             logger.info(f"Extracted {len(pages)} pages from {paper_id}")
 
     async def _run_extract_figures(self, paper_id: str) -> None:
@@ -285,7 +285,7 @@ class PipelineOrchestrator:
             if not full_text:
                 pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
                 full_text = "\n".join(p.text for p in pages)
-                paper.full_text = full_text  # type: ignore[assignment]
+                paper.full_text = full_text
             means = extract_means_and_ns(full_text)
             stats = extract_test_statistics(full_text)
             logger.info(
@@ -305,7 +305,7 @@ class PipelineOrchestrator:
                 if figure.image_path and Path(str(figure.image_path)).exists():
                     try:
                         fig_type = await classify_figure(str(figure.image_path), self.llm_provider)
-                        figure.image_type = fig_type  # type: ignore[assignment]
+                        figure.image_type = fig_type
                     except Exception as e:
                         logger.warning(
                             "LLM classification unavailable for figure %s, skipping: %s",
@@ -480,7 +480,7 @@ class PipelineOrchestrator:
             if not full_text:
                 pages = await asyncio.to_thread(extract_text, str(paper.pdf_path))
                 full_text = "\n".join(p.text for p in pages)
-                paper.full_text = full_text  # type: ignore[assignment]
+                paper.full_text = full_text
 
             # GRIM test
             means = extract_means_and_ns(full_text)
@@ -707,10 +707,10 @@ class PipelineOrchestrator:
             # Store aggregated result as paper metadata for report stage
             paper = await session.get(Paper, paper_id)
             if paper:
-                paper.status = "analyzed"  # type: ignore[assignment]
-                paper.risk_level = evidence.paper_risk  # type: ignore[assignment]
-                paper.overall_confidence = evidence.overall_confidence  # type: ignore[assignment]
-                paper.converging_evidence = evidence.converging_evidence  # type: ignore[assignment]
+                paper.status = "analyzed"
+                paper.risk_level = evidence.paper_risk
+                paper.overall_confidence = evidence.overall_confidence
+                paper.converging_evidence = evidence.converging_evidence
 
     async def _run_report(self, paper_id: str) -> None:
         """Generate the final proof report."""
