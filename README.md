@@ -118,14 +118,44 @@ snoopy campaign create --mode paper_mill --name "Mill cluster" \
 | Error Level Analysis | `image_forensics.py` | JPEG re-compression artifacts from editing |
 | Clone Detection | `image_forensics.py` | Copy-move forgery via ORB feature matching |
 | Noise Analysis | `image_forensics.py` | Noise inconsistencies from splicing |
+| DCT Analysis | `image_forensics.py` | Double JPEG compression via DCT coefficient periodicity |
+| JPEG Ghost Detection | `image_forensics.py` | Mixed compression history regions in images |
+| FFT Frequency Analysis | `image_forensics.py` | Frequency-domain manipulation artifacts |
+| Metadata Forensics | `metadata_forensics.py` | Software mismatch and ICC profile anomalies |
 | GRIM Test | `statistical.py` | Impossible means given sample size |
+| GRIMMER Test | `statistical.py` | Impossible SD given mean and sample size |
 | Benford's Law | `statistical.py` | Unnatural leading digit distributions |
 | P-Value Check | `statistical.py` | Reported p-values inconsistent with test statistics |
+| Terminal Digit Test | `statistical.py` | Non-uniform last-digit distributions |
+| Variance Ratio Test | `statistical.py` | Suspiciously uniform standard deviations across groups |
+| Tortured Phrase Detection | `text_forensics.py` | Paper-mill tortured phrases (e.g., "profound learning" for "deep learning") |
+| SPRITE Consistency | `sprite.py` | Impossible mean/SD combinations on Likert scales |
+| Western Blot Analysis | `western_blot.py` | Duplicate lanes, splice boundaries, uniform profiles |
 | LLM Vision | `llm_vision.py` | Visual anomalies via Claude (requires API key) |
 | Cross-Reference | `cross_reference.py` | Duplicate figures across papers via perceptual hashing |
 | Author Network | `author_network.py` | Suspicious co-author clusters via Louvain community detection |
 
 Findings from multiple methods are aggregated in `evidence.py`. Converging evidence (2+ methods flagging the same figure) boosts confidence and severity.
+
+## Notifications
+
+Snoopy supports webhook notifications for delivering analysis results to external systems.
+
+```python
+from snoopy.notifications.webhook import WebhookNotifier
+
+notifier = WebhookNotifier()
+notifier.register_url("https://example.com/webhook")  # HTTPS only, public IPs only
+
+# Deliver findings to all registered webhooks
+results = await notifier.notify({"paper_doi": "10.1234/example", "risk": "high"})
+```
+
+Security features:
+- **HTTPS only** — HTTP URLs are rejected
+- **SSRF protection** — private/internal/loopback IPs are blocked at registration
+- **DNS pinning** — IPs are resolved and pinned at registration to prevent DNS rebinding
+- **Exponential backoff** — failed deliveries are retried with configurable backoff
 
 ## Configuration
 
@@ -141,9 +171,12 @@ Key settings:
 
 ```yaml
 analysis:
-  ela_quality: 95              # JPEG quality for ELA re-compression
-  clone_min_matches: 10        # Minimum ORB matches to flag cloning
-  noise_block_size: 64         # Block size for noise analysis
+  ela:
+    quality: 80                # JPEG quality for ELA re-compression (75-85 range)
+  clone:
+    min_matches: 10            # Minimum ORB matches to flag cloning
+  noise:
+    block_size: 64             # Block size for noise analysis
   convergence_required: true   # Require multi-method agreement
 
 priority:

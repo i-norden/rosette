@@ -18,7 +18,7 @@ class TestConfigDefaults:
         assert config.llm.provider == "claude"
         assert config.llm.model_screen == "claude-haiku-4-5-20251001"
         assert config.storage.database_url == "sqlite:///snoopy.db"
-        assert config.analysis.ela_quality == 80
+        assert config.analysis.ela.quality == 80
         assert config.priority.min_citations == 50
 
     def test_custom_config(self):
@@ -82,9 +82,9 @@ class TestNestedSubConfigs:
         assert isinstance(config.western_blot, WesternBlotConfig)
         assert config.western_blot.duplicate_correlation == 0.95
 
-    def test_backward_compatible_flat_fields(self):
-        """Flat fields should still work for backward compat."""
+    def test_nested_configs_are_canonical(self):
+        """Nested sub-configs are the canonical source of analysis parameters."""
         config = AnalysisConfig()
-        assert config.ela_quality == 80
-        assert config.clone_min_matches == 10
-        assert config.noise_block_size == 64
+        assert config.ela.quality == 80
+        assert config.clone.min_matches == 10
+        assert config.noise.block_size == 64

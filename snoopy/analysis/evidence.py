@@ -171,10 +171,16 @@ def aggregate_findings(
             critical_count=0,
         )
 
-    # Group findings by figure_id
+    # Group findings by figure_id.
+    # Findings without a figure_id get unique keys so unrelated paper-level
+    # findings (GRIM, Benford, etc.) are not incorrectly grouped together.
     figure_groups: dict[str, list[dict]] = {}
+    _ungrouped_counter = 0
     for f in findings:
-        fig_id = f.get("figure_id", "unknown")
+        fig_id = f.get("figure_id") or ""
+        if not fig_id:
+            fig_id = f"_paper_finding_{_ungrouped_counter}"
+            _ungrouped_counter += 1
         figure_groups.setdefault(fig_id, []).append(f)
 
     figure_evidence_list: list[FigureEvidence] = []

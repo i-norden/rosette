@@ -105,11 +105,6 @@ class AnalysisConfig(BaseModel):
     statistical: StatisticalConfig = Field(default_factory=StatisticalConfig)
     western_blot: WesternBlotConfig = Field(default_factory=WesternBlotConfig)
 
-    # --- Flat fields preserved for backward compatibility ---
-    # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
-    ela_quality: int = 80
-    clone_min_matches: int = 10
-    noise_block_size: int = 64
     llm_screening_confidence_threshold: float = 0.5
     convergence_required: bool = True
 
@@ -129,43 +124,9 @@ class AnalysisConfig(BaseModel):
     convergence_confidence_boost: float = 0.1
     single_method_max_severity: str = "medium"
 
-    # ELA severity thresholds
-    ela_high_threshold: float = 60.0
-    ela_medium_threshold: float = 40.0
-    ela_low_threshold: float = 25.0
-
-    # Clone severity thresholds
-    clone_high_inliers: int = 60
-    clone_high_ratio: float = 0.35
-    clone_medium_inliers: int = 40
-    clone_medium_ratio: float = 0.25
-    clone_low_inliers: int = 20
-    clone_low_ratio: float = 0.15
-
-    # Noise severity thresholds
-    noise_high_ratio: float = 20.0
-    noise_medium_ratio: float = 10.0
-    noise_low_ratio: float = 5.0
-
-    # Noise analysis
-    noise_intensity_bin_width: int = 32
-
     # Figure extraction
     min_figure_width: int = 50
     min_figure_height: int = 50
-
-    # Image forensics defaults (used by direct callers; orchestrator passes these)
-    ela_min_max_diff: float = 15.0
-    clone_spatial_distance: float = 20.0
-    clone_ransac_threshold: float = 5.0
-    clone_cluster_radius: float = 50.0
-    clone_feature_extractor: str = "sift"
-    noise_max_ratio_threshold: float = 10.0
-
-    # Western blot thresholds
-    western_blot_lane_threshold_multiplier: float = 0.7
-    western_blot_duplicate_correlation: float = 0.95
-    western_blot_splice_border_px: int = 3
 
     # Phase 2 new detection method weights
     weight_dct_analysis: float = 0.70
@@ -193,14 +154,6 @@ class AnalysisConfig(BaseModel):
     # SSIM cross-reference
     ssim_duplicate_threshold: float = 0.95
 
-    # Terminal digit analysis
-    terminal_digit_uniformity_alpha: float = 0.01
-
-    # Variance ratio test
-    variance_ratio_min_sds: int = 3
-
-    # Tortured phrases
-    tortured_phrase_min_matches: int = 2
 
 
 class CampaignConfig(BaseModel):

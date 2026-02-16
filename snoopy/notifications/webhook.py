@@ -163,8 +163,14 @@ class WebhookNotifier:
 
         # Build the delivery URL using the pinned IP and set the Host header
         parsed = urlparse(url)
-        delivery_url = url.replace(parsed.hostname or "", pinned[0], 1)
-        headers = {"Host": parsed.hostname or ""}
+        original_hostname = parsed.hostname or ""
+        # Reconstruct netloc with pinned IP, preserving port if present
+        if parsed.port:
+            new_netloc = f"{pinned[0]}:{parsed.port}"
+        else:
+            new_netloc = pinned[0]
+        delivery_url = parsed._replace(netloc=new_netloc).geturl()
+        headers = {"Host": original_hostname}
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             for attempt in range(self.max_retries):

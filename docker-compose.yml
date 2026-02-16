@@ -23,6 +23,9 @@ services:
     networks:
       - snoopy-net
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
     security_opt:
       - no-new-privileges:true
     cap_drop:

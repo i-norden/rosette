@@ -16,10 +16,30 @@ priority:
   min_priority_score: 40
 
 analysis:
-  # Quality 80 per forensics literature (75-85 range); 95 produces near-zero diffs
-  ela_quality: 80
-  clone_min_matches: 10
-  noise_block_size: 64
+  # Nested sub-configs for analysis parameters
+  ela:
+    quality: 80  # Quality 80 per forensics literature (75-85 range)
+    high_threshold: 60.0
+    medium_threshold: 40.0
+    low_threshold: 25.0
+    min_max_diff: 15.0
+
+  clone:
+    min_matches: 10
+    high_inliers: 60
+    high_ratio: 0.35
+    medium_inliers: 40
+    medium_ratio: 0.25
+    low_inliers: 20
+    low_ratio: 0.15
+
+  noise:
+    block_size: 64
+    intensity_bin_width: 32
+    high_ratio: 20.0
+    medium_ratio: 10.0
+    low_ratio: 5.0
+
   llm_screening_confidence_threshold: 0.5
   convergence_required: true
 
@@ -38,27 +58,6 @@ analysis:
   convergence_confidence_threshold: 0.6
   convergence_confidence_boost: 0.1
   single_method_max_severity: medium
-
-  # ELA severity thresholds
-  ela_high_threshold: 60.0
-  ela_medium_threshold: 40.0
-  ela_low_threshold: 25.0
-
-  # Clone severity thresholds
-  clone_high_inliers: 60
-  clone_high_ratio: 0.35
-  clone_medium_inliers: 40
-  clone_medium_ratio: 0.25
-  clone_low_inliers: 20
-  clone_low_ratio: 0.15
-
-  # Noise severity thresholds
-  noise_high_ratio: 20.0
-  noise_medium_ratio: 10.0
-  noise_low_ratio: 5.0
-
-  # Noise analysis
-  noise_intensity_bin_width: 32
 
   # Figure extraction
   min_figure_width: 50
