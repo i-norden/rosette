@@ -56,7 +56,7 @@ jobs:
       - name: Install package with dev dependencies
         run: |
           pip install -r requirements.lock
-          pip install ".[dev]" --no-deps
+          pip install ".[dev]"
 
       - name: Run tests (skip integration) with coverage
         run: pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=75

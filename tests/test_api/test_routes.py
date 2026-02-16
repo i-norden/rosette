@@ -161,8 +161,6 @@ class TestSubmitPaper:
         # sending 100MB+ over the wire
         import snoopy.api.routes as routes_module
 
-        original_b64decode = base64.b64decode
-
         def _mock_b64decode(data, validate=False):
             # Return oversized content with PDF magic bytes
             return b"%PDF-1.4 " + b"\x00" * (100 * 1024 * 1024 + 1)
