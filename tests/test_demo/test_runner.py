@@ -77,11 +77,36 @@ class TestPassFailDetermination:
     def test_expected_clean_pass_when_no_high_findings(self):
         assert _determine_pass_fail_expected_clean([{"severity": "low"}]) is True
 
-    def test_expected_clean_fail_when_high_findings(self):
-        assert _determine_pass_fail_expected_clean([{"severity": "high"}]) is False
+    def test_expected_clean_pass_single_method_high_finding(self):
+        # A single raw "high" finding from one method now passes because
+        # aggregation downgrades single-method findings to max "medium"
+        findings = [
+            {
+                "severity": "high",
+                "method": "noise_analysis",
+                "confidence": 0.8,
+                "figure_id": "fig1",
+            }
+        ]
+        assert _determine_pass_fail_expected_clean(findings) is True
 
-    def test_expected_clean_fail_when_critical_findings(self):
-        assert _determine_pass_fail_expected_clean([{"severity": "critical"}]) is False
+    def test_expected_clean_fail_when_converging_high_findings(self):
+        # Converging high-severity findings from multiple methods still fail
+        findings = [
+            {
+                "severity": "high",
+                "method": "ela",
+                "confidence": 0.8,
+                "figure_id": "fig1",
+            },
+            {
+                "severity": "high",
+                "method": "clone_detection",
+                "confidence": 0.8,
+                "figure_id": "fig1",
+            },
+        ]
+        assert _determine_pass_fail_expected_clean(findings) is False
 
     def test_expected_clean_pass_when_no_findings(self):
         assert _determine_pass_fail_expected_clean([]) is True
@@ -126,11 +151,19 @@ class TestBuildResult:
 class TestRunDemo:
     def test_run_demo_download_only(self, tmp_path):
         """Test that download_only exits early."""
+        # Create fake RSIIL data dirs so auto-download doesn't trigger
+        rsiil_data = tmp_path / "data" / "rsiil"
+        (rsiil_data / "pristine").mkdir(parents=True)
+        (rsiil_data / "test").mkdir(parents=True)
+        (rsiil_data / "pristine" / "dummy.png").write_bytes(b"\x89PNG")
+        (rsiil_data / "test" / "dummy.png").write_bytes(b"\x89PNG")
+
         with (
             patch("snoopy.demo.runner.FIXTURES_DIR", tmp_path),
             patch("snoopy.demo.runner.console"),
             patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path),
             patch("snoopy.demo.fixtures.FIXTURES_DIR", tmp_path),
+            patch("snoopy.demo.fixtures.RSIIL_DATA_DIR", rsiil_data),
         ):
             # Create expected directories to avoid download
             for d in ["synthetic", "rsiil", "retracted", "survey", "retraction_watch", "clean"]:

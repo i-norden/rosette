@@ -149,22 +149,23 @@ def run_image_forensics(
             path_str,
             block_size=cfg.noise.block_size,
             intensity_bin_width=cfg.noise.intensity_bin_width,
+            suspicious_threshold=cfg.noise.max_ratio_threshold,
         )
         if noise_result.suspicious:
             max_ratio = noise_result.max_ratio
 
             if max_ratio > cfg.noise.high_ratio:
                 severity = "high"
-                confidence = min(max_ratio / 30.0, 0.85)
+                confidence = min(max_ratio / 80.0, 0.85)
             elif max_ratio > cfg.noise.medium_ratio:
                 severity = "medium"
-                confidence = min(max_ratio / 20.0, 0.7)
+                confidence = min(max_ratio / 60.0, 0.7)
             elif max_ratio > cfg.noise.low_ratio:
                 severity = "low"
-                confidence = min(max_ratio / 20.0, 0.5)
+                confidence = min(max_ratio / 40.0, 0.5)
             else:
                 severity = "low"
-                confidence = min(max_ratio / 20.0, 0.4)
+                confidence = min(max_ratio / 40.0, 0.4)
 
             findings.append(
                 {
@@ -226,18 +227,54 @@ def run_intra_paper_cross_ref(
 ) -> list[dict]:
     """Compare figure hashes within the same paper to find duplicates.
 
+    Uses Union-Find to cluster matching images and emits one finding per
+    cluster instead of one per pairwise match.  This prevents papers with
+    many similar-looking panels from generating a combinatorial explosion
+    of findings.
+
+    Phash findings use a dedicated ``figure_id`` (``phash_cluster_N``) so
+    they do not create false convergence with per-image ELA/noise findings
+    in the evidence aggregation layer.
+
     Args:
         figure_results: List of dicts, each with 'image' (name), 'phash', and 'ahash' keys.
 
     Returns:
         List of finding dicts for any intra-paper hash matches.
     """
-    findings: list[dict] = []
+    # Union-Find helpers
+    parent: dict[int, int] = {}
+
+    def _find(x: int) -> int:
+        while parent.get(x, x) != x:
+            parent[x] = parent.get(parent[x], parent[x])
+            x = parent[x]
+        return x
+
+    def _union(a: int, b: int) -> None:
+        ra, rb = _find(a), _find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    # Collect pairwise matches and build clusters
+    edges: list[tuple[int, int, int]] = []  # (i, j, distance)
 
     for i, res_a in enumerate(figure_results):
+        # Skip small images (icons, scale bars) that produce false hash matches
+        width_a = res_a.get("width", 999)
+        height_a = res_a.get("height", 999)
+        if width_a < 100 or height_a < 100:
+            continue
+
         for j, res_b in enumerate(figure_results):
             if j <= i:
                 continue
+
+            width_b = res_b.get("width", 999)
+            height_b = res_b.get("height", 999)
+            if width_b < 100 or height_b < 100:
+                continue
+
             phash_a = res_a.get("phash")
             phash_b = res_b.get("phash")
             if phash_a and phash_b:
@@ -246,36 +283,82 @@ def run_intra_paper_cross_ref(
                 except ValueError:
                     continue
 
-                if dist <= 15:
-                    if dist <= 5:
-                        severity = "critical"
-                        confidence = 0.95
-                    elif dist <= 10:
-                        severity = "high"
-                        confidence = 0.8
-                    else:
-                        severity = "medium"
-                        confidence = 0.6
+                if dist <= 10:
+                    edges.append((i, j, dist))
+                    _union(i, j)
 
-                    findings.append(
-                        {
-                            "title": f"Perceptual hash match: {res_a['image']} \u2194 {res_b['image']}",
-                            "analysis_type": "phash",
-                            "method": "phash",
-                            "severity": severity,
-                            "confidence": confidence,
-                            "description": (
-                                f"Figures '{res_a['image']}' and '{res_b['image']}' "
-                                f"have perceptual hash distance {dist} (possible duplicate/recycled)"
-                            ),
-                            "figure_id": res_a["image"],
-                            "evidence": {
-                                "figure_a": res_a["image"],
-                                "figure_b": res_b["image"],
-                                "hash_distance": dist,
-                            },
-                        }
-                    )
+    if not edges:
+        return []
+
+    # Group edges by cluster root
+    clusters: dict[int, list[tuple[int, int, int]]] = {}
+    for i, j, dist in edges:
+        root = _find(i)
+        clusters.setdefault(root, []).append((i, j, dist))
+
+    # Emit one finding per cluster
+    findings: list[dict] = []
+    for cluster_idx, (root, cluster_edges) in enumerate(clusters.items()):
+        # Collect all images in this cluster
+        members: set[int] = set()
+        min_dist = min(d for _, _, d in cluster_edges)
+        for i, j, _ in cluster_edges:
+            members.add(i)
+            members.add(j)
+        member_names = sorted(figure_results[m]["image"] for m in members)
+
+        if min_dist <= 2:
+            severity = "critical"
+            confidence = 0.95
+        elif min_dist <= 5:
+            severity = "high"
+            confidence = 0.8
+        else:
+            severity = "medium"
+            confidence = 0.6
+
+        # Build pairwise detail for the evidence blob
+        pair_details = []
+        for i, j, dist in cluster_edges:
+            pair_details.append(
+                {
+                    "figure_a": figure_results[i]["image"],
+                    "figure_b": figure_results[j]["image"],
+                    "hash_distance": dist,
+                }
+            )
+
+        if len(member_names) == 2:
+            title = f"Perceptual hash match: {member_names[0]} \u2194 {member_names[1]}"
+            desc = (
+                f"Figures '{member_names[0]}' and '{member_names[1]}' "
+                f"have perceptual hash distance {min_dist} (possible duplicate/recycled)"
+            )
+        else:
+            title = f"Perceptual hash cluster: {len(member_names)} similar figures"
+            desc = (
+                f"{len(member_names)} figures share similar perceptual hashes "
+                f"(min distance {min_dist}): {', '.join(member_names[:5])}"
+            )
+            if len(member_names) > 5:
+                desc += f" and {len(member_names) - 5} more"
+
+        findings.append(
+            {
+                "title": title,
+                "analysis_type": "phash",
+                "method": "phash",
+                "severity": severity,
+                "confidence": confidence,
+                "description": desc,
+                "figure_id": f"phash_cluster_{cluster_idx}",
+                "evidence": {
+                    "cluster_members": member_names,
+                    "pairs": pair_details,
+                    "min_distance": min_dist,
+                },
+            }
+        )
 
     return findings
 

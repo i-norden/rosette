@@ -117,19 +117,19 @@ class TestDownloadFile:
 
 
 class TestGenerateSyntheticForgeries:
-    def test_creates_ten_images(self, tmp_path: Path, monkeypatch) -> None:
+    def test_creates_fifteen_images(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(fixtures_mod, "FIXTURES_DIR", tmp_path)
         count = generate_synthetic_forgeries()
-        assert count == 10
+        assert count == 15
         out_dir = tmp_path / "synthetic"
         assert out_dir.exists()
         images = list(out_dir.glob("*.png"))
-        assert len(images) == 10
+        assert len(images) == 15
 
     def test_idempotent_second_run(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(fixtures_mod, "FIXTURES_DIR", tmp_path)
         first = generate_synthetic_forgeries()
-        assert first == 10
+        assert first == 15
         second = generate_synthetic_forgeries()
         assert second == 0  # all already exist
 
@@ -138,21 +138,21 @@ class TestGenerateSyntheticForgeries:
         generate_synthetic_forgeries()
         out_dir = tmp_path / "synthetic"
         copymove = [f for f in out_dir.iterdir() if "copymove" in f.name]
-        assert len(copymove) == 7
+        assert len(copymove) == 10
 
     def test_spliced_image_created(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(fixtures_mod, "FIXTURES_DIR", tmp_path)
         generate_synthetic_forgeries()
         out_dir = tmp_path / "synthetic"
         spliced = [f for f in out_dir.iterdir() if "spliced" in f.name]
-        assert len(spliced) == 1
+        assert len(spliced) == 2
 
     def test_retouched_images_created(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(fixtures_mod, "FIXTURES_DIR", tmp_path)
         generate_synthetic_forgeries()
         out_dir = tmp_path / "synthetic"
         retouched = [f for f in out_dir.iterdir() if "retouched" in f.name]
-        assert len(retouched) == 2
+        assert len(retouched) == 3
 
     def test_images_are_valid_pngs(self, tmp_path: Path, monkeypatch) -> None:
         from PIL import Image
@@ -170,10 +170,16 @@ class TestDownloadStreaming:
     def test_skips_existing_file(self, tmp_path: Path) -> None:
         dest = tmp_path / "existing.zip"
         dest.write_bytes(b"content")
+        # Mock a streaming response whose Content-Length matches the existing file
+        mock_resp = MagicMock()
+        mock_resp.headers = {"content-length": "7"}  # len(b"content") == 7
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
         client = MagicMock()
+        client.stream.return_value = mock_resp
         result = _download_streaming("https://example.com/file.zip", dest, client)
         assert result is False
-        client.stream.assert_not_called()
 
     def test_skips_empty_existing_file(self, tmp_path: Path) -> None:
         """An empty file should be re-downloaded."""

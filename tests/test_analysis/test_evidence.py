@@ -92,6 +92,18 @@ class TestConvergingEvidence:
         assert result.paper_risk == "high"
 
 
+    def test_multiple_figures_single_method_not_high(self):
+        """Multiple figures flagged by a single method → not "high" (requires convergence)."""
+        findings = [
+            {"figure_id": "fig1", "method": "noise_analysis", "confidence": 0.8, "severity": "medium"},
+            {"figure_id": "fig2", "method": "noise_analysis", "confidence": 0.8, "severity": "medium"},
+        ]
+        result = aggregate_findings(findings)
+        # Without convergence, 2 figures flagged should not reach "high"
+        assert result.paper_risk == "low"
+        assert result.converging_evidence is False
+
+
 class TestSeverity:
     def test_clean_with_no_findings(self):
         assert compute_figure_severity([]) == "clean"

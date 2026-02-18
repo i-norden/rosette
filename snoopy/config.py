@@ -75,10 +75,10 @@ class NoiseConfig(BaseModel):
 
     block_size: int = 64
     intensity_bin_width: int = 32
-    high_ratio: float = 20.0
-    medium_ratio: float = 10.0
-    low_ratio: float = 5.0
-    max_ratio_threshold: float = 10.0
+    high_ratio: float = 50.0
+    medium_ratio: float = 25.0
+    low_ratio: float = 10.0
+    max_ratio_threshold: float = 25.0
 
 
 class StatisticalConfig(BaseModel):

@@ -241,8 +241,10 @@ def aggregate_findings(
     # Determine overall paper risk
     if has_critical_converging:
         paper_risk = "critical"
-    elif figures_flagged >= 2:
+    elif any_converging and figures_flagged >= 2:
         paper_risk = "high"
+    elif figures_flagged >= 3 and not any_converging:
+        paper_risk = "medium"
     elif figures_flagged == 1 and any_converging:
         paper_risk = "medium"
     elif figures_flagged >= 1:

@@ -240,7 +240,10 @@ def clone_detection(
 
 
 def noise_analysis(
-    image_path: str, block_size: int = 64, intensity_bin_width: int = 32
+    image_path: str,
+    block_size: int = 64,
+    intensity_bin_width: int = 32,
+    suspicious_threshold: float = 25.0,
 ) -> NoiseResult:
     """Analyse noise level inconsistencies across image blocks.
 
@@ -314,7 +317,7 @@ def noise_analysis(
             ratio = max_level / min_level
             max_ratio = max(max_ratio, ratio)
 
-    suspicious = max_ratio > 10.0
+    suspicious = max_ratio > suspicious_threshold
 
     return NoiseResult(
         suspicious=suspicious,

@@ -36,9 +36,10 @@ analysis:
   noise:
     block_size: 64
     intensity_bin_width: 32
-    high_ratio: 20.0
-    medium_ratio: 10.0
-    low_ratio: 5.0
+    max_ratio_threshold: 25.0
+    high_ratio: 50.0
+    medium_ratio: 25.0
+    low_ratio: 10.0
 
   llm_screening_confidence_threshold: 0.5
   convergence_required: true

@@ -328,14 +328,28 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         all_findings.extend(cross_ref_findings)
         for f in cross_ref_findings:
             evidence = f.get("evidence", {})
-            phash_matches.append(
-                {
-                    "figure_a": evidence.get("figure_a", ""),
-                    "figure_b": evidence.get("figure_b", ""),
-                    "distance": evidence.get("hash_distance", 0),
-                    "severity": f.get("severity", ""),
-                }
-            )
+            # Clustered findings have a "pairs" list; flatten for the report
+            pairs = evidence.get("pairs", [])
+            if pairs:
+                for pair in pairs:
+                    phash_matches.append(
+                        {
+                            "figure_a": pair.get("figure_a", ""),
+                            "figure_b": pair.get("figure_b", ""),
+                            "distance": pair.get("hash_distance", 0),
+                            "severity": f.get("severity", ""),
+                        }
+                    )
+            else:
+                # Legacy single-pair format fallback
+                phash_matches.append(
+                    {
+                        "figure_a": evidence.get("figure_a", ""),
+                        "figure_b": evidence.get("figure_b", ""),
+                        "distance": evidence.get("hash_distance", 0),
+                        "severity": f.get("severity", ""),
+                    }
+                )
     except Exception as exc:
         logger.debug("Hash cross-reference failed on %s: %s", pdf_path.name, exc)
 
@@ -396,8 +410,11 @@ def _determine_pass_fail_expected_findings(aggregated_risk: str, findings: list[
 
 
 def _determine_pass_fail_expected_clean(findings: list[dict]) -> bool:
-    """For clean items, fail only if high/critical findings exist."""
-    return not any(f.get("severity") in ("critical", "high") for f in findings)
+    """For clean items, fail only if aggregated paper risk is high/critical."""
+    if not findings:
+        return True
+    aggregated = aggregate_findings(findings)
+    return aggregated.paper_risk not in ("critical", "high")
 
 
 async def _run_llm_analysis(
@@ -530,15 +547,25 @@ def run_demo(
         RSIIL_FORGERY_IMAGES,
     )
 
-    expected_counts = {
-        "synthetic": 10,
-        "rsiil": len(RSIIL_FORGERY_IMAGES) + len(RSIIL_CLEAN_IMAGES),
-        "retracted": len(RETRACTED_PAPERS),
-        "survey": 1,
-        "retraction_watch": len(RETRACTION_WATCH_PAPERS),
-        "clean": len(CLEAN_PAPERS),
+    # Build expected file sets per category so we check for specific files,
+    # not just a file count (which can be inflated by unrelated local files).
+    expected_files: dict[str, set[str]] = {
+        "rsiil": {name for _, name in RSIIL_FORGERY_IMAGES}
+        | {name for _, name in RSIIL_CLEAN_IMAGES},
+        "retracted": {p["filename"] for p in RETRACTED_PAPERS},
+        "retraction_watch": {p["filename"] for p in RETRACTION_WATCH_PAPERS},
+        "clean": {p["filename"] for p in CLEAN_PAPERS},
     }
+    # Synthetic uses a count check (files are generated, not downloaded by name)
+    expected_counts: dict[str, int] = {"synthetic": 15, "survey": 1}
+
     incomplete = []
+    for d, names in expected_files.items():
+        d_path = FIXTURES_DIR / d
+        existing = {f.name for f in d_path.iterdir() if f.is_file()} if d_path.exists() else set()
+        missing = names - existing
+        if missing:
+            incomplete.append(f"{d} (missing {len(missing)}/{len(names)})")
     for d, expected in expected_counts.items():
         d_path = FIXTURES_DIR / d
         actual = sum(1 for f in d_path.iterdir() if f.is_file()) if d_path.exists() else 0
@@ -552,11 +579,22 @@ def run_demo(
     else:
         console.print("[green]All fixture categories present.[/green]")
 
-    # Optional: download full RSIIL dataset from Zenodo
-    if download_rsiil:
-        import httpx
+    # Download full RSIIL dataset from Zenodo if not already present.
+    # Triggered automatically when data/rsiil/ is missing or empty, or
+    # explicitly via --download-rsiil flag.
+    from snoopy.demo.fixtures import RSIIL_DATA_DIR, download_rsiil_zenodo
 
-        from snoopy.demo.fixtures import download_rsiil_zenodo
+    rsiil_needs_download = download_rsiil
+    if not rsiil_needs_download:
+        # Auto-detect: check if pristine/ and test/ dirs have any files
+        pristine_dir = RSIIL_DATA_DIR / "pristine"
+        test_dir = RSIIL_DATA_DIR / "test"
+        has_pristine = pristine_dir.exists() and any(pristine_dir.rglob("*"))
+        has_test = test_dir.exists() and any(test_dir.rglob("*"))
+        rsiil_needs_download = not (has_pristine and has_test)
+
+    if rsiil_needs_download:
+        import httpx
 
         console.print()
         console.rule("[bold blue]Downloading Full RSIIL Dataset from Zenodo[/bold blue]")
@@ -608,7 +646,8 @@ def run_demo(
     console.print()
 
     # 2b) RSIIL benchmark images (forgery — expected to have findings)
-    rsiil_forgery_names = {name for _, name in RSIIL_FORGERY_IMAGES}
+    from snoopy.demo.fixtures import _is_ground_truth, _is_pristine_ref
+
     rsiil_clean_names = {name for _, name in RSIIL_CLEAN_IMAGES}
 
     console.print("[bold]Analyzing RSIIL benchmark images...[/bold]")
@@ -617,8 +656,24 @@ def run_demo(
         with create_progress() as progress:
             task = progress.add_task("RSIIL images", total=len(rsiil_images))
             for img_path in rsiil_images:
+                # Skip ground-truth annotation maps and masks
+                if _is_ground_truth(img_path):
+                    progress.advance(task)
+                    continue
+
                 result = _analyze_image(img_path)
-                if img_path.name in rsiil_forgery_names:
+                if img_path.name in rsiil_clean_names or _is_pristine_ref(img_path):
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="rsiil_clean",
+                            expected="clean",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        )
+                    )
+                else:
+                    # Known forgery or unrecognized — default to forgery category
                     demo_results.append(
                         _build_result(
                             name=img_path.name,
@@ -631,16 +686,6 @@ def run_demo(
                             ),
                         )
                     )
-                elif img_path.name in rsiil_clean_names:
-                    demo_results.append(
-                        _build_result(
-                            name=img_path.name,
-                            category="clean",
-                            expected="clean",
-                            findings=result["findings"],
-                            pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
-                        )
-                    )
                 progress.advance(task)
     else:
         console.print("[dim]No RSIIL images found (download may have failed). Skipping.[/dim]")
@@ -649,7 +694,7 @@ def run_demo(
     # 2b-zenodo) Sampled RSIIL images from full Zenodo dataset (if available)
     from snoopy.demo.fixtures import sample_rsiil_images
 
-    pristine_sample, tampered_sample = sample_rsiil_images(30)
+    pristine_sample, tampered_sample = sample_rsiil_images(50)
     if tampered_sample or pristine_sample:
         console.print("[bold]Analyzing sampled RSIIL Zenodo images...[/bold]")
         total_zenodo = len(tampered_sample) + len(pristine_sample)

@@ -428,7 +428,7 @@ class TestNoiseSeverityBranches:
 
     def test_noise_high_severity(self, sample_image: str) -> None:
         """Noise with high max_ratio -> high severity."""
-        result = self._make_noise_result(True, max_ratio=25.0)
+        result = self._make_noise_result(True, max_ratio=55.0)
         with patch("snoopy.analysis.run_analysis.noise_analysis", return_value=result):
             findings = run_image_forensics(sample_image, figure_id="test")
         noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
@@ -437,7 +437,7 @@ class TestNoiseSeverityBranches:
 
     def test_noise_medium_severity(self, sample_image: str) -> None:
         """Noise with medium max_ratio -> medium severity."""
-        result = self._make_noise_result(True, max_ratio=12.0)
+        result = self._make_noise_result(True, max_ratio=30.0)
         with patch("snoopy.analysis.run_analysis.noise_analysis", return_value=result):
             findings = run_image_forensics(sample_image, figure_id="test")
         noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
@@ -446,7 +446,7 @@ class TestNoiseSeverityBranches:
 
     def test_noise_low_severity(self, sample_image: str) -> None:
         """Noise with low max_ratio -> low severity."""
-        result = self._make_noise_result(True, max_ratio=6.0)
+        result = self._make_noise_result(True, max_ratio=12.0)
         with patch("snoopy.analysis.run_analysis.noise_analysis", return_value=result):
             findings = run_image_forensics(sample_image, figure_id="test")
         noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
