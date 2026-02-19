@@ -1,6 +1,8 @@
 # Snoopy
 
-LLM-powered academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and Claude-based analysis.
+Academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and (optionally) LLM-based analysis.
+
+The analysis pipeline was iteratively refined using an agentic evolutionary metaprogramming harness and a dataset of known manipulated papers, retracted papers, and clean controls, with feedback from real-world investigations. Designed for both one-off analysis and large-scale campaigns.
 
 ## Quick Start
 
@@ -21,7 +23,7 @@ snoopy demo
 ```
 snoopy/
 ├── analysis/          # Detection methods
-│   ├── image_forensics.py   # ELA, clone detection, noise analysis
+│   ├── image_forensics.py   # ELA, clone detection, noise, DCT, JPEG ghost, FFT
 │   ├── statistical.py       # GRIM test, Benford's law, p-value checks
 │   ├── llm_vision.py        # Claude-based figure screening
 │   ├── cross_reference.py   # Perceptual hashing for duplicate figures
@@ -44,7 +46,6 @@ snoopy/
 ├── llm/               # Claude API provider with retry and batch support
 ├── pipeline/          # Multi-stage orchestrator with resumability
 ├── reporting/         # Reports, dashboards, Rich terminal output
-├── notifications/     # Webhook notifications
 ├── db/                # SQLAlchemy models + Alembic migrations
 ├── cli.py             # Click CLI entry point
 ├── cli_campaign.py    # Campaign CLI commands
@@ -90,8 +91,8 @@ End-to-end showcase of the forensic analysis pipeline. Downloads ~3 GB of test f
 | Clean controls | 21 PDFs | PMC Open Access | Landmark papers (false positive control) |
 
 **Analysis applied per item:**
-- **Images:** ELA, clone detection, noise analysis, perceptual hashing
-- **PDFs:** Figure extraction + image forensics, text extraction + GRIM/Benford tests, table extraction + duplicate value checks, intra-paper cross-reference
+- **Images:** ELA, clone detection (ORB + SIFT), block-based clone detection, noise analysis, DCT analysis, JPEG ghost detection, FFT frequency analysis, metadata forensics, perceptual hashing
+- **PDFs:** Figure extraction + all image forensics, text extraction + GRIM/GRIMMER/Benford/p-value/terminal digit/variance ratio/SPRITE tests + tortured phrase detection, table extraction + duplicate value checks, intra-paper cross-reference
 - **LLM (opt-in):** Claude vision screening and detailed analysis
 
 ```bash
@@ -134,7 +135,8 @@ snoopy campaign create --mode paper_mill --name "Mill cluster" \
 | Method | Module | What It Detects |
 |--------|--------|-----------------|
 | Error Level Analysis | `image_forensics.py` | JPEG re-compression artifacts from editing |
-| Clone Detection | `image_forensics.py` | Copy-move forgery via ORB feature matching |
+| Clone Detection | `image_forensics.py` | Copy-move forgery via ORB/SIFT feature matching + RANSAC |
+| Block-Based Clone Detection | `image_forensics.py` | Fridrich-style copy-move detection for smooth regions |
 | Noise Analysis | `image_forensics.py` | Noise inconsistencies from splicing |
 | DCT Analysis | `image_forensics.py` | Double JPEG compression via DCT coefficient periodicity |
 | JPEG Ghost Detection | `image_forensics.py` | Mixed compression history regions in images |
@@ -153,27 +155,7 @@ snoopy campaign create --mode paper_mill --name "Mill cluster" \
 | Cross-Reference | `cross_reference.py` | Duplicate figures across papers via perceptual hashing |
 | Author Network | `author_network.py` | Suspicious co-author clusters via Louvain community detection |
 
-Findings from multiple methods are aggregated in `evidence.py`. Converging evidence (2+ methods flagging the same figure) boosts confidence and severity.
-
-## Notifications
-
-Snoopy supports webhook notifications for delivering analysis results to external systems.
-
-```python
-from snoopy.notifications.webhook import WebhookNotifier
-
-notifier = WebhookNotifier()
-await notifier.register_url("https://example.com/webhook")  # HTTPS only, public IPs only
-
-# Deliver findings to all registered webhooks
-results = await notifier.notify({"paper_doi": "10.1234/example", "risk": "high"})
-```
-
-Security features:
-- **HTTPS only** — HTTP URLs are rejected
-- **SSRF protection** — private/internal/loopback IPs are blocked at registration
-- **DNS pinning** — IPs are resolved and pinned at registration to prevent DNS rebinding
-- **Exponential backoff** — failed deliveries are retried with configurable backoff
+Findings from multiple methods are aggregated in `evidence.py`. Converging evidence (2+ methods with confidence >= 0.6 and weight >= 0.3 flagging the same figure) boosts confidence and severity. Compression-sensitive methods (DCT, JPEG ghost, FFT) have weights <= 0.30 so they contribute to scoring but cannot trigger convergence on their own.
 
 ## Configuration
 
@@ -208,17 +190,6 @@ campaign:
   hash_match_max_distance: 10
   batch_concurrency: 5
 ```
-
-## API Server
-
-Start the REST API with `snoopy serve`. Key endpoints:
-
-- `POST /api/v1/papers` — Submit a paper for analysis (DOI or base64 PDF)
-- `GET /api/v1/papers/{id}` — Get paper status and metadata
-- `GET /api/v1/papers/{id}/report` — Get analysis report
-- `POST /api/v1/batch` — Submit a batch of papers
-- `GET /api/v1/authors/{id}/risk` — Get author risk profile
-- `GET /health` — Health check
 
 ## Testing
 
@@ -262,7 +233,6 @@ tests/               # Test suite
   test_discovery/    #   Priority scoring tests
   test_extraction/   #   PDF/stats extraction tests
   test_llm/          #   Prompt validation tests
-  test_notifications/#   Webhook tests
   test_pipeline/     #   Pipeline orchestrator tests
   test_reporting/    #   Report generation tests
   test_scripts/      #   Script helper function tests
@@ -271,3 +241,23 @@ tests/               # Test suite
 config/              # YAML configuration
 data/                # Runtime data (PDFs, figures, reports, DB)
 ```
+
+## API Server
+
+`snoopy serve` starts a FastAPI server for submitting papers programmatically. Papers are queued for background analysis via the pipeline orchestrator; clients poll for results.
+
+```bash
+snoopy serve                       # Start on 0.0.0.0:8000
+snoopy serve --host 127.0.0.1 --port 9000
+```
+
+Endpoints:
+
+- `POST /api/v1/papers` — Submit a paper for analysis (DOI or base64 PDF)
+- `GET /api/v1/papers/{id}` — Get paper status and metadata
+- `GET /api/v1/papers/{id}/report` — Get analysis report
+- `POST /api/v1/batch` — Submit a batch of papers
+- `GET /api/v1/authors/{id}/risk` — Get author risk profile
+- `GET /health` — Health check
+
+Authentication via `X-API-Key` header (configurable, can be disabled for development).

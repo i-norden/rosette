@@ -46,6 +46,8 @@ def error_level_analysis(
     quality: int = 80,
     min_max_diff: float = 15.0,
     output_dir: str | None = None,
+    *,
+    _preloaded_pil: Image.Image | None = None,
 ) -> ELAResult:
     """Perform Error Level Analysis on an image.
 
@@ -66,7 +68,7 @@ def error_level_analysis(
     Returns:
         ELAResult with suspicion flag and difference statistics.
     """
-    original = Image.open(image_path).convert("RGB")
+    original = _preloaded_pil.copy() if _preloaded_pil is not None else Image.open(image_path).convert("RGB")
 
     # Re-save at the specified JPEG quality into memory
     buffer = io.BytesIO()
@@ -112,6 +114,8 @@ def clone_detection(
     min_matches: int = 30,
     min_inlier_ratio: float = 0.15,
     feature_extractor: str = "sift",
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> CloneResult:
     """Detect copy-move (clone) regions within an image using feature matching.
 
@@ -134,20 +138,25 @@ def clone_detection(
     Returns:
         CloneResult with suspicion flag and match cluster information.
     """
-    img = cv2.imread(image_path)
-    if img is None:
-        return CloneResult(suspicious=False, num_matches=0, match_clusters=[], inlier_ratio=0.0)
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if _preloaded_gray is not None:
+        gray = _preloaded_gray
+    else:
+        img = cv2.imread(image_path)
+        if img is None:
+            return CloneResult(suspicious=False, num_matches=0, match_clusters=[], inlier_ratio=0.0)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     if feature_extractor == "sift":
-        detector = cv2.SIFT_create(nfeatures=5000)  # type: ignore[attr-defined]
+        # Lower contrastThreshold to detect keypoints in low-texture regions
+        detector = cv2.SIFT_create(nfeatures=5000, contrastThreshold=0.02)  # type: ignore[attr-defined]
         keypoints, descriptors = detector.detectAndCompute(gray, None)
         norm_type = cv2.NORM_L2
+        ratio_thresh = 0.75  # Lowe's ratio test threshold
     else:
         detector = cv2.ORB_create(nfeatures=5000)  # type: ignore[attr-defined]
         keypoints, descriptors = detector.detectAndCompute(gray, None)
         norm_type = cv2.NORM_HAMMING
+        ratio_thresh = 0.80  # Slightly more permissive for binary descriptors
 
     if descriptors is None or len(keypoints) < 2:
         return CloneResult(suspicious=False, num_matches=0, match_clusters=[], inlier_ratio=0.0)
@@ -156,19 +165,24 @@ def clone_detection(
     bf = cv2.BFMatcher(norm_type, crossCheck=False)
     raw_matches = bf.knnMatch(descriptors, descriptors, k=5)
 
-    # Filter matches: remove self-matches and require spatial separation > 20px
+    # Filter matches: Lowe's ratio test + remove self-matches + spatial separation
     filtered_src = []
     filtered_dst = []
     for match_group in raw_matches:
-        for m in match_group:
-            if m.queryIdx == m.trainIdx:
-                continue
-            pt1 = np.array(keypoints[m.queryIdx].pt)
-            pt2 = np.array(keypoints[m.trainIdx].pt)
-            dist = np.linalg.norm(pt1 - pt2)
-            if dist > 20.0:
-                filtered_src.append(pt1)
-                filtered_dst.append(pt2)
+        # Collect non-self matches
+        non_self = [m for m in match_group if m.queryIdx != m.trainIdx]
+        if len(non_self) < 2:
+            continue
+        best, second = non_self[0], non_self[1]
+        # Lowe's ratio test: best match must be significantly better than second
+        if best.distance >= ratio_thresh * second.distance:
+            continue
+        pt1 = np.array(keypoints[best.queryIdx].pt)
+        pt2 = np.array(keypoints[best.trainIdx].pt)
+        dist = np.linalg.norm(pt1 - pt2)
+        if dist > 20.0:
+            filtered_src.append(pt1)
+            filtered_dst.append(pt2)
 
     if len(filtered_src) < min_matches:
         return CloneResult(
@@ -181,8 +195,11 @@ def clone_detection(
     src_pts = np.array(filtered_src, dtype=np.float32).reshape(-1, 1, 2)
     dst_pts = np.array(filtered_dst, dtype=np.float32).reshape(-1, 1, 2)
 
-    # Use RANSAC to find geometrically consistent matches
-    _, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+    # Use partial affine (translation + rotation + uniform scale) instead of
+    # homography — copy-move forgeries involve rigid/affine transforms, not
+    # projective transforms.  4 DOF instead of 8 gives much better inlier
+    # separation on copy-move forgeries.
+    _, mask = cv2.estimateAffinePartial2D(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0)
 
     if mask is None:
         return CloneResult(
@@ -239,8 +256,217 @@ def clone_detection(
     )
 
 
+@dataclass
+class BlockCloneResult:
+    """Result of block-based copy-move detection."""
+
+    suspicious: bool
+    num_matching_blocks: int
+    consistency: float
+    displacement: tuple[int, int]
+    clone_area_px: int
+    pixel_similarity: float
+
+
+def block_clone_detection(
+    image_path: str,
+    block_size: int = 16,
+    stride: int = 4,
+    min_spatial_distance: float = 40.0,
+    dct_feature_size: int = 8,
+    feature_threshold: float = 10.0,
+    min_votes: int = 8,
+    min_consistency: float = 0.5,
+    pixel_mae_threshold: float = 15.0,
+    min_pixel_similarity: float = 0.10,
+    search_radius: int = 4,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
+) -> BlockCloneResult:
+    """Detect copy-move forgery using block-based DCT matching with displacement voting.
+
+    Divides the image into overlapping blocks, computes DCT features for each
+    block, then finds spatially separated blocks with near-identical features.
+    Genuine copy-move forgeries produce many block pairs sharing a common
+    displacement vector, while coincidental matches from repetitive texture
+    produce scattered displacement vectors.
+
+    A pixel-level verification step confirms that the displaced regions
+    actually contain matching content, filtering out false positives from
+    self-similar textures (e.g. gel bands).
+
+    This method complements keypoint-based clone_detection(): it excels on
+    smooth, low-texture regions (gels, blots) where SIFT finds few keypoints,
+    while keypoint methods handle geometrically transformed copy-move better.
+
+    Args:
+        image_path: Path to the image file.
+        block_size: Size of each square block in pixels.
+        stride: Step between overlapping blocks.  Smaller stride = finer
+            resolution but slower.
+        min_spatial_distance: Minimum pixel distance between block centres
+            for a match to count.  Blocks closer than this are ignored
+            (they're likely overlapping or adjacent).
+        dct_feature_size: Number of DCT coefficients per dimension to keep.
+            A value of 8 keeps the top-left 8x8 = 64 low-frequency
+            coefficients from each block's DCT.
+        feature_threshold: Maximum L2 distance between DCT feature vectors
+            for two blocks to be considered a match.
+        min_votes: Minimum block-pair count sharing the dominant
+            displacement vector.
+        min_consistency: Minimum ratio of dominant-displacement matches to
+            total matches.  Higher values = fewer false positives.
+        pixel_mae_threshold: Maximum per-block Mean Absolute Error for a
+            block pair to be considered pixel-identical in verification.
+        min_pixel_similarity: Minimum fraction of verified identical blocks
+            in the overlapping region for the detection to be confirmed.
+        search_radius: When verifying the dominant displacement, the
+            algorithm tries nearby offsets in [-search_radius, +search_radius]
+            to compensate for rounding errors.
+
+    Returns:
+        BlockCloneResult with suspicion flag, matching statistics, and
+        the detected displacement vector.
+    """
+    _empty = BlockCloneResult(
+        suspicious=False,
+        num_matching_blocks=0,
+        consistency=0.0,
+        displacement=(0, 0),
+        clone_area_px=0,
+        pixel_similarity=0.0,
+    )
+
+    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return _empty
+
+    h, w = img.shape
+    if h < block_size * 2 or w < block_size * 2:
+        return _empty  # Image too small for block analysis
+
+    # --- 1. Extract DCT features for overlapping blocks ---
+    feat_dim = dct_feature_size * dct_feature_size
+    n_y = (h - block_size) // stride + 1
+    n_x = (w - block_size) // stride + 1
+    n_blocks = n_y * n_x
+
+    features = np.empty((n_blocks, feat_dim), dtype=np.float32)
+    positions = np.empty((n_blocks, 2), dtype=np.float32)
+
+    idx = 0
+    for y in range(0, h - block_size + 1, stride):
+        for x in range(0, w - block_size + 1, stride):
+            block = img[y : y + block_size, x : x + block_size].astype(np.float32)
+            dct = cv2.dct(block)
+            features[idx] = dct[:dct_feature_size, :dct_feature_size].ravel()
+            positions[idx] = (x, y)
+            idx += 1
+
+    # --- 2. Lexicographic sort for efficient nearest-neighbour search ---
+    sort_idx = np.lexsort(features.T)
+    sorted_features = features[sort_idx]
+    sorted_positions = positions[sort_idx]
+
+    # --- 3. Find near-identical blocks with spatial separation ---
+    # Compare each sorted pair — adjacent pairs in sorted order have the
+    # most similar feature vectors, analogous to the Fridrich (2003) method.
+    diffs = np.linalg.norm(sorted_features[:-1] - sorted_features[1:], axis=1)
+    spatial_dists = np.linalg.norm(sorted_positions[:-1] - sorted_positions[1:], axis=1)
+
+    mask = (diffs < feature_threshold) & (spatial_dists > min_spatial_distance)
+    match_indices = np.where(mask)[0]
+
+    if len(match_indices) == 0:
+        return _empty
+
+    # Compute displacement vectors for matched pairs
+    displacements = sorted_positions[match_indices + 1] - sorted_positions[match_indices]
+
+    # --- 4. Displacement vector voting ---
+    # Round to nearest 4px for grouping (compensates for stride quantisation)
+    quant = max(stride, 2)
+    rounded = (np.round(displacements / quant) * quant).astype(np.int32)
+    # Convert to tuples for counting
+    disp_tuples = [tuple(r) for r in rounded]
+    from collections import Counter
+
+    counts = Counter(disp_tuples)
+    (top_disp, top_count), = counts.most_common(1)
+    consistency = top_count / len(disp_tuples)
+
+    if top_count < min_votes or consistency < min_consistency:
+        return BlockCloneResult(
+            suspicious=False,
+            num_matching_blocks=top_count,
+            consistency=round(consistency, 4),
+            displacement=top_disp,
+            clone_area_px=0,
+            pixel_similarity=0.0,
+        )
+
+    # --- 5. Pixel-level verification with sub-pixel search ---
+    best_sim = 0.0
+    best_area = 0
+    best_disp = top_disp
+
+    # Search nearby offsets to compensate for rounding
+    for ddx in range(-search_radius, search_radius + 1, 2):
+        for ddy in range(-search_radius, search_radius + 1, 2):
+            dx = top_disp[0] + ddx
+            dy = top_disp[1] + ddy
+
+            x_start = max(0, -dx)
+            x_end = min(w, w - dx)
+            y_start = max(0, -dy)
+            y_end = min(h, h - dy)
+
+            if x_end <= x_start or y_end <= y_start:
+                continue
+
+            region_a = img[y_start:y_end, x_start:x_end].astype(np.float32)
+            region_b = img[y_start + dy : y_end + dy, x_start + dx : x_end + dx].astype(
+                np.float32
+            )
+
+            # Compare block-by-block
+            identical = 0
+            total = 0
+            for by in range(0, region_a.shape[0] - block_size + 1, block_size):
+                for bx in range(0, region_a.shape[1] - block_size + 1, block_size):
+                    ba = region_a[by : by + block_size, bx : bx + block_size]
+                    bb = region_b[by : by + block_size, bx : bx + block_size]
+                    mae = float(np.mean(np.abs(ba - bb)))
+                    total += 1
+                    if mae < pixel_mae_threshold:
+                        identical += 1
+
+            if total > 0:
+                sim = identical / total
+                area = identical * block_size * block_size
+                if sim > best_sim:
+                    best_sim = sim
+                    best_area = area
+                    best_disp = (dx, dy)
+
+    suspicious = best_sim >= min_pixel_similarity
+    return BlockCloneResult(
+        suspicious=suspicious,
+        num_matching_blocks=top_count,
+        consistency=round(consistency, 4),
+        displacement=best_disp,
+        clone_area_px=best_area,
+        pixel_similarity=round(best_sim, 4),
+    )
+
+
 def noise_analysis(
-    image_path: str, block_size: int = 64, intensity_bin_width: int = 32
+    image_path: str,
+    block_size: int = 64,
+    intensity_bin_width: int = 32,
+    suspicious_threshold: float = 25.0,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> NoiseResult:
     """Analyse noise level inconsistencies across image blocks.
 
@@ -255,13 +481,15 @@ def noise_analysis(
     Returns:
         NoiseResult with suspicion flag and per-block noise map.
     """
-    img = cv2.imread(image_path)
-    if img is None:
-        return NoiseResult(
-            suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0
-        )
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if _preloaded_gray is not None:
+        gray = _preloaded_gray
+    else:
+        img = cv2.imread(image_path)
+        if img is None:
+            return NoiseResult(
+                suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0
+            )
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
 
     noise_map: list[dict] = []
@@ -302,19 +530,29 @@ def noise_analysis(
         bin_idx = int(mean_int // intensity_bin_width)
         intensity_bins.setdefault(bin_idx, []).append(nlevel)
 
+    # Noise floor: blocks with noise below this threshold are likely solid-color
+    # regions (backgrounds, borders, text areas) where Laplacian variance is
+    # near-zero by nature, not because of manipulation.  Using a floor prevents
+    # division-by-near-zero producing extreme (previously infinite) ratios that
+    # dominate the scoring.
+    _NOISE_FLOOR = 0.5
+
     for bin_idx, levels in intensity_bins.items():
         if len(levels) < 2:
             continue
         min_level = min(levels)
         max_level = max(levels)
-        if min_level == 0 and max_level > 0:
-            # Zero noise in one block alongside non-zero = highly suspicious (synthetic)
-            max_ratio = float("inf")
+        if min_level < _NOISE_FLOOR:
+            if max_level > _NOISE_FLOOR:
+                # Use floor instead of zero to produce a bounded ratio
+                ratio = max_level / _NOISE_FLOOR
+                max_ratio = max(max_ratio, min(ratio, 200.0))
+            # else: both below floor — no meaningful comparison
         elif min_level > 0:
             ratio = max_level / min_level
-            max_ratio = max(max_ratio, ratio)
+            max_ratio = max(max_ratio, min(ratio, 200.0))
 
-    suspicious = max_ratio > 10.0
+    suspicious = max_ratio > suspicious_threshold
 
     return NoiseResult(
         suspicious=suspicious,
@@ -344,6 +582,8 @@ class DCTResult:
 def dct_analysis(
     image_path: str,
     periodicity_threshold: float = 0.3,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> DCTResult:
     """Analyse DCT coefficients to detect double JPEG compression.
 
@@ -361,7 +601,7 @@ def dct_analysis(
     Returns:
         DCTResult with suspicion flag and periodicity statistics.
     """
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return DCTResult(
             suspicious=False,
@@ -548,6 +788,8 @@ def jpeg_ghost_detection(
     quality_range: tuple[int, int] = (50, 95),
     step: int = 5,
     block_size: int = 64,
+    *,
+    _preloaded_pil: Image.Image | None = None,
 ) -> JPEGGhostResult:
     """Detect JPEG ghost artifacts revealing mixed compression histories.
 
@@ -569,7 +811,7 @@ def jpeg_ghost_detection(
         JPEGGhostResult with suspicion flag, ghost region info, and quality
         distribution statistics.
     """
-    original = Image.open(image_path).convert("RGB")
+    original = _preloaded_pil.copy() if _preloaded_pil is not None else Image.open(image_path).convert("RGB")
     original_arr = np.array(original, dtype=np.float64)
     h, w = original_arr.shape[:2]
 
@@ -717,6 +959,8 @@ class FFTResult:
 def frequency_analysis(
     image_path: str,
     anomaly_threshold: float = 2.5,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> FFTResult:
     """Analyse the frequency spectrum of an image to detect manipulation.
 
@@ -737,7 +981,7 @@ def frequency_analysis(
         FFTResult with suspicion flag, anomaly score, detected peaks, and
         high-frequency energy ratio.
     """
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return FFTResult(
             suspicious=False,

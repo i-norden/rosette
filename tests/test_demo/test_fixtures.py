@@ -52,7 +52,7 @@ class TestFixtureConstants:
         for remote_path, local_name in RSIIL_FORGERY_IMAGES:
             assert isinstance(remote_path, str)
             assert isinstance(local_name, str)
-            assert local_name.endswith(".png")
+            assert local_name.endswith((".png", ".jpg"))
 
         for remote_path, local_name in RSIIL_CLEAN_IMAGES:
             assert isinstance(remote_path, str)
@@ -121,11 +121,11 @@ class TestGenerateSyntheticForgeries:
                 )
                 mock_progress.return_value.__exit__ = MagicMock(return_value=False)
                 count = generate_synthetic_forgeries()
-        assert count == 10
+        assert count == 15
         synthetic_dir = tmp_path / "synthetic"
         assert synthetic_dir.exists()
         png_files = list(synthetic_dir.glob("*.png"))
-        assert len(png_files) == 10
+        assert len(png_files) == 15
 
 
 class TestDownloadPmcPapers:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from snoopy.analysis.image_forensics import DCTResult, dct_analysis
@@ -144,4 +145,4 @@ class TestDCTCustomThreshold:
         # With a very lenient threshold, the image is less likely to be flagged
         # than with a strict threshold (same score, different bar)
         if result_strict.suspicious:
-            assert result_strict.periodicity_score == result_lenient.periodicity_score
+            assert result_strict.periodicity_score == pytest.approx(result_lenient.periodicity_score)

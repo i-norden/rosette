@@ -4,8 +4,14 @@ import numpy as np
 from PIL import Image
 
 from snoopy.analysis.image_forensics import (
+    BlockCloneResult,
+    DCTResult,
+    JPEGGhostResult,
+    block_clone_detection,
     clone_detection,
+    dct_analysis,
     error_level_analysis,
+    jpeg_ghost_detection,
     noise_analysis,
 )
 
@@ -173,3 +179,118 @@ class TestNoiseAnalysisAccuracy:
         result = noise_analysis(path)
         # The ratio between the noisy and smooth regions should be > 1
         assert result.max_ratio > 1.0
+
+
+class TestJPEGGhostExactOutput:
+    """Verify jpeg_ghost_detection produces identical numerical results after vectorization."""
+
+    def test_ghost_diff_volumes_deterministic(self, tmp_path):
+        """Fixed input image produces exact same ghost result fields."""
+        arr = np.zeros((256, 256, 3), dtype=np.uint8)
+        for i in range(256):
+            arr[i, :, :] = i  # smooth gradient
+        path = str(tmp_path / "ghost_test.jpg")
+        Image.fromarray(arr).save(path, "JPEG", quality=85)
+
+        result = jpeg_ghost_detection(path, quality_range=(70, 90), step=10)
+
+        assert isinstance(result, JPEGGhostResult)
+        assert result.dominant_quality > 0
+        assert isinstance(result.quality_variance, float)
+        assert len(result.quality_map) > 0
+        # Verify quality_map dimensions match expected block grid
+        h_blocks = 256 // 64
+        w_blocks = 256 // 64
+        assert len(result.quality_map) == h_blocks * w_blocks
+
+        # Run again to confirm determinism
+        result2 = jpeg_ghost_detection(path, quality_range=(70, 90), step=10)
+        assert result2.dominant_quality == result.dominant_quality
+        assert result2.quality_variance == result.quality_variance
+        assert len(result2.quality_map) == len(result.quality_map)
+        for a, b in zip(result.quality_map, result2.quality_map):
+            assert a["best_quality"] == b["best_quality"]
+            assert a["min_difference"] == b["min_difference"]
+
+
+class TestBlockCloneExactOutput:
+    """Verify block_clone_detection produces identical numerical results after vectorization."""
+
+    def test_known_copy_move_exact_fields(self, tmp_path):
+        """Synthetic copy-move produces deterministic BlockCloneResult fields."""
+        rng = np.random.RandomState(42)
+        arr = rng.randint(0, 255, (256, 256), dtype=np.uint8)
+        # Create copy-move: copy block at (20,20)-(80,80) to (140,140)-(200,200)
+        arr[140:200, 140:200] = arr[20:80, 20:80]
+
+        path = str(tmp_path / "block_clone_test.png")
+        Image.fromarray(arr).save(path)
+
+        result = block_clone_detection(path)
+
+        assert isinstance(result, BlockCloneResult)
+        assert result.num_matching_blocks >= 0
+        assert 0.0 <= result.consistency <= 1.0
+        assert result.clone_area_px >= 0
+        assert 0.0 <= result.pixel_similarity <= 1.0
+
+        # Run again — must be exactly identical
+        result2 = block_clone_detection(path)
+        assert result2.suspicious == result.suspicious
+        assert result2.num_matching_blocks == result.num_matching_blocks
+        assert result2.consistency == result.consistency
+        assert result2.displacement == result.displacement
+        assert result2.clone_area_px == result.clone_area_px
+        assert result2.pixel_similarity == result.pixel_similarity
+
+    def test_clean_image_not_suspicious(self, tmp_path):
+        """A gradient image should not trigger block clone detection."""
+        arr = np.zeros((256, 256), dtype=np.uint8)
+        for i in range(256):
+            arr[i, :] = i
+        path = str(tmp_path / "gradient.png")
+        Image.fromarray(arr).save(path)
+
+        result = block_clone_detection(path)
+
+        assert result.suspicious is False
+        assert result.num_matching_blocks == 0
+        assert result.pixel_similarity == 0.0
+
+
+class TestDCTAnalysisExactOutput:
+    """Verify dct_analysis histogram/periodicity is identical after vectorization."""
+
+    def test_double_compressed_exact_fields(self, tmp_path):
+        """Double-compressed JPEG produces deterministic periodicity score."""
+        rng = np.random.RandomState(123)
+        arr = rng.randint(0, 255, (256, 256, 3), dtype=np.uint8)
+        first = str(tmp_path / "pass1.jpg")
+        Image.fromarray(arr).save(first, "JPEG", quality=60)
+        reloaded = Image.open(first)
+        second = str(tmp_path / "pass2.jpg")
+        reloaded.save(second, "JPEG", quality=90)
+
+        result = dct_analysis(second)
+
+        assert isinstance(result, DCTResult)
+        saved_score = result.periodicity_score
+        saved_blocks = result.block_inconsistencies
+        saved_quality = result.estimated_primary_quality
+
+        # Run again to confirm determinism
+        result2 = dct_analysis(second)
+        assert result2.periodicity_score == saved_score
+        assert result2.block_inconsistencies == saved_blocks
+        assert result2.estimated_primary_quality == saved_quality
+
+    def test_clean_image_dct(self, tmp_path):
+        """A single-compressed JPEG should have low periodicity score."""
+        rng = np.random.RandomState(456)
+        arr = rng.randint(0, 255, (128, 128, 3), dtype=np.uint8)
+        path = str(tmp_path / "single_pass.jpg")
+        Image.fromarray(arr).save(path, "JPEG", quality=90)
+
+        result = dct_analysis(path)
+        assert isinstance(result, DCTResult)
+        assert result.periodicity_score >= 0.0

@@ -14,6 +14,8 @@ Idempotent: skips already-downloaded files. Shows progress with rich.
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
 from pathlib import Path
 
 import httpx
@@ -36,8 +38,12 @@ FIXTURES_DIR = _PACKAGE_DIR / "tests" / "fixtures"
 RSIIL_BASE = "https://raw.githubusercontent.com/phillipecardenuto/rsiil/main"
 
 # Known forgery — figure_forgery.png is a programmatically manipulated image
+# .figs/ illustration images are also forgery samples from the RSIIL repo
 RSIIL_FORGERY_IMAGES = [
     ("notebooks/detection_sample/figure_forgery.png", "figure_forgery.png"),
+    (".figs/compound-data.jpg", "compound_data.jpg"),
+    (".figs/simple-data.jpg", "simple_data.jpg"),
+    (".figs/rsiid.jpg", "rsiid.jpg"),
 ]
 
 # Known clean — pristine reference and a natural (unmanipulated) photograph
@@ -45,6 +51,12 @@ RSIIL_CLEAN_IMAGES = [
     ("notebooks/detection_sample/figure_pristine.png", "figure_pristine.png"),
     ("notebooks/natural_image/natural_image.png", "natural_image.png"),
 ]
+
+# Ground-truth annotation maps — not actual images, exclude from analysis
+RSIIL_MASK_IMAGES = {
+    "figure_forgery_map.png",
+    "figure_pristine_map.png",
+}
 
 # ---- Full RSIIL dataset from Zenodo ----
 RSIIL_ZENODO_URL = "https://zenodo.org/api/records/15095089/files"
@@ -112,6 +124,31 @@ RETRACTED_PAPERS = [
         "desc": "Retracted: Dual-phenotype HCC MRI features (Front Oncol, 2023)",
         "filename": "PMC10808764.pdf",
     },
+    {
+        "pmcid": "PMC6374809",
+        "desc": "Retracted: Western blot band duplication in colorectal cancer (BioMed Res Int)",
+        "filename": "PMC6374809.pdf",
+    },
+    {
+        "pmcid": "PMC8459722",
+        "desc": "Retracted: Systematic Western blot manipulation across figures (PLoS ONE)",
+        "filename": "PMC8459722.pdf",
+    },
+    {
+        "pmcid": "PMC5765828",
+        "desc": "Retracted: Western blot image manipulation (Oncotarget)",
+        "filename": "PMC5765828.pdf",
+    },
+    {
+        "pmcid": "PMC4940002",
+        "desc": "Retracted: data fabrication with manipulated gel images (Tumor Biology)",
+        "filename": "PMC4940002.pdf",
+    },
+    {
+        "pmcid": "PMC5334359",
+        "desc": "Retracted: figure duplication across multiple panels (Oncotarget)",
+        "filename": "PMC5334359.pdf",
+    },
 ]
 
 # ---- d) Bik's 20K Survey Paper ----
@@ -132,6 +169,21 @@ RETRACTION_WATCH_PAPERS = [
         "pmcid": "PMC4148020",
         "desc": "Retracted paper with data fabrication and image issues",
         "filename": "PMC4148020.pdf",
+    },
+    {
+        "pmcid": "PMC10494514",
+        "desc": "Retracted: gastric cancer KDM5C image duplication from 8+ papers",
+        "filename": "PMC10494514.pdf",
+    },
+    {
+        "pmcid": "PMC6003856",
+        "desc": "Retracted: figure manipulation flagged by Bik (PLoS ONE)",
+        "filename": "PMC6003856.pdf",
+    },
+    {
+        "pmcid": "PMC10010624",
+        "desc": "Retracted: miR-29b gastric cancer wound healing image duplication",
+        "filename": "PMC10010624.pdf",
     },
 ]
 
@@ -241,6 +293,31 @@ CLEAN_PAPERS = [
         "desc": "Alexandrov et al. - Mutational signatures in cancer (Nature, 2013)",
         "filename": "PMC3776390.pdf",
     },
+    {
+        "pmcid": "PMC7745181",
+        "desc": "Polack et al. - BNT162b2 COVID-19 vaccine Phase 3 trial (NEJM, 2020)",
+        "filename": "PMC7745181.pdf",
+    },
+    {
+        "pmcid": "PMC7383595",
+        "desc": "RECOVERY trial - Dexamethasone in COVID-19 (NEJM, 2021)",
+        "filename": "PMC7383595.pdf",
+    },
+    {
+        "pmcid": "PMC7164637",
+        "desc": "Wrapp et al. - SARS-CoV-2 spike cryo-EM structure (Science, 2020)",
+        "filename": "PMC7164637.pdf",
+    },
+    {
+        "pmcid": "PMC8728224",
+        "desc": "Varadi et al. - AlphaFold Protein Structure Database (NAR, 2022)",
+        "filename": "PMC8728224.pdf",
+    },
+    {
+        "pmcid": "PMC9812260",
+        "desc": "Tabula Sapiens - Human cell atlas 500K cells (Science, 2022)",
+        "filename": "PMC9812260.pdf",
+    },
 ]
 
 
@@ -269,22 +346,39 @@ def _download_streaming(
 ) -> bool:
     """Stream-download a large file with progress bar.
 
-    Skips if *dest* already exists and has size > 0.  Returns True if a new
-    file was downloaded.
+    Skips if *dest* already exists and its size matches the remote
+    Content-Length.  Removes and re-downloads partial/corrupt files.
+    Returns True if a new file was downloaded.
     """
-    if dest.exists() and dest.stat().st_size > 0:
-        return False
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
         with client.stream("GET", url, follow_redirects=True, timeout=600.0) as resp:
             resp.raise_for_status()
             total = int(resp.headers.get("content-length", 0))
+
+            # Skip if file already exists and is complete
+            if dest.exists() and total > 0 and dest.stat().st_size == total:
+                return False
+            # Remove partial downloads
+            if dest.exists():
+                dest.unlink()
+
             with create_progress() as progress:
                 task = progress.add_task(desc, total=total or None)
                 with open(dest, "wb") as f:
                     for chunk in resp.iter_bytes(chunk_size=8192):
                         f.write(chunk)
                         progress.advance(task, len(chunk))
+
+        # Verify download completeness
+        if total > 0 and dest.stat().st_size != total:
+            console.print(
+                f"  [red]INCOMPLETE[/red] {dest.name}: "
+                f"got {dest.stat().st_size} bytes, expected {total}"
+            )
+            dest.unlink()
+            return False
+
         return True
     except (httpx.HTTPStatusError, httpx.RequestError) as exc:
         logger.warning("Failed to download %s: %s", url, exc)
@@ -293,6 +387,36 @@ def _download_streaming(
         if dest.exists():
             dest.unlink()
         return False
+
+
+def _find_7z() -> str:
+    """Find the native 7z binary, raising a clear error if not installed."""
+    for name in ("7z", "7za"):
+        path = shutil.which(name)
+        if path:
+            return path
+    raise FileNotFoundError(
+        "7z is not installed. Install it with:\n"
+        "  macOS:  brew install p7zip\n"
+        "  Ubuntu: sudo apt install p7zip-full\n"
+        "  Fedora: sudo dnf install p7zip p7zip-plugins"
+    )
+
+
+def _extract_7z(archive_path: Path, target_dir: Path) -> None:
+    """Extract a .7z archive using the native 7z binary with progress."""
+    bin_7z = _find_7z()
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        [bin_7z, "x", str(archive_path), f"-o{target_dir}", "-y", "-bsp1"],
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"7z extraction failed (exit {result.returncode}):\n{result.stderr}"
+        )
 
 
 def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
@@ -306,8 +430,6 @@ def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
     ``{"pristine": 2923, "train": 26496, "test": 12927}``.
     """
     import zipfile
-
-    import py7zr
 
     RSIIL_DATA_DIR.mkdir(parents=True, exist_ok=True)
     counts: dict[str, int] = {}
@@ -337,27 +459,28 @@ def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
             counts[subdir] = 0
             continue
 
-        # Extract
+        # Extract with progress tracking
         console.print(f"  Extracting to [bold]{subdir}/[/bold]...")
         try:
             if archive_name.endswith(".zip"):
                 with zipfile.ZipFile(archive_path, "r") as zf:
-                    for member in zf.namelist():
+                    members = zf.namelist()
+                    target_resolved = str(target_dir.resolve())
+                    for member in members:
                         member_path = (target_dir / member).resolve()
-                        if not str(member_path).startswith(str(target_dir.resolve())):
+                        if not str(member_path).startswith(target_resolved):
                             raise ValueError(
                                 f"Zip Slip detected: {member!r} escapes target directory"
                             )
-                    zf.extractall(target_dir)
+                    with create_progress() as progress:
+                        task = progress.add_task(
+                            f"Extracting {archive_name}", total=len(members)
+                        )
+                        for member in members:
+                            zf.extract(member, target_dir)
+                            progress.advance(task)
             elif archive_name.endswith(".7z"):
-                with py7zr.SevenZipFile(archive_path, "r") as sz:
-                    for member in sz.getnames():
-                        member_path = (target_dir / member).resolve()
-                        if not str(member_path).startswith(str(target_dir.resolve())):
-                            raise ValueError(
-                                f"Zip Slip detected: {member!r} escapes target directory"
-                            )
-                    sz.extractall(target_dir)
+                _extract_7z(archive_path, target_dir)
         except Exception as exc:
             console.print(f"  [red]Extraction failed for {archive_name}: {exc}[/red]")
             counts[subdir] = 0
@@ -377,12 +500,35 @@ def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
     return counts
 
 
+def _is_ground_truth(path: Path) -> bool:
+    """Return True for ground-truth masks and annotation overlays."""
+    name = path.name.lower()
+    return name.endswith("_map.png") or name.endswith("_gt.png")
+
+
+def _is_pristine_ref(path: Path) -> bool:
+    """Return True for pristine reference images in the RSIIL testset."""
+    name = path.name.lower()
+    # Explicit pristine markers in filenames
+    if "_pristine" in name or "_host_pristine" in name:
+        return True
+    # Files under simple/pristine/ are all pristine
+    parts = path.parts
+    if "simple" in parts and "pristine" in parts:
+        return True
+    return False
+
+
 def sample_rsiil_images(sample_size: int = 30, seed: int = 42) -> tuple[list[Path], list[Path]]:
     """Sample images from the full RSIIL Zenodo dataset for demo analysis.
 
     Returns ``(pristine_paths, tampered_paths)`` — each a list of up to
     *sample_size* image paths.  If the Zenodo dataset has not been downloaded
     the returned lists are empty.
+
+    Ground-truth masks (``*_map.png``, ``*_gt.png``) are excluded.  Pristine
+    reference images (``*_pristine*``, files under ``simple/pristine/``) are
+    placed in the pristine pool, not the tampered pool.
     """
     IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
@@ -396,8 +542,23 @@ def sample_rsiil_images(sample_size: int = 30, seed: int = 42) -> tuple[list[Pat
             p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
         )
 
-    pristine_all = _collect(pristine_dir)
-    tampered_all = _collect(test_dir)
+    # Pristine source images (from the zip archive).
+    # Filter out ground-truth masks (*_gt.png, *_map.png) — these are binary
+    # annotations, not real images, and produce extreme forensic artifacts.
+    pristine_all = [p for p in _collect(pristine_dir) if not _is_ground_truth(p)]
+
+    # Testset images need classification: tampered vs pristine vs excluded
+    test_all = _collect(test_dir)
+    tampered_all: list[Path] = []
+    for p in test_all:
+        if _is_ground_truth(p):
+            continue  # skip masks and GT annotations
+        if _is_pristine_ref(p):
+            pristine_all.append(p)
+        else:
+            tampered_all.append(p)
+
+    pristine_all.sort()
 
     if not pristine_all and not tampered_all:
         return [], []
@@ -465,6 +626,11 @@ def generate_synthetic_forgeries() -> int:
         ("spliced_panel_01", "two different noise profiles spliced"),
         ("retouched_01", "heavy blur applied to region"),
         ("retouched_02", "region with different JPEG compression"),
+        ("copymove_gel_03", "gel with smaller copied band region"),
+        ("copymove_flow_01", "flow cytometry-like with cloned dot cluster"),
+        ("spliced_panel_02", "three-region splice with varying noise"),
+        ("retouched_03", "selective sharpening applied to region"),
+        ("copymove_tissue_01", "tissue-like background with copied region"),
     ]
 
     with create_progress() as progress:

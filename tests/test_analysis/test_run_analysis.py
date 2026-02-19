@@ -102,12 +102,115 @@ class TestRunImageForensics:
                 side_effect=Exception("Noise"),
             ),
             patch(
+                "snoopy.analysis.run_analysis.jpeg_ghost_detection",
+                side_effect=Exception("Ghost"),
+            ),
+            patch(
+                "snoopy.analysis.run_analysis.dct_analysis",
+                side_effect=Exception("DCT"),
+            ),
+            patch(
+                "snoopy.analysis.run_analysis.frequency_analysis",
+                side_effect=Exception("FFT"),
+            ),
+            patch(
                 "snoopy.analysis.metadata_forensics.analyze_metadata",
                 side_effect=Exception("Metadata"),
             ),
         ):
             findings = run_image_forensics(sample_image)
         assert findings == []
+
+    def test_jpeg_ghost_findings_in_run_image_forensics(self, sample_image: str) -> None:
+        """JPEG ghost findings appear in run_image_forensics output when suspicious."""
+        ghost_result = JPEGGhostResult(
+            suspicious=True,
+            ghost_regions=[{"r": 1}, {"r": 2}, {"r": 3}],
+            quality_map=[],
+            dominant_quality=75,
+            quality_variance=120.0,
+            details="Multiple ghost regions",
+        )
+        with patch(
+            "snoopy.analysis.run_analysis.jpeg_ghost_detection",
+            return_value=ghost_result,
+        ):
+            findings = run_image_forensics(sample_image, figure_id="test")
+        ghost_findings = [f for f in findings if f["analysis_type"] == "jpeg_ghost"]
+        assert len(ghost_findings) == 1
+        assert ghost_findings[0]["severity"] == "high"
+        assert ghost_findings[0]["evidence"]["ghost_region_count"] == 3
+
+    def test_jpeg_ghost_exception_doesnt_break_pipeline(self, sample_image: str) -> None:
+        """JPEG ghost exception doesn't prevent other methods from running."""
+        with patch(
+            "snoopy.analysis.run_analysis.jpeg_ghost_detection",
+            side_effect=Exception("Ghost boom"),
+        ):
+            findings = run_image_forensics(sample_image)
+        assert isinstance(findings, list)
+        methods = {f.get("analysis_type") for f in findings}
+        assert "jpeg_ghost" not in methods
+
+    def test_dct_findings_in_run_image_forensics(self, sample_image: str) -> None:
+        """DCT findings appear in run_image_forensics output when suspicious."""
+        dct_result = DCTResult(
+            suspicious=True,
+            periodicity_score=0.8,
+            estimated_primary_quality=75,
+            block_inconsistencies=10,
+            details="High periodicity detected",
+        )
+        with patch(
+            "snoopy.analysis.run_analysis.dct_analysis",
+            return_value=dct_result,
+        ):
+            findings = run_image_forensics(sample_image, figure_id="test")
+        dct_findings = [f for f in findings if f["analysis_type"] == "dct_analysis"]
+        assert len(dct_findings) == 1
+        assert dct_findings[0]["severity"] == "high"
+        assert dct_findings[0]["evidence"]["periodicity_score"] == 0.8
+
+    def test_dct_exception_doesnt_break_pipeline(self, sample_image: str) -> None:
+        """DCT exception doesn't prevent other methods from running."""
+        with patch(
+            "snoopy.analysis.run_analysis.dct_analysis",
+            side_effect=Exception("DCT boom"),
+        ):
+            findings = run_image_forensics(sample_image)
+        assert isinstance(findings, list)
+        methods = {f.get("analysis_type") for f in findings}
+        assert "dct_analysis" not in methods
+
+    def test_fft_findings_in_run_image_forensics(self, sample_image: str) -> None:
+        """FFT findings appear in run_image_forensics output when suspicious."""
+        fft_result = FFTResult(
+            suspicious=True,
+            spectral_anomaly_score=6.0,
+            periodic_peaks=[1.0, 2.0],
+            high_freq_ratio=0.3,
+            details="Major spectral anomaly",
+        )
+        with patch(
+            "snoopy.analysis.run_analysis.frequency_analysis",
+            return_value=fft_result,
+        ):
+            findings = run_image_forensics(sample_image, figure_id="test")
+        fft_findings = [f for f in findings if f["analysis_type"] == "fft_analysis"]
+        assert len(fft_findings) == 1
+        assert fft_findings[0]["severity"] == "high"
+        assert fft_findings[0]["evidence"]["spectral_anomaly_score"] == 6.0
+
+    def test_fft_exception_doesnt_break_pipeline(self, sample_image: str) -> None:
+        """FFT exception doesn't prevent other methods from running."""
+        with patch(
+            "snoopy.analysis.run_analysis.frequency_analysis",
+            side_effect=Exception("FFT boom"),
+        ):
+            findings = run_image_forensics(sample_image)
+        assert isinstance(findings, list)
+        methods = {f.get("analysis_type") for f in findings}
+        assert "fft_analysis" not in methods
 
 
 class TestRunIntraPaperCrossRef:
@@ -428,7 +531,7 @@ class TestNoiseSeverityBranches:
 
     def test_noise_high_severity(self, sample_image: str) -> None:
         """Noise with high max_ratio -> high severity."""
-        result = self._make_noise_result(True, max_ratio=25.0)
+        result = self._make_noise_result(True, max_ratio=55.0)
         with patch("snoopy.analysis.run_analysis.noise_analysis", return_value=result):
             findings = run_image_forensics(sample_image, figure_id="test")
         noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
@@ -437,7 +540,7 @@ class TestNoiseSeverityBranches:
 
     def test_noise_medium_severity(self, sample_image: str) -> None:
         """Noise with medium max_ratio -> medium severity."""
-        result = self._make_noise_result(True, max_ratio=12.0)
+        result = self._make_noise_result(True, max_ratio=30.0)
         with patch("snoopy.analysis.run_analysis.noise_analysis", return_value=result):
             findings = run_image_forensics(sample_image, figure_id="test")
         noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
@@ -446,7 +549,7 @@ class TestNoiseSeverityBranches:
 
     def test_noise_low_severity(self, sample_image: str) -> None:
         """Noise with low max_ratio -> low severity."""
-        result = self._make_noise_result(True, max_ratio=6.0)
+        result = self._make_noise_result(True, max_ratio=12.0)
         with patch("snoopy.analysis.run_analysis.noise_analysis", return_value=result):
             findings = run_image_forensics(sample_image, figure_id="test")
         noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
@@ -1230,3 +1333,57 @@ class TestIntraPaperCrossRefBranches:
                 ]
             )
         assert findings == []
+
+
+class TestELANoiseConvergence:
+    """Integration test: ELA z-score formula + noise produce converging evidence."""
+
+    def test_forged_image_convergence(self, sample_image: str) -> None:
+        """ELA + noise with forged-image-level signals produce converging_evidence=True.
+
+        Simulates a forged image: ELA z-score ~18 (max_diff=100, mean=1, std=5.5)
+        and noise max_ratio=inf-like (80). Both should cross the 0.6 convergence
+        gate, resulting in medium+ paper risk.
+        """
+        from snoopy.analysis.evidence import aggregate_findings
+
+        ela_result = ELAResult(
+            suspicious=True,
+            max_difference=100.0,
+            mean_difference=1.0,
+            std_difference=5.5,
+            ela_image_path=None,
+        )
+        noise_result = NoiseResult(
+            suspicious=True,
+            noise_map=[],
+            mean_noise=5.0,
+            noise_std=1.0,
+            max_ratio=80.0,
+        )
+        with (
+            patch(
+                "snoopy.analysis.run_analysis.error_level_analysis",
+                return_value=ela_result,
+            ),
+            patch(
+                "snoopy.analysis.run_analysis.noise_analysis",
+                return_value=noise_result,
+            ),
+        ):
+            findings = run_image_forensics(sample_image, figure_id="fig1")
+
+        # Verify ELA confidence > 0.6 with z-score formula
+        ela_findings = [f for f in findings if f["analysis_type"] == "ela"]
+        assert len(ela_findings) == 1
+        assert ela_findings[0]["confidence"] > 0.6
+
+        # Verify noise confidence > 0.6
+        noise_findings = [f for f in findings if f["analysis_type"] == "noise_analysis"]
+        assert len(noise_findings) == 1
+        assert noise_findings[0]["confidence"] > 0.6
+
+        # Aggregate and check convergence
+        agg = aggregate_findings(findings)
+        assert agg.converging_evidence is True
+        assert agg.paper_risk in ("medium", "high", "critical")

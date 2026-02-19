@@ -417,7 +417,7 @@ class TestRunDemoGeneratesDashboard:
         mock_browser_open.assert_called_once()
 
         # sample_rsiil_images should have been called
-        mock_sample_rsiil.assert_called_once_with(30)
+        mock_sample_rsiil.assert_called_once_with(50)
 
         # Results should be returned
         assert isinstance(results, list)

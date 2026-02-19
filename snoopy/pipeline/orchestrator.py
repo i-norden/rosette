@@ -15,10 +15,8 @@ from snoopy.analysis.cross_reference import compute_ahash, compute_phash
 from snoopy.analysis.evidence import aggregate_findings
 from snoopy.analysis.llm_vision import analyze_figure_detailed, classify_figure, screen_figure
 from snoopy.analysis.run_analysis import (
-    run_dct_analysis,
-    run_frequency_analysis,
     run_image_forensics,
-    run_jpeg_ghost_analysis,
+    run_intra_paper_cross_ref,
     run_sprite_analysis,
     run_statistical_tests,
     run_tortured_phrases,
@@ -337,9 +335,11 @@ class PipelineOrchestrator:
     async def _run_analyze_images_auto(self, paper_id: str) -> None:
         """Run automated image forensics on all figures.
 
-        Uses ``run_image_forensics`` from ``run_analysis.py`` for consistent
-        severity/confidence thresholds, and runs ELA, clone, noise, DCT,
-        JPEG ghost, and FFT in parallel per figure.
+        Uses ``run_image_forensics`` from ``run_analysis.py`` as the single
+        source of truth for per-image analysis (ELA, clone, noise, JPEG ghost,
+        DCT, FFT, metadata). Western blot stays separate (requires LLM figure
+        type classification). After per-figure analysis, runs intra-paper
+        cross-reference on perceptual hashes.
         """
         async with get_async_session() as session:
             result = await session.execute(select(Figure).where(Figure.paper_id == paper_id))
@@ -352,7 +352,8 @@ class PipelineOrchestrator:
 
                 fig_id = str(figure.figure_label or figure.id)
 
-                # Run all forensics methods in parallel via asyncio.gather
+                # run_image_forensics is now the single source of truth for
+                # per-image analysis (ELA, clone, noise, JPEG ghost, DCT, FFT, metadata)
                 tasks: list[Any] = [
                     asyncio.to_thread(
                         run_image_forensics,
@@ -360,27 +361,9 @@ class PipelineOrchestrator:
                         figure_id=fig_id,
                         config=self.config.analysis,
                     ),
-                    asyncio.to_thread(
-                        run_dct_analysis,
-                        img_path,
-                        figure_id=fig_id,
-                        config=self.config.analysis,
-                    ),
-                    asyncio.to_thread(
-                        run_jpeg_ghost_analysis,
-                        img_path,
-                        figure_id=fig_id,
-                        config=self.config.analysis,
-                    ),
-                    asyncio.to_thread(
-                        run_frequency_analysis,
-                        img_path,
-                        figure_id=fig_id,
-                        config=self.config.analysis,
-                    ),
                 ]
 
-                # Wire western blot analysis for appropriate figure types (6.2)
+                # Western blot stays separate (requires LLM figure type classification)
                 is_western = str(figure.image_type or "").lower() in (
                     "western_blot",
                     "gel",
@@ -396,12 +379,45 @@ class PipelineOrchestrator:
 
                 results = await asyncio.gather(*tasks)
 
+                # Methods whose confidence should be discounted on PDF-extracted
+                # figures because normal PDF compression creates artifacts that
+                # mimic manipulation.
+                _COMPRESSION_SENSITIVE = {
+                    "ela", "noise_analysis", "dct_analysis", "jpeg_ghost", "fft_analysis",
+                }
+                _PDF_DISCOUNT = 0.5
+
                 all_findings: list[dict] = []
                 for r in results:
                     all_findings.extend(r)
                 for fd in all_findings:
+                    method = fd.get("analysis_type") or fd.get("method", "")
+                    if method in _COMPRESSION_SENSITIVE:
+                        fd["confidence"] = fd.get("confidence", 0.0) * _PDF_DISCOUNT
                     self._create_finding_from_analysis(
                         session, paper_id, figure, fd.get("analysis_type", "unknown"), fd
+                    )
+
+            # Intra-paper cross-reference using perceptual hashes
+            figure_hash_data = []
+            for figure in figures:
+                figure_hash_data.append(
+                    {
+                        "image": str(figure.figure_label or figure.id),
+                        "phash": figure.phash,
+                        "ahash": figure.ahash,
+                        "width": figure.width or 999,
+                        "height": figure.height or 999,
+                    }
+                )
+
+            cross_ref_findings = await asyncio.to_thread(
+                run_intra_paper_cross_ref, figure_hash_data
+            )
+            if cross_ref_findings and figures:
+                for fd in cross_ref_findings:
+                    self._create_finding_from_analysis(
+                        session, paper_id, figures[0], fd.get("analysis_type", "phash"), fd
                     )
 
     async def _run_analyze_images_llm(self, paper_id: str) -> None:

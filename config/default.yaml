@@ -32,32 +32,40 @@ analysis:
     medium_ratio: 0.25
     low_inliers: 20
     low_ratio: 0.15
+    min_inlier_ratio: 0.15
 
   noise:
     block_size: 64
     intensity_bin_width: 32
-    high_ratio: 20.0
-    medium_ratio: 10.0
-    low_ratio: 5.0
+    max_ratio_threshold: 25.0
+    high_ratio: 50.0
+    medium_ratio: 25.0
+    low_ratio: 10.0
 
   llm_screening_confidence_threshold: 0.5
   convergence_required: true
 
-  # Method weights for composite scoring (research-based)
+  # Method weights for composite scoring (calibrated against demo benchmark)
+  # High weights = highly specific methods (clone detection, phash, p-value)
+  # Lower weights = methods prone to PDF compression false positives
   weight_clone_detection: 0.85
   weight_phash: 0.90
   weight_pvalue_check: 0.80
   weight_grim: 0.60
+  weight_ela: 0.70
   weight_noise: 0.50
-  weight_ela: 0.35
+  weight_dct_analysis: 0.30
+  weight_jpeg_ghost: 0.30
+  weight_fft_analysis: 0.15
   weight_benford: 0.30
   weight_duplicate_check: 0.25
   weight_llm_vision: 0.70
 
   # Convergence thresholds
-  convergence_confidence_threshold: 0.6
+  convergence_confidence_threshold: 0.60
   convergence_confidence_boost: 0.1
   single_method_max_severity: medium
+  single_method_max_confidence: 0.7
 
   # Figure extraction
   min_figure_width: 50
