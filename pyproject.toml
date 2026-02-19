@@ -51,6 +51,9 @@ dev = [
     "bandit>=1.7",
     "pip-audit>=2.7",
 ]
+forge-world = [
+    "forge-world>=0.1.0",
+]
 
 [project.scripts]
 snoopy = "snoopy.cli:main"

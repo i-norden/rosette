@@ -352,6 +352,14 @@ def status(ctx: click.Context) -> None:
     show_default=True,
     help="Random seed for RSIIL sample selection",
 )
+@click.option(
+    "--sample-size",
+    "-M",
+    default=50,
+    type=int,
+    show_default=True,
+    help="Number of RSIIL images to sample per category",
+)
 @click.pass_context
 def demo(
     ctx: click.Context,
@@ -360,6 +368,7 @@ def demo(
     output_dir: str | None,
     download_rsiil: bool,
     seed: int,
+    sample_size: int,
 ) -> None:
     """Run the demo pipeline with test fixtures and pretty output."""
     from snoopy.demo.runner import run_demo
@@ -370,6 +379,7 @@ def demo(
         output_dir=output_dir,
         download_rsiil=download_rsiil,
         seed=seed,
+        sample_size=sample_size,
     )
 
 

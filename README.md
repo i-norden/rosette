@@ -2,7 +2,7 @@
 
 Academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and (optionally) LLM-based analysis.
 
-The analysis pipeline was iteratively refined using an agentic evolutionary metaprogramming harness and a dataset of known manipulated papers, retracted papers, and clean controls, with feedback from real-world investigations. Designed for both one-off analysis and large-scale campaigns.
+The analysis pipeline was iteratively refined using an agentic evolutionary metaprogramming harness and a dataset of known manipulated papers, retracted papers, and clean controls.
 
 ## Quick Start
 
