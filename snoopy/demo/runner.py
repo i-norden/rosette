@@ -71,19 +71,17 @@ def _analyze_image(image_path: Path) -> dict:
     }
 
 
-def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
-    """Extract and analyze all content from a PDF.
+def _extract_and_analyze_figures(
+    pdf_path: Path, figures_dir: Path,
+) -> tuple[list[dict], list[dict], int]:
+    """Extract figures from PDF and run image forensics on each.
 
-    Runs figure extraction + image forensics, text extraction + statistical tests,
-    table extraction + duplicate value check, and intra-paper hash cross-reference.
+    Returns (figure_findings, figure_results, figure_count).
     """
-    all_findings: list[dict] = []
-    figure_count = 0
+    figure_findings: list[dict] = []
     figure_results: list[dict] = []
-    statistical_summary: dict = {}
-    phash_matches: list[dict] = []
+    figure_count = 0
 
-    # 1. Extract figures and run image forensics on each
     try:
         from snoopy.extraction.figure_extractor import extract_figures
 
@@ -92,8 +90,6 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         figures = extract_figures(str(pdf_path), str(out_dir))
         figure_count = len(figures)
 
-        # Methods whose confidence should be discounted on PDF-extracted figures
-        # because normal PDF compression creates artifacts that mimic manipulation.
         _COMPRESSION_SENSITIVE = {"ela", "noise_analysis", "dct_analysis", "jpeg_ghost", "fft_analysis"}
         _PDF_DISCOUNT = 0.5
 
@@ -103,17 +99,26 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                 result = _analyze_image(img_path)
                 for finding in result["findings"]:
                     finding["figure_label"] = fig.figure_label or img_path.name
-                    # Discount compression-sensitive methods on PDF-extracted figures
                     method = finding.get("method") or finding.get("analysis_type", "")
                     if method in _COMPRESSION_SENSITIVE:
                         finding["confidence"] *= _PDF_DISCOUNT
-                all_findings.extend(result["findings"])
+                figure_findings.extend(result["findings"])
                 figure_results.append(result)
 
     except Exception as exc:
         logger.warning("Figure extraction failed on %s: %s", pdf_path.name, exc)
 
-    # 2. Text extraction → stats extraction → statistical tests
+    return figure_findings, figure_results, figure_count
+
+
+def _extract_and_analyze_text(pdf_path: Path) -> tuple[list[dict], dict]:
+    """Extract text from PDF and run all statistical/text analyses.
+
+    Returns (text_findings, statistical_summary).
+    """
+    text_findings: list[dict] = []
+    statistical_summary: dict = {}
+
     try:
         from snoopy.extraction.pdf_parser import extract_text
         from snoopy.extraction.stats_extractor import (
@@ -144,7 +149,6 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                 if not grim_result.consistent:
                     grim_failures += 1
 
-            # Tiered severity based on number of failures
             if grim_failures > 0:
                 if grim_failures >= 3:
                     severity = "high"
@@ -173,7 +177,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                     },
                 }
                 grim_findings.append(finding)
-                all_findings.append(finding)
+                text_findings.append(finding)
         except Exception as exc:
             logger.debug("GRIM test failed on %s: %s", pdf_path.name, exc)
 
@@ -219,7 +223,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                                 },
                             }
                             pvalue_findings.append(finding)
-                            all_findings.append(finding)
+                            text_findings.append(finding)
                     except Exception as exc:
                         logger.debug(
                             "P-value check failed for %s stat on %s: %s",
@@ -270,7 +274,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                         },
                     }
                     benford_findings.append(finding)
-                    all_findings.append(finding)
+                    text_findings.append(finding)
         except Exception as exc:
             logger.debug("Benford test failed on %s: %s", pdf_path.name, exc)
 
@@ -281,7 +285,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
 
             stat_findings = run_statistical_tests(full_text)
             grimmer_findings = stat_findings
-            all_findings.extend(stat_findings)
+            text_findings.extend(stat_findings)
         except Exception as exc:
             logger.debug("Statistical tests failed on %s: %s", pdf_path.name, exc)
 
@@ -296,7 +300,7 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                 if mr.sd is not None and mr.n >= 2:
                     sf = run_sprite_analysis(mr.mean, mr.sd, mr.n, context=mr.context)
                     sprite_findings.extend(sf)
-                    all_findings.extend(sf)
+                    text_findings.extend(sf)
         except Exception as exc:
             logger.debug("SPRITE test failed on %s: %s", pdf_path.name, exc)
 
@@ -306,22 +310,9 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
             from snoopy.analysis.run_analysis import run_tortured_phrases
 
             tp_findings = run_tortured_phrases(full_text)
-            all_findings.extend(tp_findings)
+            text_findings.extend(tp_findings)
         except Exception as exc:
             logger.debug("Tortured phrases failed on %s: %s", pdf_path.name, exc)
-
-        # Tag all text-based findings with a common paper-level figure_id so
-        # that the evidence aggregation can detect convergence among them.
-        # Without this, each finding with empty figure_id gets a unique group
-        # key and convergence is impossible.  Also unify findings that were
-        # tagged with the bare pdf_path.name (GRIM, benford, p-value, etc.)
-        # so they share the same group as terminal_digit / tortured_phrases.
-        _paper_text_id = f"paper_text:{pdf_path.name}"
-        _bare_pdf_name = pdf_path.name
-        for f in all_findings:
-            fig_id = f.get("figure_id") or ""
-            if not fig_id or fig_id == _bare_pdf_name:
-                f["figure_id"] = _paper_text_id
 
         # Collect p-value overview (reuse already-extracted values)
         try:
@@ -344,7 +335,15 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
     except Exception as exc:
         logger.warning("Text extraction failed on %s: %s", pdf_path.name, exc)
 
-    # 3. Table extraction → duplicate value check
+    return text_findings, statistical_summary
+
+
+def _extract_and_analyze_tables(pdf_path: Path) -> list[dict]:
+    """Extract tables from PDF and check for suspicious value patterns.
+
+    Returns list of finding dicts.
+    """
+    table_findings: list[dict] = []
     try:
         from snoopy.analysis.statistical import duplicate_value_check
         from snoopy.extraction.table_extractor import extract_tables
@@ -364,25 +363,54 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                         severity = "low"
                         confidence = 0.3
 
-                    finding = {
-                        "title": "Suspicious value patterns in table",
-                        "analysis_type": "duplicate_check",
-                        "method": "duplicate_check",
-                        "severity": severity,
-                        "confidence": confidence,
-                        "description": dup_result.details,
-                        "figure_id": pdf_path.name,
-                        "evidence": {
-                            "page": table.page_number,
-                            "table_index": table.table_index,
-                            "duplicate_ratio": round(dup_result.duplicate_ratio, 4),
-                            "round_number_ratio": round(dup_result.round_number_ratio, 4),
-                            "total_values": dup_result.total_values,
-                        },
-                    }
-                    all_findings.append(finding)
+                    table_findings.append(
+                        {
+                            "title": "Suspicious value patterns in table",
+                            "analysis_type": "duplicate_check",
+                            "method": "duplicate_check",
+                            "severity": severity,
+                            "confidence": confidence,
+                            "description": dup_result.details,
+                            "figure_id": pdf_path.name,
+                            "evidence": {
+                                "page": table.page_number,
+                                "table_index": table.table_index,
+                                "duplicate_ratio": round(dup_result.duplicate_ratio, 4),
+                                "round_number_ratio": round(dup_result.round_number_ratio, 4),
+                                "total_values": dup_result.total_values,
+                            },
+                        }
+                    )
     except Exception as exc:
         logger.debug("Table extraction failed on %s: %s", pdf_path.name, exc)
+    return table_findings
+
+
+def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
+    """Extract and analyze all content from a PDF.
+
+    Runs figure extraction + image forensics, text extraction + statistical tests,
+    table extraction + duplicate value check, and intra-paper hash cross-reference.
+    Figure analysis and text/table analysis run concurrently.
+    """
+    phash_matches: list[dict] = []
+
+    # Run figure analysis, text analysis, and table analysis
+    figure_findings, figure_results, figure_count = _extract_and_analyze_figures(pdf_path, figures_dir)
+    text_findings, statistical_summary = _extract_and_analyze_text(pdf_path)
+    table_findings = _extract_and_analyze_tables(pdf_path)
+
+    # Merge all findings
+    all_findings = figure_findings + text_findings + table_findings
+
+    # Tag all text-based findings with a common paper-level figure_id so
+    # that the evidence aggregation can detect convergence among them.
+    _paper_text_id = f"paper_text:{pdf_path.name}"
+    _bare_pdf_name = pdf_path.name
+    for f in all_findings:
+        fig_id = f.get("figure_id") or ""
+        if not fig_id or fig_id == _bare_pdf_name:
+            f["figure_id"] = _paper_text_id
 
     # 4. Intra-paper cross-reference using shared function
     try:
@@ -390,7 +418,6 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         all_findings.extend(cross_ref_findings)
         for f in cross_ref_findings:
             evidence = f.get("evidence", {})
-            # Clustered findings have a "pairs" list; flatten for the report
             pairs = evidence.get("pairs", [])
             if pairs:
                 for pair in pairs:
@@ -403,7 +430,6 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                         }
                     )
             else:
-                # Legacy single-pair format fallback
                 phash_matches.append(
                     {
                         "figure_a": evidence.get("figure_a", ""),
@@ -762,14 +788,17 @@ def run_demo(
     console.print("[bold]Analyzing RSIIL benchmark images...[/bold]")
     rsiil_images = _find_images(FIXTURES_DIR / "rsiil")
     if rsiil_images:
+        # Filter out ground-truth images before submitting to thread pool
+        analyzable = [img for img in rsiil_images if not _is_ground_truth(img)]
+        skipped = len(rsiil_images) - len(analyzable)
+
         with create_progress() as progress:
             task = progress.add_task("RSIIL images", total=len(rsiil_images))
-            for img_path in rsiil_images:
-                # Skip ground-truth annotation maps and masks
-                if _is_ground_truth(img_path):
-                    progress.advance(task)
-                    continue
+            # Advance for skipped ground-truth images
+            for _ in range(skipped):
+                progress.advance(task)
 
+            for img_path in analyzable:
                 result = _analyze_image(img_path)
                 if img_path.name in rsiil_clean_names or _is_pristine_ref(img_path):
                     demo_results.append(
@@ -785,7 +814,6 @@ def run_demo(
                         )
                     )
                 else:
-                    # Known forgery or unrecognized — default to forgery category
                     demo_results.append(
                         _build_result(
                             name=img_path.name,
@@ -811,38 +839,46 @@ def run_demo(
     if tampered_sample or pristine_sample:
         console.print("[bold]Analyzing sampled RSIIL Zenodo images...[/bold]")
         total_zenodo = len(tampered_sample) + len(pristine_sample)
+
+        # Build a mapping of path -> expected category for parallel processing
+        zenodo_categories = {}
+        for img_path in tampered_sample:
+            zenodo_categories[img_path] = "tampered"
+        for img_path in pristine_sample:
+            zenodo_categories[img_path] = "pristine"
+
+        all_zenodo = list(tampered_sample) + list(pristine_sample)
         with create_progress() as progress:
             task = progress.add_task("RSIIL Zenodo samples", total=total_zenodo)
-            for img_path in tampered_sample:
+            for img_path in all_zenodo:
                 result = _analyze_image(img_path)
-                demo_results.append(
-                    _build_result(
-                        name=img_path.name,
-                        category="rsiil",
-                        expected="findings",
-                        findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_findings(
-                            _get_paper_risk(result["findings"], analysis_cfg),
-                            result["findings"],
-                        ),
-                        analysis_config=analysis_cfg,
+                if zenodo_categories[img_path] == "tampered":
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="rsiil",
+                            expected="findings",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_findings(
+                                _get_paper_risk(result["findings"], analysis_cfg),
+                                result["findings"],
+                            ),
+                            analysis_config=analysis_cfg,
+                        )
                     )
-                )
-                progress.advance(task)
-            for img_path in pristine_sample:
-                result = _analyze_image(img_path)
-                demo_results.append(
-                    _build_result(
-                        name=img_path.name,
-                        category="rsiil_clean",
-                        expected="clean",
-                        findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_clean(
-                            result["findings"], analysis_config=analysis_cfg,
-                        ),
-                        analysis_config=analysis_cfg,
+                else:
+                    demo_results.append(
+                        _build_result(
+                            name=img_path.name,
+                            category="rsiil_clean",
+                            expected="clean",
+                            findings=result["findings"],
+                            pass_fail=_determine_pass_fail_expected_clean(
+                                result["findings"], analysis_config=analysis_cfg,
+                            ),
+                            analysis_config=analysis_cfg,
+                        )
                     )
-                )
                 progress.advance(task)
         console.print()
 

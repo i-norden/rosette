@@ -46,6 +46,8 @@ def error_level_analysis(
     quality: int = 80,
     min_max_diff: float = 15.0,
     output_dir: str | None = None,
+    *,
+    _preloaded_pil: Image.Image | None = None,
 ) -> ELAResult:
     """Perform Error Level Analysis on an image.
 
@@ -66,7 +68,7 @@ def error_level_analysis(
     Returns:
         ELAResult with suspicion flag and difference statistics.
     """
-    original = Image.open(image_path).convert("RGB")
+    original = _preloaded_pil.copy() if _preloaded_pil is not None else Image.open(image_path).convert("RGB")
 
     # Re-save at the specified JPEG quality into memory
     buffer = io.BytesIO()
@@ -112,6 +114,8 @@ def clone_detection(
     min_matches: int = 30,
     min_inlier_ratio: float = 0.15,
     feature_extractor: str = "sift",
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> CloneResult:
     """Detect copy-move (clone) regions within an image using feature matching.
 
@@ -134,11 +138,13 @@ def clone_detection(
     Returns:
         CloneResult with suspicion flag and match cluster information.
     """
-    img = cv2.imread(image_path)
-    if img is None:
-        return CloneResult(suspicious=False, num_matches=0, match_clusters=[], inlier_ratio=0.0)
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if _preloaded_gray is not None:
+        gray = _preloaded_gray
+    else:
+        img = cv2.imread(image_path)
+        if img is None:
+            return CloneResult(suspicious=False, num_matches=0, match_clusters=[], inlier_ratio=0.0)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     if feature_extractor == "sift":
         # Lower contrastThreshold to detect keypoints in low-texture regions
@@ -274,6 +280,8 @@ def block_clone_detection(
     pixel_mae_threshold: float = 15.0,
     min_pixel_similarity: float = 0.10,
     search_radius: int = 4,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> BlockCloneResult:
     """Detect copy-move forgery using block-based DCT matching with displacement voting.
 
@@ -329,7 +337,7 @@ def block_clone_detection(
         pixel_similarity=0.0,
     )
 
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return _empty
 
@@ -457,6 +465,8 @@ def noise_analysis(
     block_size: int = 64,
     intensity_bin_width: int = 32,
     suspicious_threshold: float = 25.0,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> NoiseResult:
     """Analyse noise level inconsistencies across image blocks.
 
@@ -471,13 +481,15 @@ def noise_analysis(
     Returns:
         NoiseResult with suspicion flag and per-block noise map.
     """
-    img = cv2.imread(image_path)
-    if img is None:
-        return NoiseResult(
-            suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0
-        )
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if _preloaded_gray is not None:
+        gray = _preloaded_gray
+    else:
+        img = cv2.imread(image_path)
+        if img is None:
+            return NoiseResult(
+                suspicious=False, noise_map=[], mean_noise=0.0, noise_std=0.0, max_ratio=0.0
+            )
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
 
     noise_map: list[dict] = []
@@ -570,6 +582,8 @@ class DCTResult:
 def dct_analysis(
     image_path: str,
     periodicity_threshold: float = 0.3,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> DCTResult:
     """Analyse DCT coefficients to detect double JPEG compression.
 
@@ -587,7 +601,7 @@ def dct_analysis(
     Returns:
         DCTResult with suspicion flag and periodicity statistics.
     """
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return DCTResult(
             suspicious=False,
@@ -774,6 +788,8 @@ def jpeg_ghost_detection(
     quality_range: tuple[int, int] = (50, 95),
     step: int = 5,
     block_size: int = 64,
+    *,
+    _preloaded_pil: Image.Image | None = None,
 ) -> JPEGGhostResult:
     """Detect JPEG ghost artifacts revealing mixed compression histories.
 
@@ -795,7 +811,7 @@ def jpeg_ghost_detection(
         JPEGGhostResult with suspicion flag, ghost region info, and quality
         distribution statistics.
     """
-    original = Image.open(image_path).convert("RGB")
+    original = _preloaded_pil.copy() if _preloaded_pil is not None else Image.open(image_path).convert("RGB")
     original_arr = np.array(original, dtype=np.float64)
     h, w = original_arr.shape[:2]
 
@@ -943,6 +959,8 @@ class FFTResult:
 def frequency_analysis(
     image_path: str,
     anomaly_threshold: float = 2.5,
+    *,
+    _preloaded_gray: np.ndarray | None = None,
 ) -> FFTResult:
     """Analyse the frequency spectrum of an image to detect manipulation.
 
@@ -963,7 +981,7 @@ def frequency_analysis(
         FFTResult with suspicion flag, anomaly score, detected peaks, and
         high-frequency energy ratio.
     """
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
         return FFTResult(
             suspicious=False,

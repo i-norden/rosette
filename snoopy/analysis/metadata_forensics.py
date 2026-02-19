@@ -100,10 +100,10 @@ class MetadataForensicsResult:
     details: str = ""
 
 
-def _extract_exif(image_path: str) -> dict[str, str]:
+def _extract_exif(image_path: str, *, _preloaded_pil: Image.Image | None = None) -> dict[str, str]:
     """Extract EXIF metadata as a flat dict of tag-name -> value strings."""
     try:
-        img = Image.open(image_path)
+        img = _preloaded_pil if _preloaded_pil is not None else Image.open(image_path)
         exif_data = img.getexif()
         if not exif_data:
             return {}
@@ -117,10 +117,10 @@ def _extract_exif(image_path: str) -> dict[str, str]:
         return {}
 
 
-def _check_icc_profile(image_path: str) -> str | None:
+def _check_icc_profile(image_path: str, *, _preloaded_pil: Image.Image | None = None) -> str | None:
     """Extract ICC profile description from an image."""
     try:
-        img = Image.open(image_path)
+        img = _preloaded_pil if _preloaded_pil is not None else Image.open(image_path)
         icc = img.info.get("icc_profile")
         if icc and isinstance(icc, bytes):
             # Try to extract the profile description from raw bytes
@@ -152,7 +152,11 @@ def _check_xmp(image_path: str) -> bool:
         return False
 
 
-def analyze_metadata(image_path: str) -> MetadataForensicsResult:
+def analyze_metadata(
+    image_path: str,
+    *,
+    _preloaded_pil: Image.Image | None = None,
+) -> MetadataForensicsResult:
     """Analyze image metadata for signs of editing.
 
     Checks EXIF data, ICC profiles, and XMP metadata for indicators of
@@ -168,7 +172,7 @@ def analyze_metadata(image_path: str) -> MetadataForensicsResult:
     findings: list[MetadataFinding] = []
 
     # Extract EXIF data
-    exif = _extract_exif(image_path)
+    exif = _extract_exif(image_path, _preloaded_pil=_preloaded_pil)
     software = exif.get("Software", "")
     create_date = exif.get("DateTimeOriginal", exif.get("DateTime", ""))
     modify_date = exif.get("DateTime", "")
@@ -222,7 +226,7 @@ def analyze_metadata(image_path: str) -> MetadataForensicsResult:
             pass
 
     # Check ICC profile
-    icc_profile = _check_icc_profile(image_path)
+    icc_profile = _check_icc_profile(image_path, _preloaded_pil=_preloaded_pil)
     if icc_profile:
         icc_lower = icc_profile.lower()
         # Check for editing-associated profiles
