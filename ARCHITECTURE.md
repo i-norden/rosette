@@ -87,10 +87,16 @@ There are three execution paths: the **demo pipeline** (`snoopy demo`) for bench
      │                                                            │
      │  ┌─────────────────────────────────────────────────────┐   │
      │  │             IMAGE FORENSICS (per figure)            │   │
-     │  │  image_forensics.py                                 │   │
-     │  │  - error_level_analysis()  [ELA]                    │   │
-     │  │  - clone_detection()       [ORB + RANSAC]           │   │
-     │  │  - noise_analysis()        [Laplacian variance]     │   │
+     │  │  image_forensics.py + run_analysis.py              │   │
+     │  │  - error_level_analysis()  [ELA, z-score scoring]  │   │
+     │  │  - clone_detection()       [ORB/SIFT + RANSAC]     │   │
+     │  │  - block_clone_detection() [Fridrich DCT blocks]   │   │
+     │  │  - noise_analysis()        [Laplacian variance]    │   │
+     │  │  - dct_analysis()          [double JPEG detect]    │   │
+     │  │  - jpeg_ghost_detection()  [mixed compression]     │   │
+     │  │  - frequency_analysis()    [FFT spectral]          │   │
+     │  │  - analyze_metadata()      [software/ICC checks]   │   │
+     │  │  Images pre-loaded once, shared across methods.    │   │
      │  └─────────────────────────────────────────────────────┘   │
      │                                                            │
      │  ┌─────────────────────────────────────────────────────┐   │
@@ -128,7 +134,8 @@ There are three execution paths: the **demo pipeline** (`snoopy demo`) for bench
      │  evidence.py                                               │
      │                                                            │
      │  - Group findings by figure_id                             │
-     │  - Detect converging evidence (>=2 methods, conf > 0.6)    │
+     │  - Detect converging evidence (>=2 methods,                │
+│  -   conf >= 0.6 AND method weight >= 0.3)                │
      │  - Downgrade single-method high/critical → medium          │
      │  - Boost severity when methods converge (+1 level)         │
      │  - Compute weighted confidence (avg + convergence bonus)   │
@@ -195,18 +202,19 @@ The detection pipeline runs all applicable methods on each input, then aggregate
 │  ╔══════════════════════════════════════════════════════╗ │
 │  ║          PER-FIGURE METHODS (on each image)         ║ │
 │  ║                                                     ║ │
-│  ║  ┌────────────────────────┐  Weight: 0.35           ║ │
-│  ║  │ 1. ELA                 │  Tiered thresholds:     ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.70           ║ │
+│  ║  │ 1. ELA                 │  Z-score + thresholds:  ║ │
 │  ║  │    error_level_        │  max_diff >=25 → low    ║ │
 │  ║  │    analysis()          │  max_diff >=40 → medium ║ │
 │  ║  │                        │  max_diff >=60 → high   ║ │
-│  ║  └────────────────────────┘                         ║ │
+│  ║  └────────────────────────┘  (requires z>3σ above   ║ │
+│  ║                               mean for med/high)    ║ │
 │  ║                                                     ║ │
 │  ║  ┌────────────────────────┐  Weight: 0.85           ║ │
 │  ║  │ 2. Clone Detection     │  Tiered thresholds:     ║ │
 │  ║  │    clone_detection()   │  inliers >=20 → low     ║ │
-│  ║  │    ORB + RANSAC        │  inliers >=40 → medium  ║ │
-│  ║  │                        │  inliers >=60 → high    ║ │
+│  ║  │    ORB/SIFT + RANSAC   │  inliers >=40 → medium  ║ │
+│  ║  │    + Lowe's ratio test │  inliers >=60 → high    ║ │
 │  ║  └────────────────────────┘                         ║ │
 │  ║                                                     ║ │
 │  ║  ┌────────────────────────┐  Weight: 0.50           ║ │
@@ -276,26 +284,26 @@ The detection pipeline runs all applicable methods on each input, then aggregate
 │  ╔══════════════════════════════════════════════════════╗ │
 │  ║      PHASE 2: ADVANCED IMAGE FORENSICS (per fig)   ║ │
 │  ║                                                     ║ │
-│  ║  ┌────────────────────────┐  Weight: 0.70           ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.30           ║ │
 │  ║  │ 10. DCT Analysis       │  Periodicity score:     ║ │
 │  ║  │     dct_analysis()     │  >0.3 → suspicious      ║ │
 │  ║  │     Double JPEG comp.  │  >0.5 → medium          ║ │
-│  ║  │                        │  >0.7 → high            ║ │
-│  ║  └────────────────────────┘                         ║ │
+│  ║  │     + block copy-move  │  >0.7 → high            ║ │
+│  ║  └────────────────────────┘  (compression-sensitive) ║ │
 │  ║                                                     ║ │
-│  ║  ┌────────────────────────┐  Weight: 0.65           ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.30           ║ │
 │  ║  │ 11. JPEG Ghost         │  Ghost regions:         ║ │
 │  ║  │     jpeg_ghost_        │  0 regions → low        ║ │
 │  ║  │     detection()        │  1-2 regions → medium   ║ │
 │  ║  │     Mixed compression  │  3+ regions → high      ║ │
-│  ║  └────────────────────────┘                         ║ │
+│  ║  └────────────────────────┘  (compression-sensitive) ║ │
 │  ║                                                     ║ │
-│  ║  ┌────────────────────────┐  Weight: 0.55           ║ │
+│  ║  ┌────────────────────────┐  Weight: 0.15           ║ │
 │  ║  │ 12. FFT Frequency      │  Spectral score:        ║ │
 │  ║  │     frequency_         │  >2.5 → suspicious      ║ │
 │  ║  │     analysis()         │  >3.0 → medium          ║ │
 │  ║  │     Manipulation det.  │  >5.0 → high            ║ │
-│  ║  └────────────────────────┘                         ║ │
+│  ║  └────────────────────────┘  (compression-sensitive) ║ │
 │  ║                                                     ║ │
 │  ║  ┌────────────────────────┐  (No weight — used for  ║ │
 │  ║  │ 13. Metadata Forensics │   context, not scoring) ║ │
@@ -378,7 +386,8 @@ The detection pipeline runs all applicable methods on each input, then aggregate
          │  1. Group findings by figure_id     │
          │                                     │
          │  2. Per-figure:                     │
-         │     - Count methods with conf > 0.6 │
+         │     - Count methods w/ conf>=0.6    │
+│       AND weight >= 0.3            │
          │     - Converging = 2+ methods       │
          │     - Compute severity (max + boost │
          │       if converging)                │
@@ -418,8 +427,7 @@ Within the detection layer, methods are **not** sequentially ordered — they ru
 | Phase | What runs | Depends on |
 |-------|-----------|------------|
 | **Extraction** | `extract_figures()`, `extract_text()`, `extract_tables()` | PDF input |
-| **Per-figure analysis** | ELA, Clone Detection, Noise Analysis, phash/ahash | Extracted figures |
-| **Advanced image forensics** | DCT Analysis, JPEG Ghost, FFT Frequency, Metadata Forensics | Extracted figures |
+| **Per-figure analysis** | ELA, Clone Detection, Block Clone, Noise, DCT, JPEG Ghost, FFT, Metadata Forensics, phash/ahash (images pre-loaded once) | Extracted figures |
 | **Statistical analysis** | GRIM, p-value recheck, Benford's Law | Extracted text → stats |
 | **Advanced statistical** | GRIMMER, Terminal Digit, Variance Ratio | Extracted text → stats |
 | **Text analysis** | Tortured Phrase Detection | Extracted text |
@@ -429,7 +437,7 @@ Within the detection layer, methods are **not** sequentially ordered — they ru
 | **LLM analysis** (opt-in) | Screening → Detailed (sequential per figure) | Extracted figures |
 | **Aggregation** | `aggregate_findings()` | All findings collected |
 
-For standalone images (not from PDFs), only per-figure methods (ELA, clone detection, noise analysis, phash) apply.
+For standalone images (not from PDFs), all per-figure image methods apply (ELA, clone detection, block-based clone detection, noise analysis, DCT, JPEG ghost, FFT, metadata forensics, phash).
 
 ---
 
@@ -464,7 +472,7 @@ snoopy/
 │   └── table_extractor.py    # pdfplumber: table extraction
 │
 ├── analysis/
-│   ├── image_forensics.py    # OpenCV: ELA, clone detection (ORB+RANSAC), noise analysis
+│   ├── image_forensics.py    # OpenCV: ELA, clone (ORB/SIFT), noise, DCT, JPEG ghost, FFT
 │   ├── statistical.py        # scipy: GRIM, Benford, p-value recheck, duplicate check
 │   ├── cross_reference.py    # imagehash: phash, ahash, distance, cross-paper lookup
 │   ├── llm_vision.py         # LLM vision: screening, detailed analysis, classification
@@ -472,8 +480,9 @@ snoopy/
 │   ├── author_network.py     # Co-author graph analysis (Louvain community detection)
 │   ├── metadata_forensics.py # Metadata-based manipulation detection
 │   ├── western_blot.py       # Western blot-specific analysis
-│   ├── run_analysis.py       # Analysis orchestration and method dispatch
-│   └── sprite.py             # Sprite/gel band analysis
+│   ├── run_analysis.py       # Analysis orchestration: image pre-loading + method dispatch
+│   ├── text_forensics.py     # Tortured phrase detection
+│   └── sprite.py             # SPRITE consistency test for Likert scale data
 │
 ├── llm/
 │   ├── base.py               # LLMProvider protocol / LLMResponse type
@@ -543,21 +552,21 @@ Defined in `AnalysisConfig` (config.py), these weights reflect research-based re
 | Clone Detection | 0.85 | High specificity with RANSAC geometric verification |
 | Tortured Phrases | 0.80 | Strong signal for paper mill output |
 | P-value Recheck | 0.80 | Deterministic mathematical check |
-| DCT Analysis | 0.70 | Reliable double-JPEG compression detector |
+| ELA | 0.70 | Z-score calibrated confidence scoring reduces false positives |
 | Variance Ratio | 0.70 | Detects suspiciously uniform standard deviations |
 | LLM Vision | 0.70 | Good but model-dependent |
-| JPEG Ghost | 0.65 | Detects mixed compression history regions |
 | SPRITE | 0.65 | Mean/SD achievability on Likert scales |
 | GRIM Test | 0.60 | Reliable for integer-scale data |
 | GRIMMER Test | 0.60 | Extends GRIM to SD/N consistency |
-| FFT Frequency | 0.55 | Frequency-domain manipulation detection |
 | Noise Analysis | 0.50 | Moderate — depends on image type |
 | Terminal Digit | 0.45 | Uniformity test on last digits |
-| ELA | 0.35 | High false-positive rate in literature |
+| DCT Analysis | 0.30 | Compression-sensitive — low weight prevents false convergence |
+| JPEG Ghost | 0.30 | Compression-sensitive — low weight prevents false convergence |
 | Benford's Law | 0.30 | Many legitimate non-conformity reasons |
 | Duplicate Check | 0.25 | Highly context-dependent |
+| FFT Frequency | 0.15 | Compression-sensitive — low weight prevents false convergence |
 
-The evidence aggregation system uses convergence (2+ independent methods agreeing) as a stronger signal than any single method's weight.
+Convergence requires 2+ methods with confidence >= 0.6 **and** weight >= 0.3 agreeing on the same figure. Compression-sensitive methods (DCT, JPEG ghost, FFT) have weights <= 0.30, so they contribute to scoring but cannot trigger convergence determination on their own. This prevents PDF extraction artifacts from producing false multi-method agreement.
 
 ---
 
@@ -572,7 +581,7 @@ discover → prioritize → download → extract_text → extract_figures → ex
 ```
 
 The `analyze_images` stage was split into two phases:
-- **`analyze_images_auto`**: Deterministic/CV methods (ELA, clone detection, noise analysis, perceptual hashing) — runs without LLM
+- **`analyze_images_auto`**: Deterministic/CV methods (ELA, clone detection, block-based clone detection, noise analysis, DCT, JPEG ghost, FFT, metadata forensics, perceptual hashing) — runs without LLM
 - **`analyze_images_llm`**: LLM-based screening and detailed analysis — opt-in, runs after auto tier
 
 The legacy stage name `analyze_images` is mapped to both for backward compatibility.

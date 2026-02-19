@@ -647,6 +647,7 @@ def run_demo(
     skip_llm: bool = True,
     output_dir: str | None = None,
     download_rsiil: bool = False,
+    seed: int = 42,
 ) -> list[dict]:
     """Run the full demo pipeline.
 
@@ -655,6 +656,7 @@ def run_demo(
         skip_llm: If True, skip LLM-based analysis.
         output_dir: Directory for HTML reports. Defaults to data/reports/demo/.
         download_rsiil: If True, download the full RSIIL dataset from Zenodo.
+        seed: Random seed for RSIIL sample selection (default: 42).
 
     Returns:
         List of result dicts for the summary dashboard.
@@ -835,7 +837,7 @@ def run_demo(
     # 2b-zenodo) Sampled RSIIL images from full Zenodo dataset (if available)
     from snoopy.demo.fixtures import sample_rsiil_images
 
-    pristine_sample, tampered_sample = sample_rsiil_images(50)
+    pristine_sample, tampered_sample = sample_rsiil_images(50, seed=seed)
     if tampered_sample or pristine_sample:
         console.print("[bold]Analyzing sampled RSIIL Zenodo images...[/bold]")
         total_zenodo = len(tampered_sample) + len(pristine_sample)

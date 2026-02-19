@@ -21,6 +21,7 @@ class TestDemoCommand:
         assert "--skip-llm" in result.output
         assert "--output-dir" in result.output
         assert "--download-rsiil" in result.output
+        assert "--seed" in result.output
 
     @patch("snoopy.cli.init_async_db")
     @patch("snoopy.cli.init_db")
@@ -43,6 +44,7 @@ class TestDemoCommand:
             skip_llm=True,
             output_dir=None,
             download_rsiil=False,
+            seed=42,
         )
 
     @patch("snoopy.cli.init_async_db")
@@ -66,6 +68,7 @@ class TestDemoCommand:
             skip_llm=True,
             output_dir=None,
             download_rsiil=False,
+            seed=42,
         )
 
     @patch("snoopy.cli.init_async_db")
@@ -89,6 +92,7 @@ class TestDemoCommand:
             skip_llm=True,
             output_dir="/tmp/reports",
             download_rsiil=False,
+            seed=42,
         )
 
 

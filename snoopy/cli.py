@@ -345,6 +345,13 @@ def status(ctx: click.Context) -> None:
     is_flag=True,
     help="Download full RSIIL dataset from Zenodo (~57 GB)",
 )
+@click.option(
+    "--seed",
+    default=42,
+    type=int,
+    show_default=True,
+    help="Random seed for RSIIL sample selection",
+)
 @click.pass_context
 def demo(
     ctx: click.Context,
@@ -352,6 +359,7 @@ def demo(
     skip_llm: bool,
     output_dir: str | None,
     download_rsiil: bool,
+    seed: int,
 ) -> None:
     """Run the demo pipeline with test fixtures and pretty output."""
     from snoopy.demo.runner import run_demo
@@ -361,6 +369,7 @@ def demo(
         skip_llm=skip_llm,
         output_dir=output_dir,
         download_rsiil=download_rsiil,
+        seed=seed,
     )
 
 

@@ -1,6 +1,8 @@
 # Snoopy
 
-LLM-powered academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and Claude-based analysis.
+Academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and (optionally) LLM-based analysis.
+
+The analysis pipeline was iteratively refined using an agentic evolutionary metaprogramming harness and a dataset of known manipulated papers, retracted papers, and clean controls, with feedback from real-world investigations. Designed for both one-off analysis and large-scale campaigns.
 
 ## Quick Start
 
@@ -21,7 +23,7 @@ snoopy demo
 ```
 snoopy/
 ├── analysis/          # Detection methods
-│   ├── image_forensics.py   # ELA, clone detection, noise analysis
+│   ├── image_forensics.py   # ELA, clone detection, noise, DCT, JPEG ghost, FFT
 │   ├── statistical.py       # GRIM test, Benford's law, p-value checks
 │   ├── llm_vision.py        # Claude-based figure screening
 │   ├── cross_reference.py   # Perceptual hashing for duplicate figures
@@ -90,8 +92,8 @@ End-to-end showcase of the forensic analysis pipeline. Downloads ~3 GB of test f
 | Clean controls | 21 PDFs | PMC Open Access | Landmark papers (false positive control) |
 
 **Analysis applied per item:**
-- **Images:** ELA, clone detection, noise analysis, perceptual hashing
-- **PDFs:** Figure extraction + image forensics, text extraction + GRIM/Benford tests, table extraction + duplicate value checks, intra-paper cross-reference
+- **Images:** ELA, clone detection (ORB + SIFT), block-based clone detection, noise analysis, DCT analysis, JPEG ghost detection, FFT frequency analysis, metadata forensics, perceptual hashing
+- **PDFs:** Figure extraction + all image forensics, text extraction + GRIM/GRIMMER/Benford/p-value/terminal digit/variance ratio/SPRITE tests + tortured phrase detection, table extraction + duplicate value checks, intra-paper cross-reference
 - **LLM (opt-in):** Claude vision screening and detailed analysis
 
 ```bash
@@ -134,7 +136,8 @@ snoopy campaign create --mode paper_mill --name "Mill cluster" \
 | Method | Module | What It Detects |
 |--------|--------|-----------------|
 | Error Level Analysis | `image_forensics.py` | JPEG re-compression artifacts from editing |
-| Clone Detection | `image_forensics.py` | Copy-move forgery via ORB feature matching |
+| Clone Detection | `image_forensics.py` | Copy-move forgery via ORB/SIFT feature matching + RANSAC |
+| Block-Based Clone Detection | `image_forensics.py` | Fridrich-style copy-move detection for smooth regions |
 | Noise Analysis | `image_forensics.py` | Noise inconsistencies from splicing |
 | DCT Analysis | `image_forensics.py` | Double JPEG compression via DCT coefficient periodicity |
 | JPEG Ghost Detection | `image_forensics.py` | Mixed compression history regions in images |
@@ -153,7 +156,7 @@ snoopy campaign create --mode paper_mill --name "Mill cluster" \
 | Cross-Reference | `cross_reference.py` | Duplicate figures across papers via perceptual hashing |
 | Author Network | `author_network.py` | Suspicious co-author clusters via Louvain community detection |
 
-Findings from multiple methods are aggregated in `evidence.py`. Converging evidence (2+ methods flagging the same figure) boosts confidence and severity.
+Findings from multiple methods are aggregated in `evidence.py`. Converging evidence (2+ methods with confidence >= 0.6 and weight >= 0.3 flagging the same figure) boosts confidence and severity. Compression-sensitive methods (DCT, JPEG ghost, FFT) have weights <= 0.30 so they contribute to scoring but cannot trigger convergence on their own.
 
 ## Notifications
 

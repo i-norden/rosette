@@ -15,10 +15,11 @@ def main() -> None:
     parser.add_argument("--download-only", action="store_true", help="Only download fixtures")
     parser.add_argument("--skip-llm", action="store_true", default=True, help="Skip LLM analysis")
     parser.add_argument("--output-dir", default=None, help="Output directory for HTML reports")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for RSIIL sample selection (default: 42)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    run_demo(download_only=args.download_only, skip_llm=args.skip_llm, output_dir=args.output_dir)
+    run_demo(download_only=args.download_only, skip_llm=args.skip_llm, output_dir=args.output_dir, seed=args.seed)
 
 
 if __name__ == "__main__":
