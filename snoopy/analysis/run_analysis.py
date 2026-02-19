@@ -12,12 +12,14 @@ from pathlib import Path
 
 from snoopy.analysis.cross_reference import hash_distance
 from snoopy.analysis.image_forensics import (
+    BlockCloneResult,
     CloneResult,
     DCTResult,
     ELAResult,
     FFTResult,
     JPEGGhostResult,
     NoiseResult,
+    block_clone_detection,
     clone_detection,
     dct_analysis,
     error_level_analysis,
@@ -50,7 +52,7 @@ def run_image_forensics(
     path_str = str(image_path)
     fig_id = figure_id or Path(image_path).name
 
-    # 1. ELA
+    # 2. ELA
     try:
         ela: ELAResult = error_level_analysis(
             path_str, quality=cfg.ela.quality, output_dir=output_dir
@@ -60,18 +62,21 @@ def run_image_forensics(
             mean_diff = ela.mean_difference
             std_diff = ela.std_difference
 
+            epsilon = 1e-6
+            z_score = (max_diff - mean_diff) / (std_diff + epsilon)
+
             if max_diff >= cfg.ela.high_threshold and max_diff > mean_diff + 3 * std_diff:
                 severity = "high"
-                confidence = min(max_diff / 255.0 * 0.6, 1.0)
+                confidence = min(max(z_score / 15.0, max_diff / 100.0), 0.85)
             elif max_diff >= cfg.ela.medium_threshold and max_diff > mean_diff + 3 * std_diff:
                 severity = "medium"
-                confidence = min(max_diff / 255.0 * 0.5, 1.0)
+                confidence = min(max(z_score / 20.0, max_diff / 70.0), 0.75)
             elif max_diff >= cfg.ela.low_threshold and max_diff > mean_diff + 2 * std_diff:
                 severity = "low"
-                confidence = min(max_diff / 255.0 * 0.4, 1.0)
+                confidence = min(max(z_score / 25.0, max_diff / 50.0), 0.65)
             else:
                 severity = "low"
-                confidence = min(max_diff / 255.0 * 0.3, 1.0)
+                confidence = min(max(z_score / 30.0, max_diff / 60.0), 0.50)
 
             findings.append(
                 {
@@ -98,9 +103,13 @@ def run_image_forensics(
     except Exception as exc:
         logger.exception("ELA unexpected error on %s: %s", fig_id, exc)
 
-    # 2. Clone detection
+    # 3. Clone detection
     try:
-        clone: CloneResult = clone_detection(path_str, min_matches=cfg.clone.min_matches)
+        clone: CloneResult = clone_detection(
+            path_str,
+            min_matches=cfg.clone.min_matches,
+            min_inlier_ratio=cfg.clone.min_inlier_ratio,
+        )
         if clone.suspicious:
             inliers = clone.num_matches
             ratio = clone.inlier_ratio
@@ -143,7 +152,54 @@ def run_image_forensics(
     except Exception as exc:
         logger.exception("Clone detection unexpected error on %s: %s", fig_id, exc)
 
-    # 3. Noise analysis
+    # 3b. Block-based copy-move detection (complementary to keypoint-based)
+    # Detects copy-move in smooth/low-texture regions (gels, blots) where
+    # SIFT finds few keypoints.  Uses DCT features + displacement voting.
+    try:
+        block_clone: BlockCloneResult = block_clone_detection(path_str)
+        if block_clone.suspicious:
+            cons = block_clone.consistency
+            area = block_clone.clone_area_px
+            psim = block_clone.pixel_similarity
+
+            if cons >= 0.7 and psim >= 0.3:
+                severity = "high"
+                confidence = min(0.65 + cons * 0.2, 0.85)
+            elif cons >= 0.5 and psim >= 0.15:
+                severity = "medium"
+                confidence = min(0.45 + cons * 0.3, 0.75)
+            else:
+                severity = "low"
+                confidence = min(0.30 + cons * 0.3, 0.60)
+
+            findings.append(
+                {
+                    "title": "Block-level copy-move detected",
+                    "analysis_type": "clone_detection",
+                    "method": "clone_detection",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": (
+                        f"Block copy-move: {block_clone.num_matching_blocks} matching blocks, "
+                        f"consistency={cons:.2f}, displacement={block_clone.displacement}, "
+                        f"clone area={area}px², pixel similarity={psim:.2f}"
+                    ),
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "num_matching_blocks": block_clone.num_matching_blocks,
+                        "consistency": round(cons, 3),
+                        "displacement": list(block_clone.displacement),
+                        "clone_area_px": area,
+                        "pixel_similarity": round(psim, 3),
+                    },
+                }
+            )
+    except (OSError, ValueError) as exc:
+        logger.warning("Block clone detection failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("Block clone detection unexpected error on %s: %s", fig_id, exc)
+
+    # 4. Noise analysis
     try:
         noise_result: NoiseResult = noise_analysis(
             path_str,
@@ -191,7 +247,124 @@ def run_image_forensics(
     except Exception as exc:
         logger.exception("Noise analysis unexpected error on %s: %s", fig_id, exc)
 
-    # 4. Metadata forensics
+    # 5. JPEG Ghost detection
+    try:
+        ghost_result: JPEGGhostResult = jpeg_ghost_detection(
+            path_str,
+            quality_range=(cfg.jpeg_ghost_quality_range_start, cfg.jpeg_ghost_quality_range_end),
+            step=cfg.jpeg_ghost_step,
+        )
+        if ghost_result.suspicious:
+            n_regions = len(ghost_result.ghost_regions)
+            if n_regions >= 3 or ghost_result.quality_variance > 100:
+                severity = "high"
+                confidence = min(0.85, 0.5 + n_regions * 0.1)
+            elif n_regions >= 1:
+                severity = "medium"
+                confidence = min(0.7, 0.4 + n_regions * 0.1)
+            else:
+                severity = "low"
+                confidence = 0.4
+            findings.append(
+                {
+                    "title": "JPEG ghost regions detected",
+                    "analysis_type": "jpeg_ghost",
+                    "method": "jpeg_ghost",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": ghost_result.details,
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "ghost_region_count": n_regions,
+                        "dominant_quality": ghost_result.dominant_quality,
+                        "quality_variance": round(ghost_result.quality_variance, 2),
+                    },
+                }
+            )
+    except (OSError, ValueError) as exc:
+        logger.warning("JPEG ghost detection failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("JPEG ghost detection unexpected error on %s: %s", fig_id, exc)
+
+    # 6. DCT analysis (double JPEG compression)
+    try:
+        dct_result: DCTResult = dct_analysis(
+            path_str,
+            periodicity_threshold=cfg.dct_periodicity_threshold,
+        )
+        if dct_result.suspicious:
+            score = dct_result.periodicity_score
+            if score > 0.7:
+                severity = "high"
+                confidence = min(score, 0.9)
+            elif score > 0.5:
+                severity = "medium"
+                confidence = min(score * 0.8, 0.75)
+            else:
+                severity = "low"
+                confidence = min(score * 0.6, 0.5)
+
+            findings.append(
+                {
+                    "title": "Double JPEG compression detected (DCT analysis)",
+                    "analysis_type": "dct_analysis",
+                    "method": "dct_analysis",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": dct_result.details,
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "periodicity_score": round(dct_result.periodicity_score, 3),
+                        "estimated_primary_quality": dct_result.estimated_primary_quality,
+                        "block_inconsistencies": dct_result.block_inconsistencies,
+                    },
+                }
+            )
+    except (OSError, ValueError) as exc:
+        logger.warning("DCT analysis failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("DCT analysis unexpected error on %s: %s", fig_id, exc)
+
+    # 7. FFT frequency analysis
+    try:
+        fft_result: FFTResult = frequency_analysis(
+            path_str,
+            anomaly_threshold=cfg.fft_spectral_anomaly_threshold,
+        )
+        if fft_result.suspicious:
+            score = fft_result.spectral_anomaly_score
+            if score > 5.0:
+                severity = "high"
+                confidence = min(score / 10.0, 0.85)
+            elif score > 3.0:
+                severity = "medium"
+                confidence = min(score / 8.0, 0.7)
+            else:
+                severity = "low"
+                confidence = min(score / 6.0, 0.5)
+
+            findings.append(
+                {
+                    "title": "Frequency domain anomaly detected (FFT)",
+                    "analysis_type": "fft_analysis",
+                    "method": "fft_analysis",
+                    "severity": severity,
+                    "confidence": confidence,
+                    "description": fft_result.details,
+                    "figure_id": fig_id,
+                    "evidence": {
+                        "spectral_anomaly_score": round(fft_result.spectral_anomaly_score, 3),
+                        "periodic_peaks": fft_result.periodic_peaks[:5],
+                        "high_freq_ratio": round(fft_result.high_freq_ratio, 4),
+                    },
+                }
+            )
+    except (OSError, ValueError) as exc:
+        logger.warning("FFT analysis failed on %s: %s", fig_id, exc)
+    except Exception as exc:
+        logger.exception("FFT analysis unexpected error on %s: %s", fig_id, exc)
+
+    # 8. Metadata forensics
     try:
         from snoopy.analysis.metadata_forensics import analyze_metadata
 

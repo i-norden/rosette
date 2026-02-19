@@ -542,8 +542,10 @@ def sample_rsiil_images(sample_size: int = 30, seed: int = 42) -> tuple[list[Pat
             p for p in directory.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
         )
 
-    # Pristine source images (from the zip archive)
-    pristine_all = _collect(pristine_dir)
+    # Pristine source images (from the zip archive).
+    # Filter out ground-truth masks (*_gt.png, *_map.png) — these are binary
+    # annotations, not real images, and produce extreme forensic artifacts.
+    pristine_all = [p for p in _collect(pristine_dir) if not _is_ground_truth(p)]
 
     # Testset images need classification: tampered vs pristine vs excluded
     test_all = _collect(test_dir)

@@ -48,6 +48,8 @@ def _get_method(finding: dict) -> str:
 def compute_figure_severity(
     findings: list[dict],
     method_weights: dict[str, float] | None = None,
+    severity_boost_min_weight: float = 0.6,
+    severity_boost_min_confidence: float = 0.5,
 ) -> str:
     """Compute the severity level for a set of findings about a single figure.
 
@@ -58,8 +60,16 @@ def compute_figure_severity(
         findings: List of finding dicts, each expected to have at least
             'severity' and 'method' or 'analysis_type' keys.
         method_weights: Optional mapping of method name to weight (0.0-1.0).
-            When provided, only methods with weight > 0.3 contribute to
-            severity boosting from convergence.
+            When provided, only methods with weight above *severity_boost_min_weight*
+            contribute to severity boosting from convergence.
+        severity_boost_min_weight: Minimum method weight for a method to
+            participate in severity boosting.  Higher values prevent
+            compression-sensitive methods (DCT, JPEG ghost) from inflating
+            severity on compound panels.
+        severity_boost_min_confidence: Minimum finding confidence for a method
+            to participate in severity boosting.  Prevents low-confidence
+            findings (e.g. SIFT clone detection on repetitive textures) from
+            escalating severity.
 
     Returns:
         A severity string: 'critical', 'high', 'medium', 'low', or 'clean'.
@@ -76,9 +86,10 @@ def compute_figure_severity(
         sev = f.get("severity", "low")
         max_severity = max(max_severity, severity_order.get(sev, 0))
         method = _get_method(f)
-        if method:
-            # Only count methods with sufficient weight for convergence
-            if method_weights is None or method_weights.get(method, 0.5) > 0.3:
+        conf = float(f.get("confidence", 0.0))
+        if method and conf >= severity_boost_min_confidence:
+            # Only count methods with sufficient weight for severity boosting
+            if method_weights is None or method_weights.get(method, 0.5) > severity_boost_min_weight:
                 methods.add(method)
 
     # Boost severity if multiple independent methods agree
@@ -141,6 +152,7 @@ def aggregate_findings(
     method_weights: dict[str, float] | None = None,
     single_method_max_severity: str = "medium",
     single_method_max_confidence: float = 0.7,
+    convergence_confidence_threshold: float = 0.6,
 ) -> AggregatedEvidence:
     """Aggregate findings across all analysis methods into a unified assessment.
 
@@ -157,6 +169,10 @@ def aggregate_findings(
         findings: List of finding dictionaries from all analysis methods.
         method_weights: Optional mapping of method name to weight (0.0-1.0).
             Used for weighted confidence averaging.
+        single_method_max_severity: Maximum severity for single-method findings.
+        single_method_max_confidence: Maximum confidence for single-method findings.
+        convergence_confidence_threshold: Minimum confidence for a method to count
+            toward convergence (default 0.6).
 
     Returns:
         AggregatedEvidence with per-figure and overall assessments.
@@ -190,14 +206,18 @@ def aggregate_findings(
     has_critical_converging = False
 
     for fig_id, fig_findings in figure_groups.items():
-        # Determine which independent methods flagged this figure
-        # Only count methods where confidence exceeds 0.6
+        # Determine which independent methods flagged this figure.
+        # Only count methods where confidence meets the convergence threshold
+        # AND the method has sufficient weight (>= 0.3) to be meaningful.
+        # The >= threshold allows compression-sensitive methods (DCT, JPEG ghost)
+        # to corroborate higher-weight methods for convergence determination.
         methods_flagged: set[str] = set()
         for f in fig_findings:
             confidence = float(f.get("confidence", 0.0))
             method = _get_method(f)
-            if confidence > 0.6 and method:
-                methods_flagged.add(method)
+            if confidence >= convergence_confidence_threshold and method:
+                if method_weights is None or method_weights.get(method, 0.5) >= 0.3:
+                    methods_flagged.add(method)
 
         converging = len(methods_flagged) >= 2
         if converging:

@@ -11,6 +11,7 @@ from pathlib import Path
 from snoopy.analysis.cross_reference import compute_ahash, compute_phash
 from snoopy.analysis.evidence import aggregate_findings
 from snoopy.analysis.run_analysis import run_image_forensics, run_intra_paper_cross_ref
+from snoopy.config import AnalysisConfig
 from snoopy.reporting.dashboard import generate_dashboard
 from snoopy.reporting.pretty import (
     console,
@@ -91,12 +92,21 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         figures = extract_figures(str(pdf_path), str(out_dir))
         figure_count = len(figures)
 
+        # Methods whose confidence should be discounted on PDF-extracted figures
+        # because normal PDF compression creates artifacts that mimic manipulation.
+        _COMPRESSION_SENSITIVE = {"ela", "noise_analysis", "dct_analysis", "jpeg_ghost", "fft_analysis"}
+        _PDF_DISCOUNT = 0.5
+
         for fig in figures:
             img_path = Path(fig.image_path)
             if img_path.exists():
                 result = _analyze_image(img_path)
                 for finding in result["findings"]:
                     finding["figure_label"] = fig.figure_label or img_path.name
+                    # Discount compression-sensitive methods on PDF-extracted figures
+                    method = finding.get("method") or finding.get("analysis_type", "")
+                    if method in _COMPRESSION_SENSITIVE:
+                        finding["confidence"] *= _PDF_DISCOUNT
                 all_findings.extend(result["findings"])
                 figure_results.append(result)
 
@@ -264,6 +274,55 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
         except Exception as exc:
             logger.debug("Benford test failed on %s: %s", pdf_path.name, exc)
 
+        # 2d. Advanced statistical tests (GRIMMER, variance ratio, terminal digit)
+        grimmer_findings: list[dict] = []
+        try:
+            from snoopy.analysis.run_analysis import run_statistical_tests
+
+            stat_findings = run_statistical_tests(full_text)
+            grimmer_findings = stat_findings
+            all_findings.extend(stat_findings)
+        except Exception as exc:
+            logger.debug("Statistical tests failed on %s: %s", pdf_path.name, exc)
+
+        # 2e. SPRITE consistency test
+        sprite_findings: list[dict] = []
+        try:
+            from snoopy.analysis.run_analysis import run_sprite_analysis
+            from snoopy.extraction.stats_extractor import extract_means_sds_and_ns
+
+            mean_sd_reports = extract_means_sds_and_ns(full_text)
+            for mr in mean_sd_reports:
+                if mr.sd is not None and mr.n >= 2:
+                    sf = run_sprite_analysis(mr.mean, mr.sd, mr.n, context=mr.context)
+                    sprite_findings.extend(sf)
+                    all_findings.extend(sf)
+        except Exception as exc:
+            logger.debug("SPRITE test failed on %s: %s", pdf_path.name, exc)
+
+        # 2f. Tortured phrase detection
+        tp_findings: list[dict] = []
+        try:
+            from snoopy.analysis.run_analysis import run_tortured_phrases
+
+            tp_findings = run_tortured_phrases(full_text)
+            all_findings.extend(tp_findings)
+        except Exception as exc:
+            logger.debug("Tortured phrases failed on %s: %s", pdf_path.name, exc)
+
+        # Tag all text-based findings with a common paper-level figure_id so
+        # that the evidence aggregation can detect convergence among them.
+        # Without this, each finding with empty figure_id gets a unique group
+        # key and convergence is impossible.  Also unify findings that were
+        # tagged with the bare pdf_path.name (GRIM, benford, p-value, etc.)
+        # so they share the same group as terminal_digit / tortured_phrases.
+        _paper_text_id = f"paper_text:{pdf_path.name}"
+        _bare_pdf_name = pdf_path.name
+        for f in all_findings:
+            fig_id = f.get("figure_id") or ""
+            if not fig_id or fig_id == _bare_pdf_name:
+                f["figure_id"] = _paper_text_id
+
         # Collect p-value overview (reuse already-extracted values)
         try:
             p_values = extract_p_values(full_text)
@@ -275,6 +334,9 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
                 "grim_findings": len(grim_findings),
                 "pvalue_findings": len(pvalue_findings),
                 "benford_findings": len(benford_findings),
+                "grimmer_findings": len(grimmer_findings),
+                "sprite_findings": len(sprite_findings),
+                "tortured_phrase_findings": len(tp_findings),
             }
         except Exception as exc:
             logger.debug("Stats summary failed on %s: %s", pdf_path.name, exc)
@@ -383,9 +445,17 @@ def _build_result(
     findings: list[dict],
     pass_fail: bool,
     extra: dict | None = None,
+    analysis_config: AnalysisConfig | None = None,
 ) -> dict:
     """Build a standardized result dict using aggregate_findings()."""
-    aggregated = aggregate_findings(findings)
+    cfg = analysis_config or AnalysisConfig()
+    aggregated = aggregate_findings(
+        findings,
+        method_weights=cfg.method_weights,
+        single_method_max_severity=cfg.single_method_max_severity,
+        single_method_max_confidence=cfg.single_method_max_confidence,
+        convergence_confidence_threshold=cfg.convergence_confidence_threshold,
+    )
 
     result = {
         "name": name,
@@ -404,16 +474,44 @@ def _build_result(
     return result
 
 
+def _get_paper_risk(findings: list[dict], config: AnalysisConfig | None = None) -> str:
+    """Compute paper risk using config-aware aggregation."""
+    cfg = config or AnalysisConfig()
+    return aggregate_findings(
+        findings,
+        method_weights=cfg.method_weights,
+        single_method_max_severity=cfg.single_method_max_severity,
+        single_method_max_confidence=cfg.single_method_max_confidence,
+        convergence_confidence_threshold=cfg.convergence_confidence_threshold,
+    ).paper_risk
+
+
 def _determine_pass_fail_expected_findings(aggregated_risk: str, findings: list[dict]) -> bool:
-    """For items expected to have findings, pass if any findings exist."""
-    return len(findings) > 0
+    """For items expected to have findings, pass if risk is at least medium.
+
+    A few low-confidence noise findings shouldn't count as "detected" —
+    the risk level must be medium or higher to be a meaningful detection.
+    """
+    if not findings:
+        return False
+    return aggregated_risk in ("medium", "high", "critical")
 
 
-def _determine_pass_fail_expected_clean(findings: list[dict]) -> bool:
+def _determine_pass_fail_expected_clean(
+    findings: list[dict],
+    analysis_config: AnalysisConfig | None = None,
+) -> bool:
     """For clean items, fail only if aggregated paper risk is high/critical."""
     if not findings:
         return True
-    aggregated = aggregate_findings(findings)
+    cfg = analysis_config or AnalysisConfig()
+    aggregated = aggregate_findings(
+        findings,
+        method_weights=cfg.method_weights,
+        single_method_max_severity=cfg.single_method_max_severity,
+        single_method_max_confidence=cfg.single_method_max_confidence,
+        convergence_confidence_threshold=cfg.convergence_confidence_threshold,
+    )
     return aggregated.paper_risk not in ("critical", "high")
 
 
@@ -503,7 +601,14 @@ async def _run_llm_analysis(
 
         # Re-aggregate findings after LLM additions
         if image_paths:
-            aggregated = aggregate_findings(findings)
+            cfg = AnalysisConfig()
+            aggregated = aggregate_findings(
+                findings,
+                method_weights=cfg.method_weights,
+                single_method_max_severity=cfg.single_method_max_severity,
+                single_method_max_confidence=cfg.single_method_max_confidence,
+                convergence_confidence_threshold=cfg.convergence_confidence_threshold,
+            )
             result["actual_risk"] = aggregated.paper_risk
             result["overall_confidence"] = aggregated.overall_confidence
             result["converging_evidence"] = aggregated.converging_evidence
@@ -529,6 +634,9 @@ def run_demo(
         List of result dicts for the summary dashboard.
     """
     from snoopy.demo.fixtures import download_all
+
+    # Load analysis config for evidence aggregation (weights, thresholds)
+    analysis_cfg = AnalysisConfig()
 
     report_dir = Path(output_dir) if output_dir else _PACKAGE_DIR / "data" / "reports" / "demo"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -637,9 +745,10 @@ def run_demo(
                         expected="findings",
                         findings=result["findings"],
                         pass_fail=_determine_pass_fail_expected_findings(
-                            aggregate_findings(result["findings"]).paper_risk,
+                            _get_paper_risk(result["findings"], analysis_cfg),
                             result["findings"],
                         ),
+                        analysis_config=analysis_cfg,
                     )
                 )
                 progress.advance(task)
@@ -669,7 +778,10 @@ def run_demo(
                             category="rsiil_clean",
                             expected="clean",
                             findings=result["findings"],
-                            pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                            pass_fail=_determine_pass_fail_expected_clean(
+                                result["findings"], analysis_config=analysis_cfg,
+                            ),
+                            analysis_config=analysis_cfg,
                         )
                     )
                 else:
@@ -681,9 +793,10 @@ def run_demo(
                             expected="findings",
                             findings=result["findings"],
                             pass_fail=_determine_pass_fail_expected_findings(
-                                aggregate_findings(result["findings"]).paper_risk,
+                                _get_paper_risk(result["findings"], analysis_cfg),
                                 result["findings"],
                             ),
+                            analysis_config=analysis_cfg,
                         )
                     )
                 progress.advance(task)
@@ -709,9 +822,10 @@ def run_demo(
                         expected="findings",
                         findings=result["findings"],
                         pass_fail=_determine_pass_fail_expected_findings(
-                            aggregate_findings(result["findings"]).paper_risk,
+                            _get_paper_risk(result["findings"], analysis_cfg),
                             result["findings"],
                         ),
+                        analysis_config=analysis_cfg,
                     )
                 )
                 progress.advance(task)
@@ -723,7 +837,10 @@ def run_demo(
                         category="rsiil_clean",
                         expected="clean",
                         findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        pass_fail=_determine_pass_fail_expected_clean(
+                            result["findings"], analysis_config=analysis_cfg,
+                        ),
+                        analysis_config=analysis_cfg,
                     )
                 )
                 progress.advance(task)
@@ -744,13 +861,14 @@ def run_demo(
                         expected="findings",
                         findings=result["findings"],
                         pass_fail=_determine_pass_fail_expected_findings(
-                            aggregate_findings(result["findings"]).paper_risk,
+                            _get_paper_risk(result["findings"], analysis_cfg),
                             result["findings"],
                         ),
                         extra={
                             "statistical_summary": result.get("statistical_summary", {}),
                             "phash_matches": result.get("phash_matches", []),
                         },
+                        analysis_config=analysis_cfg,
                     )
                 )
                 progress.advance(task)
@@ -773,6 +891,7 @@ def run_demo(
                     "statistical_summary": result.get("statistical_summary", {}),
                     "phash_matches": result.get("phash_matches", []),
                 },
+                analysis_config=analysis_cfg,
             )
         )
     console.print()
@@ -788,13 +907,14 @@ def run_demo(
                 expected="findings",
                 findings=result["findings"],
                 pass_fail=_determine_pass_fail_expected_findings(
-                    aggregate_findings(result["findings"]).paper_risk,
+                    _get_paper_risk(result["findings"], analysis_cfg),
                     result["findings"],
                 ),
                 extra={
                     "statistical_summary": result.get("statistical_summary", {}),
                     "phash_matches": result.get("phash_matches", []),
                 },
+                analysis_config=analysis_cfg,
             )
         )
     console.print()
@@ -813,11 +933,14 @@ def run_demo(
                         category="clean",
                         expected="clean",
                         findings=result["findings"],
-                        pass_fail=_determine_pass_fail_expected_clean(result["findings"]),
+                        pass_fail=_determine_pass_fail_expected_clean(
+                            result["findings"], analysis_config=analysis_cfg,
+                        ),
                         extra={
                             "statistical_summary": result.get("statistical_summary", {}),
                             "phash_matches": result.get("phash_matches", []),
                         },
+                        analysis_config=analysis_cfg,
                     )
                 )
                 progress.advance(task)

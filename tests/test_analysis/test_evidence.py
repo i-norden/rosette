@@ -109,17 +109,28 @@ class TestSeverity:
         assert compute_figure_severity([]) == "clean"
 
     def test_single_finding(self):
-        result = compute_figure_severity([{"severity": "medium", "method": "ela"}])
+        result = compute_figure_severity([{"severity": "medium", "method": "ela", "confidence": 0.7}])
         assert result == "medium"
 
     def test_boosted_with_multiple_methods(self):
         result = compute_figure_severity(
             [
-                {"severity": "medium", "method": "ela"},
-                {"severity": "medium", "method": "clone"},
+                {"severity": "medium", "method": "ela", "confidence": 0.7},
+                {"severity": "medium", "method": "clone", "confidence": 0.7},
             ]
         )
         assert result == "high"  # Boosted from medium
+
+    def test_low_confidence_excluded_from_severity_boost(self):
+        """Low-confidence findings should not contribute to severity boosting."""
+        result = compute_figure_severity(
+            [
+                {"severity": "high", "method": "clone_detection", "confidence": 0.38},
+                {"severity": "medium", "method": "ela", "confidence": 0.60},
+            ]
+        )
+        # clone_detection confidence 0.38 < 0.5 threshold → only 1 method eligible → no boost
+        assert result == "high"  # Not boosted to critical
 
 
 class TestConfidence:
@@ -161,8 +172,8 @@ class TestMethodWeights:
     def test_low_weight_method_excluded_from_convergence(self):
         """Methods with weight <= 0.3 should not count for convergence."""
         findings = [
-            {"severity": "medium", "method": "clone_detection"},
-            {"severity": "medium", "method": "weak_method"},
+            {"severity": "medium", "method": "clone_detection", "confidence": 0.8},
+            {"severity": "medium", "method": "weak_method", "confidence": 0.8},
         ]
         weights = {"clone_detection": 0.85, "weak_method": 0.2}
 
@@ -173,8 +184,8 @@ class TestMethodWeights:
     def test_high_weight_methods_enable_convergence(self):
         """Two high-weight methods should enable convergence boost."""
         findings = [
-            {"severity": "medium", "method": "clone_detection"},
-            {"severity": "medium", "method": "phash"},
+            {"severity": "medium", "method": "clone_detection", "confidence": 0.8},
+            {"severity": "medium", "method": "phash", "confidence": 0.8},
         ]
         weights = {"clone_detection": 0.85, "phash": 0.90}
 

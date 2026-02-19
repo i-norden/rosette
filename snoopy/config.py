@@ -64,6 +64,7 @@ class CloneConfig(BaseModel):
     medium_ratio: float = 0.25
     low_inliers: int = 20
     low_ratio: float = 0.15
+    min_inlier_ratio: float = 0.15
     spatial_distance: float = 20.0
     ransac_threshold: float = 5.0
     cluster_radius: float = 50.0
@@ -108,30 +109,36 @@ class AnalysisConfig(BaseModel):
     llm_screening_confidence_threshold: float = 0.5
     convergence_required: bool = True
 
-    # Method weights for composite scoring (research-based)
+    # Method weights for composite scoring (calibrated against demo benchmark)
+    # High weights = highly specific methods (clone detection, phash, p-value)
+    # Lower weights = methods prone to PDF compression false positives
     weight_clone_detection: float = Field(default=0.85, ge=0.0, le=1.0)
     weight_phash: float = Field(default=0.90, ge=0.0, le=1.0)
     weight_pvalue_check: float = Field(default=0.80, ge=0.0, le=1.0)
     weight_grim: float = Field(default=0.60, ge=0.0, le=1.0)
     weight_noise: float = Field(default=0.50, ge=0.0, le=1.0)
-    weight_ela: float = Field(default=0.35, ge=0.0, le=1.0)
+    weight_ela: float = Field(default=0.70, ge=0.0, le=1.0)
     weight_benford: float = Field(default=0.30, ge=0.0, le=1.0)
     weight_duplicate_check: float = Field(default=0.25, ge=0.0, le=1.0)
     weight_llm_vision: float = Field(default=0.70, ge=0.0, le=1.0)
 
-    # Convergence thresholds (previously magic numbers)
-    convergence_confidence_threshold: float = 0.6
+    # Convergence thresholds
+    convergence_confidence_threshold: float = 0.60
     convergence_confidence_boost: float = 0.1
     single_method_max_severity: str = "medium"
+    single_method_max_confidence: float = 0.7
 
     # Figure extraction
     min_figure_width: int = 50
     min_figure_height: int = 50
 
-    # Phase 2 new detection method weights
-    weight_dct_analysis: float = Field(default=0.70, ge=0.0, le=1.0)
-    weight_jpeg_ghost: float = Field(default=0.65, ge=0.0, le=1.0)
-    weight_fft_analysis: float = Field(default=0.55, ge=0.0, le=1.0)
+    # Phase 2 new detection method weights.
+    # Compression-sensitive methods (DCT, JPEG ghost, FFT) get weight <= 0.30
+    # so they contribute to scoring but NOT to convergence determination
+    # (convergence requires weight > 0.3).
+    weight_dct_analysis: float = Field(default=0.30, ge=0.0, le=1.0)
+    weight_jpeg_ghost: float = Field(default=0.30, ge=0.0, le=1.0)
+    weight_fft_analysis: float = Field(default=0.15, ge=0.0, le=1.0)
     weight_grimmer: float = Field(default=0.60, ge=0.0, le=1.0)
     weight_terminal_digit: float = Field(default=0.45, ge=0.0, le=1.0)
     weight_distribution_fit: float = Field(default=0.40, ge=0.0, le=1.0)
@@ -153,6 +160,32 @@ class AnalysisConfig(BaseModel):
 
     # SSIM cross-reference
     ssim_duplicate_threshold: float = 0.95
+
+    @property
+    def method_weights(self) -> dict[str, float]:
+        """Build a method-name → weight mapping for evidence aggregation."""
+        return {
+            "ela": self.weight_ela,
+            "clone_detection": self.weight_clone_detection,
+            "noise_analysis": self.weight_noise,
+            "dct_analysis": self.weight_dct_analysis,
+            "jpeg_ghost": self.weight_jpeg_ghost,
+            "fft_analysis": self.weight_fft_analysis,
+            "metadata_forensics": 0.3,
+            "phash": self.weight_phash,
+            "grim": self.weight_grim,
+            "pvalue_check": self.weight_pvalue_check,
+            "benford": self.weight_benford,
+            "duplicate_check": self.weight_duplicate_check,
+            "llm_vision": self.weight_llm_vision,
+            "llm_screening": self.weight_llm_vision,
+            "grimmer": self.weight_grimmer,
+            "terminal_digit": self.weight_terminal_digit,
+            "distribution_fit": self.weight_distribution_fit,
+            "variance_ratio": self.weight_variance_ratio,
+            "tortured_phrases": self.weight_tortured_phrases,
+            "sprite": self.weight_sprite,
+        }
 
 
 class CampaignConfig(BaseModel):

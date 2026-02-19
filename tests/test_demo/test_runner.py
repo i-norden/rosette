@@ -68,8 +68,15 @@ class TestCollectMethods:
 
 
 class TestPassFailDetermination:
-    def test_expected_findings_pass_when_findings_exist(self):
+    def test_expected_findings_pass_when_risk_medium_or_above(self):
+        assert _determine_pass_fail_expected_findings("medium", [{"severity": "medium"}]) is True
         assert _determine_pass_fail_expected_findings("high", [{"severity": "high"}]) is True
+        assert _determine_pass_fail_expected_findings("critical", [{"severity": "critical"}]) is True
+
+    def test_expected_findings_fail_when_risk_low_or_clean(self):
+        # Low/clean risk should NOT count as "detected" even if findings exist
+        assert _determine_pass_fail_expected_findings("low", [{"severity": "low"}]) is False
+        assert _determine_pass_fail_expected_findings("clean", [{"severity": "low"}]) is False
 
     def test_expected_findings_fail_when_empty(self):
         assert _determine_pass_fail_expected_findings("clean", []) is False
@@ -146,6 +153,123 @@ class TestBuildResult:
             extra={"statistical_summary": {"grim_findings": 2}},
         )
         assert result["statistical_summary"]["grim_findings"] == 2
+
+
+class TestAnalyzePdfTextAnalyses:
+    """Tests that _analyze_pdf produces text-based analysis findings."""
+
+    def test_analyze_pdf_produces_statistical_findings(self, tmp_path):
+        """_analyze_pdf produces GRIMMER, SPRITE, and tortured phrase findings."""
+        from snoopy.demo.runner import _analyze_pdf
+
+        pdf_path = tmp_path / "test.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake")
+        figures_dir = tmp_path / "figures"
+        figures_dir.mkdir()
+
+        # Mock figure extraction to return no figures (focus on text analyses)
+        # Mock text extraction to return text
+        mock_page = type("Page", (), {"text": "Sample text M=3.5, SD=1.2, N=10"})()
+
+        grimmer_finding = {
+            "title": "GRIMMER inconsistency",
+            "analysis_type": "grimmer",
+            "method": "grimmer",
+            "severity": "high",
+            "confidence": 0.8,
+            "description": "SD inconsistent",
+            "figure_id": "",
+            "evidence": {},
+        }
+        sprite_finding = {
+            "title": "SPRITE inconsistency",
+            "analysis_type": "sprite",
+            "method": "sprite",
+            "severity": "high",
+            "confidence": 0.8,
+            "description": "Mean not achievable",
+            "figure_id": "",
+            "evidence": {},
+        }
+        tp_finding = {
+            "title": "Tortured phrases detected (3 unique)",
+            "analysis_type": "tortured_phrases",
+            "method": "tortured_phrases",
+            "severity": "high",
+            "confidence": 0.85,
+            "description": "Found tortured phrases",
+            "figure_id": "",
+            "evidence": {},
+        }
+
+        from snoopy.extraction.stats_extractor import MeanReport
+
+        mean_report = MeanReport(mean=3.5, sd=1.2, n=10, context="test")
+
+        with (
+            patch(
+                "snoopy.extraction.figure_extractor.extract_figures",
+                return_value=[],
+            ),
+            patch(
+                "snoopy.extraction.pdf_parser.extract_text",
+                return_value=[mock_page],
+            ),
+            patch(
+                "snoopy.analysis.statistical.grim_test",
+                return_value=type("R", (), {"consistent": True})(),
+            ),
+            patch(
+                "snoopy.extraction.stats_extractor.extract_means_and_ns",
+                return_value=[],
+            ),
+            patch(
+                "snoopy.extraction.stats_extractor.extract_test_statistics",
+                return_value=[],
+            ),
+            patch(
+                "snoopy.extraction.stats_extractor.extract_numerical_values",
+                return_value=[],
+            ),
+            patch(
+                "snoopy.extraction.stats_extractor.extract_p_values",
+                return_value=[],
+            ),
+            patch(
+                "snoopy.extraction.table_extractor.extract_tables",
+                return_value=[],
+            ),
+            patch(
+                "snoopy.analysis.run_analysis.run_statistical_tests",
+                return_value=[grimmer_finding],
+            ),
+            patch(
+                "snoopy.extraction.stats_extractor.extract_means_sds_and_ns",
+                return_value=[mean_report],
+            ),
+            patch(
+                "snoopy.analysis.run_analysis.run_sprite_analysis",
+                return_value=[sprite_finding],
+            ),
+            patch(
+                "snoopy.analysis.run_analysis.run_tortured_phrases",
+                return_value=[tp_finding],
+            ),
+        ):
+            result = _analyze_pdf(pdf_path, figures_dir)
+
+        # Verify findings from all three text-based analyses are present
+        analysis_types = {f["analysis_type"] for f in result["findings"]}
+        assert "grimmer" in analysis_types
+        assert "sprite" in analysis_types
+        assert "tortured_phrases" in analysis_types
+        assert result["num_findings"] >= 3
+
+        # Verify statistical summary includes new counts
+        summary = result.get("statistical_summary", {})
+        assert summary.get("grimmer_findings", 0) >= 1
+        assert summary.get("sprite_findings", 0) >= 1
+        assert summary.get("tortured_phrase_findings", 0) >= 1
 
 
 class TestRunDemo:
