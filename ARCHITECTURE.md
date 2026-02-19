@@ -515,9 +515,6 @@ snoopy/
 │   ├── migrations.py         # Schema migrations
 │   └── alembic/              # Alembic migration scripts
 │
-├── notifications/
-│   └── webhook.py            # Webhook notification dispatch
-│
 └── reporting/
     ├── dashboard.py          # HTML dashboard generation (demo results overview)
     ├── proof.py              # Per-paper HTML/Markdown evidence reports

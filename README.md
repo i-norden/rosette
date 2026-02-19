@@ -46,7 +46,6 @@ snoopy/
 ├── llm/               # Claude API provider with retry and batch support
 ├── pipeline/          # Multi-stage orchestrator with resumability
 ├── reporting/         # Reports, dashboards, Rich terminal output
-├── notifications/     # Webhook notifications
 ├── db/                # SQLAlchemy models + Alembic migrations
 ├── cli.py             # Click CLI entry point
 ├── cli_campaign.py    # Campaign CLI commands
@@ -158,26 +157,6 @@ snoopy campaign create --mode paper_mill --name "Mill cluster" \
 
 Findings from multiple methods are aggregated in `evidence.py`. Converging evidence (2+ methods with confidence >= 0.6 and weight >= 0.3 flagging the same figure) boosts confidence and severity. Compression-sensitive methods (DCT, JPEG ghost, FFT) have weights <= 0.30 so they contribute to scoring but cannot trigger convergence on their own.
 
-## Notifications
-
-Snoopy supports webhook notifications for delivering analysis results to external systems.
-
-```python
-from snoopy.notifications.webhook import WebhookNotifier
-
-notifier = WebhookNotifier()
-await notifier.register_url("https://example.com/webhook")  # HTTPS only, public IPs only
-
-# Deliver findings to all registered webhooks
-results = await notifier.notify({"paper_doi": "10.1234/example", "risk": "high"})
-```
-
-Security features:
-- **HTTPS only** — HTTP URLs are rejected
-- **SSRF protection** — private/internal/loopback IPs are blocked at registration
-- **DNS pinning** — IPs are resolved and pinned at registration to prevent DNS rebinding
-- **Exponential backoff** — failed deliveries are retried with configurable backoff
-
 ## Configuration
 
 Copy and edit `config/default.yaml`, or override with environment variables:
@@ -211,17 +190,6 @@ campaign:
   hash_match_max_distance: 10
   batch_concurrency: 5
 ```
-
-## API Server
-
-Start the REST API with `snoopy serve`. Key endpoints:
-
-- `POST /api/v1/papers` — Submit a paper for analysis (DOI or base64 PDF)
-- `GET /api/v1/papers/{id}` — Get paper status and metadata
-- `GET /api/v1/papers/{id}/report` — Get analysis report
-- `POST /api/v1/batch` — Submit a batch of papers
-- `GET /api/v1/authors/{id}/risk` — Get author risk profile
-- `GET /health` — Health check
 
 ## Testing
 
@@ -265,7 +233,6 @@ tests/               # Test suite
   test_discovery/    #   Priority scoring tests
   test_extraction/   #   PDF/stats extraction tests
   test_llm/          #   Prompt validation tests
-  test_notifications/#   Webhook tests
   test_pipeline/     #   Pipeline orchestrator tests
   test_reporting/    #   Report generation tests
   test_scripts/      #   Script helper function tests
@@ -274,3 +241,23 @@ tests/               # Test suite
 config/              # YAML configuration
 data/                # Runtime data (PDFs, figures, reports, DB)
 ```
+
+## API Server
+
+`snoopy serve` starts a FastAPI server for submitting papers programmatically. Papers are queued for background analysis via the pipeline orchestrator; clients poll for results.
+
+```bash
+snoopy serve                       # Start on 0.0.0.0:8000
+snoopy serve --host 127.0.0.1 --port 9000
+```
+
+Endpoints:
+
+- `POST /api/v1/papers` — Submit a paper for analysis (DOI or base64 PDF)
+- `GET /api/v1/papers/{id}` — Get paper status and metadata
+- `GET /api/v1/papers/{id}/report` — Get analysis report
+- `POST /api/v1/batch` — Submit a batch of papers
+- `GET /api/v1/authors/{id}/risk` — Get author risk profile
+- `GET /health` — Health check
+
+Authentication via `X-API-Key` header (configurable, can be disabled for development).
