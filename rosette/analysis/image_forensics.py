@@ -68,7 +68,11 @@ def error_level_analysis(
     Returns:
         ELAResult with suspicion flag and difference statistics.
     """
-    original = _preloaded_pil.copy() if _preloaded_pil is not None else Image.open(image_path).convert("RGB")
+    original = (
+        _preloaded_pil.copy()
+        if _preloaded_pil is not None
+        else Image.open(image_path).convert("RGB")
+    )
 
     # Re-save at the specified JPEG quality into memory
     buffer = io.BytesIO()
@@ -199,7 +203,9 @@ def clone_detection(
     # homography — copy-move forgeries involve rigid/affine transforms, not
     # projective transforms.  4 DOF instead of 8 gives much better inlier
     # separation on copy-move forgeries.
-    _, mask = cv2.estimateAffinePartial2D(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0)
+    _, mask = cv2.estimateAffinePartial2D(
+        src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0
+    )
 
     if mask is None:
         return CloneResult(
@@ -337,7 +343,11 @@ def block_clone_detection(
         pixel_similarity=0.0,
     )
 
-    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = (
+        _preloaded_gray
+        if _preloaded_gray is not None
+        else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    )
     if img is None:
         return _empty
 
@@ -392,7 +402,7 @@ def block_clone_detection(
     from collections import Counter
 
     counts = Counter(disp_tuples)
-    (top_disp, top_count), = counts.most_common(1)
+    ((top_disp, top_count),) = counts.most_common(1)
     consistency = top_count / len(disp_tuples)
 
     if top_count < min_votes or consistency < min_consistency:
@@ -425,9 +435,7 @@ def block_clone_detection(
                 continue
 
             region_a = img[y_start:y_end, x_start:x_end].astype(np.float32)
-            region_b = img[y_start + dy : y_end + dy, x_start + dx : x_end + dx].astype(
-                np.float32
-            )
+            region_b = img[y_start + dy : y_end + dy, x_start + dx : x_end + dx].astype(np.float32)
 
             # Compare block-by-block
             identical = 0
@@ -601,7 +609,11 @@ def dct_analysis(
     Returns:
         DCTResult with suspicion flag and periodicity statistics.
     """
-    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = (
+        _preloaded_gray
+        if _preloaded_gray is not None
+        else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    )
     if img is None:
         return DCTResult(
             suspicious=False,
@@ -811,7 +823,11 @@ def jpeg_ghost_detection(
         JPEGGhostResult with suspicion flag, ghost region info, and quality
         distribution statistics.
     """
-    original = _preloaded_pil.copy() if _preloaded_pil is not None else Image.open(image_path).convert("RGB")
+    original = (
+        _preloaded_pil.copy()
+        if _preloaded_pil is not None
+        else Image.open(image_path).convert("RGB")
+    )
     original_arr = np.array(original, dtype=np.float64)
     h, w = original_arr.shape[:2]
 
@@ -981,7 +997,11 @@ def frequency_analysis(
         FFTResult with suspicion flag, anomaly score, detected peaks, and
         high-frequency energy ratio.
     """
-    img = _preloaded_gray if _preloaded_gray is not None else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = (
+        _preloaded_gray
+        if _preloaded_gray is not None
+        else cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    )
     if img is None:
         return FFTResult(
             suspicious=False,

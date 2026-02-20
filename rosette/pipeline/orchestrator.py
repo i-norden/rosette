@@ -22,7 +22,12 @@ from rosette.analysis.run_analysis import (
     run_tortured_phrases,
     run_western_blot_analysis,
 )
-from rosette.analysis.statistical import benford_test, duplicate_value_check, grim_test, pvalue_check
+from rosette.analysis.statistical import (
+    benford_test,
+    duplicate_value_check,
+    grim_test,
+    pvalue_check,
+)
 from rosette.config import RosetteConfig
 from rosette.db.models import Figure, Finding, Paper, ProcessingLog, Report
 from rosette.db.session import get_async_session
@@ -383,7 +388,11 @@ class PipelineOrchestrator:
                 # figures because normal PDF compression creates artifacts that
                 # mimic manipulation.
                 _COMPRESSION_SENSITIVE = {
-                    "ela", "noise_analysis", "dct_analysis", "jpeg_ghost", "fft_analysis",
+                    "ela",
+                    "noise_analysis",
+                    "dct_analysis",
+                    "jpeg_ghost",
+                    "fft_analysis",
                 }
                 _PDF_DISCOUNT = 0.5
 

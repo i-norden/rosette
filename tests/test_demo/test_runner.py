@@ -71,7 +71,9 @@ class TestPassFailDetermination:
     def test_expected_findings_pass_when_risk_medium_or_above(self):
         assert _determine_pass_fail_expected_findings("medium", [{"severity": "medium"}]) is True
         assert _determine_pass_fail_expected_findings("high", [{"severity": "high"}]) is True
-        assert _determine_pass_fail_expected_findings("critical", [{"severity": "critical"}]) is True
+        assert (
+            _determine_pass_fail_expected_findings("critical", [{"severity": "critical"}]) is True
+        )
 
     def test_expected_findings_fail_when_risk_low_or_clean(self):
         # Low/clean risk should NOT count as "detected" even if findings exist

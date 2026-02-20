@@ -414,9 +414,7 @@ def _extract_7z(archive_path: Path, target_dir: Path) -> None:
         text=True,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"7z extraction failed (exit {result.returncode}):\n{result.stderr}"
-        )
+        raise RuntimeError(f"7z extraction failed (exit {result.returncode}):\n{result.stderr}")
 
 
 def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
@@ -473,9 +471,7 @@ def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
                                 f"Zip Slip detected: {member!r} escapes target directory"
                             )
                     with create_progress() as progress:
-                        task = progress.add_task(
-                            f"Extracting {archive_name}", total=len(members)
-                        )
+                        task = progress.add_task(f"Extracting {archive_name}", total=len(members))
                         for member in members:
                             zf.extract(member, target_dir)
                             progress.advance(task)

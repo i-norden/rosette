@@ -89,7 +89,10 @@ def compute_figure_severity(
         conf = float(f.get("confidence", 0.0))
         if method and conf >= severity_boost_min_confidence:
             # Only count methods with sufficient weight for severity boosting
-            if method_weights is None or method_weights.get(method, 0.5) > severity_boost_min_weight:
+            if (
+                method_weights is None
+                or method_weights.get(method, 0.5) > severity_boost_min_weight
+            ):
                 methods.add(method)
 
     # Boost severity if multiple independent methods agree

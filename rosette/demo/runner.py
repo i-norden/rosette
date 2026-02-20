@@ -72,7 +72,8 @@ def _analyze_image(image_path: Path) -> dict:
 
 
 def _extract_and_analyze_figures(
-    pdf_path: Path, figures_dir: Path,
+    pdf_path: Path,
+    figures_dir: Path,
 ) -> tuple[list[dict], list[dict], int]:
     """Extract figures from PDF and run image forensics on each.
 
@@ -90,7 +91,13 @@ def _extract_and_analyze_figures(
         figures = extract_figures(str(pdf_path), str(out_dir))
         figure_count = len(figures)
 
-        _COMPRESSION_SENSITIVE = {"ela", "noise_analysis", "dct_analysis", "jpeg_ghost", "fft_analysis"}
+        _COMPRESSION_SENSITIVE = {
+            "ela",
+            "noise_analysis",
+            "dct_analysis",
+            "jpeg_ghost",
+            "fft_analysis",
+        }
         _PDF_DISCOUNT = 0.5
 
         for fig in figures:
@@ -396,7 +403,9 @@ def _analyze_pdf(pdf_path: Path, figures_dir: Path) -> dict:
     phash_matches: list[dict] = []
 
     # Run figure analysis, text analysis, and table analysis
-    figure_findings, figure_results, figure_count = _extract_and_analyze_figures(pdf_path, figures_dir)
+    figure_findings, figure_results, figure_count = _extract_and_analyze_figures(
+        pdf_path, figures_dir
+    )
     text_findings, statistical_summary = _extract_and_analyze_text(pdf_path)
     table_findings = _extract_and_analyze_tables(pdf_path)
 
@@ -812,7 +821,8 @@ def run_demo(
                             expected="clean",
                             findings=result["findings"],
                             pass_fail=_determine_pass_fail_expected_clean(
-                                result["findings"], analysis_config=analysis_cfg,
+                                result["findings"],
+                                analysis_config=analysis_cfg,
                             ),
                             analysis_config=analysis_cfg,
                         )
@@ -878,7 +888,8 @@ def run_demo(
                             expected="clean",
                             findings=result["findings"],
                             pass_fail=_determine_pass_fail_expected_clean(
-                                result["findings"], analysis_config=analysis_cfg,
+                                result["findings"],
+                                analysis_config=analysis_cfg,
                             ),
                             analysis_config=analysis_cfg,
                         )
@@ -974,7 +985,8 @@ def run_demo(
                         expected="clean",
                         findings=result["findings"],
                         pass_fail=_determine_pass_fail_expected_clean(
-                            result["findings"], analysis_config=analysis_cfg,
+                            result["findings"],
+                            analysis_config=analysis_cfg,
                         ),
                         extra={
                             "statistical_summary": result.get("statistical_summary", {}),

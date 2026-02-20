@@ -80,7 +80,9 @@ def run_image_forensics(
         results: list[dict] = []
         try:
             ela: ELAResult = error_level_analysis(
-                path_str, quality=cfg.ela.quality, output_dir=output_dir,
+                path_str,
+                quality=cfg.ela.quality,
+                output_dir=output_dir,
                 _preloaded_pil=pil_rgb,
             )
             if ela.suspicious:
@@ -185,7 +187,9 @@ def run_image_forensics(
     def _run_block_clone() -> list[dict]:
         results: list[dict] = []
         try:
-            block_clone: BlockCloneResult = block_clone_detection(path_str, _preloaded_gray=cv2_gray_direct)
+            block_clone: BlockCloneResult = block_clone_detection(
+                path_str, _preloaded_gray=cv2_gray_direct
+            )
             if block_clone.suspicious:
                 cons = block_clone.consistency
                 area = block_clone.clone_area_px
@@ -285,7 +289,10 @@ def run_image_forensics(
         try:
             ghost_result: JPEGGhostResult = jpeg_ghost_detection(
                 path_str,
-                quality_range=(cfg.jpeg_ghost_quality_range_start, cfg.jpeg_ghost_quality_range_end),
+                quality_range=(
+                    cfg.jpeg_ghost_quality_range_start,
+                    cfg.jpeg_ghost_quality_range_end,
+                ),
                 step=cfg.jpeg_ghost_step,
                 _preloaded_pil=pil_rgb,
             )
@@ -436,8 +443,16 @@ def run_image_forensics(
         return results
 
     # Run all analysis steps sequentially
-    for fn in (_run_ela, _run_clone, _run_block_clone, _run_noise,
-               _run_jpeg_ghost, _run_dct, _run_fft, _run_metadata):
+    for fn in (
+        _run_ela,
+        _run_clone,
+        _run_block_clone,
+        _run_noise,
+        _run_jpeg_ghost,
+        _run_dct,
+        _run_fft,
+        _run_metadata,
+    ):
         findings.extend(fn())
 
     return findings

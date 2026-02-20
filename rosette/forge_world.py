@@ -85,7 +85,9 @@ class RosettePipeline:
 
         try:
             rosette_findings = run_image_forensics(
-                str(path), figure_id=path.name, config=self._config,
+                str(path),
+                figure_id=path.name,
+                config=self._config,
             )
             return [_finding_from_rosette_dict(f) for f in rosette_findings]
         except Exception as exc:
@@ -132,16 +134,18 @@ class RosetteAggregator:
 
         rosette_dicts = []
         for f in findings:
-            rosette_dicts.append({
-                "title": f.title,
-                "method": f.method,
-                "analysis_type": f.method,
-                "severity": f.severity.value,
-                "confidence": f.confidence,
-                "description": f.description,
-                "figure_id": f.item_id,
-                "evidence": f.evidence,
-            })
+            rosette_dicts.append(
+                {
+                    "title": f.title,
+                    "method": f.method,
+                    "analysis_type": f.method,
+                    "severity": f.severity.value,
+                    "confidence": f.confidence,
+                    "description": f.description,
+                    "figure_id": f.item_id,
+                    "evidence": f.evidence,
+                }
+            )
 
         aggregated = aggregate_findings(
             rosette_dicts,
@@ -196,12 +200,14 @@ class RosetteDataset:
         if synth_dir.exists():
             for img in sorted(synth_dir.iterdir()):
                 if img.suffix.lower() in exts:
-                    items.append(LabeledItem(
-                        id=img.name,
-                        category="synthetic",
-                        expected_label="findings",
-                        data=img,
-                    ))
+                    items.append(
+                        LabeledItem(
+                            id=img.name,
+                            category="synthetic",
+                            expected_label="findings",
+                            data=img,
+                        )
+                    )
 
         # RSIIL GitHub images (small fixed set)
         rsiil_dir = _FIXTURES_DIR / "rsiil"
@@ -220,19 +226,23 @@ class RosetteDataset:
                     if _is_ground_truth(img):
                         continue
                     if img.name in rsiil_clean_names or _is_pristine_ref(img):
-                        items.append(LabeledItem(
-                            id=img.name,
-                            category="rsiil_clean",
-                            expected_label="clean",
-                            data=img,
-                        ))
+                        items.append(
+                            LabeledItem(
+                                id=img.name,
+                                category="rsiil_clean",
+                                expected_label="clean",
+                                data=img,
+                            )
+                        )
                     else:
-                        items.append(LabeledItem(
-                            id=img.name,
-                            category="rsiil",
-                            expected_label="findings",
-                            data=img,
-                        ))
+                        items.append(
+                            LabeledItem(
+                                id=img.name,
+                                category="rsiil",
+                                expected_label="findings",
+                                data=img,
+                            )
+                        )
             except ImportError:
                 logger.warning("Could not import rosette fixtures module")
 
@@ -241,55 +251,61 @@ class RosetteDataset:
         if retracted_dir.exists():
             for pdf in sorted(retracted_dir.iterdir()):
                 if pdf.suffix.lower() == ".pdf":
-                    items.append(LabeledItem(
-                        id=pdf.name,
-                        category="retracted",
-                        expected_label="findings",
-                        data=pdf,
-                    ))
+                    items.append(
+                        LabeledItem(
+                            id=pdf.name,
+                            category="retracted",
+                            expected_label="findings",
+                            data=pdf,
+                        )
+                    )
 
         # Survey paper
         survey_dir = _FIXTURES_DIR / "survey"
         if survey_dir.exists():
             for pdf in sorted(survey_dir.iterdir()):
                 if pdf.suffix.lower() == ".pdf":
-                    items.append(LabeledItem(
-                        id=pdf.name,
-                        category="survey",
-                        expected_label="informational",
-                        data=pdf,
-                    ))
+                    items.append(
+                        LabeledItem(
+                            id=pdf.name,
+                            category="survey",
+                            expected_label="informational",
+                            data=pdf,
+                        )
+                    )
 
         # Retraction Watch papers
         rw_dir = _FIXTURES_DIR / "retraction_watch"
         if rw_dir.exists():
             for pdf in sorted(rw_dir.iterdir()):
                 if pdf.suffix.lower() == ".pdf":
-                    items.append(LabeledItem(
-                        id=pdf.name,
-                        category="retraction_watch",
-                        expected_label="findings",
-                        data=pdf,
-                    ))
+                    items.append(
+                        LabeledItem(
+                            id=pdf.name,
+                            category="retraction_watch",
+                            expected_label="findings",
+                            data=pdf,
+                        )
+                    )
 
         # Clean control papers
         clean_dir = _FIXTURES_DIR / "clean"
         if clean_dir.exists():
             for pdf in sorted(clean_dir.iterdir()):
                 if pdf.suffix.lower() == ".pdf":
-                    items.append(LabeledItem(
-                        id=pdf.name,
-                        category="clean",
-                        expected_label="clean",
-                        data=pdf,
-                    ))
+                    items.append(
+                        LabeledItem(
+                            id=pdf.name,
+                            category="clean",
+                            expected_label="clean",
+                            data=pdf,
+                        )
+                    )
 
         self._fixed_items = items
         return items
 
-    def items(
-        self, seed: int | None = None, sample_size: int | None = None
-    ) -> list[LabeledItem]:
+    def items(self, seed: int | None = None, sample_size: int | None = None) -> list[LabeledItem]:
         """Return benchmark items.
 
         seed=None: fixed items only.
@@ -316,22 +332,26 @@ class RosetteDataset:
         items: list[LabeledItem] = []
 
         for path in pristine:
-            items.append(LabeledItem(
-                id=f"zenodo_pristine_{path.name}",
-                category="rsiil_zenodo_clean",
-                expected_label="clean",
-                data=path,
-                metadata={"source": "zenodo", "seed": seed},
-            ))
+            items.append(
+                LabeledItem(
+                    id=f"zenodo_pristine_{path.name}",
+                    category="rsiil_zenodo_clean",
+                    expected_label="clean",
+                    data=path,
+                    metadata={"source": "zenodo", "seed": seed},
+                )
+            )
 
         for path in tampered:
-            items.append(LabeledItem(
-                id=f"zenodo_tampered_{path.name}",
-                category="rsiil_zenodo",
-                expected_label="findings",
-                data=path,
-                metadata={"source": "zenodo", "seed": seed},
-            ))
+            items.append(
+                LabeledItem(
+                    id=f"zenodo_tampered_{path.name}",
+                    category="rsiil_zenodo",
+                    expected_label="findings",
+                    data=path,
+                    metadata={"source": "zenodo", "seed": seed},
+                )
+            )
 
         return items
 
@@ -349,13 +369,24 @@ class RosetteDataset:
         return {
             "smoke": ["synthetic"],
             "standard": [
-                "synthetic", "rsiil", "rsiil_clean", "retracted",
-                "survey", "retraction_watch", "clean",
+                "synthetic",
+                "rsiil",
+                "rsiil_clean",
+                "retracted",
+                "survey",
+                "retraction_watch",
+                "clean",
             ],
             "full": [
-                "synthetic", "rsiil", "rsiil_clean", "retracted",
-                "survey", "retraction_watch", "clean",
-                "rsiil_zenodo", "rsiil_zenodo_clean",
+                "synthetic",
+                "rsiil",
+                "rsiil_clean",
+                "retracted",
+                "survey",
+                "retraction_watch",
+                "clean",
+                "rsiil_zenodo",
+                "rsiil_zenodo_clean",
             ],
         }
 
