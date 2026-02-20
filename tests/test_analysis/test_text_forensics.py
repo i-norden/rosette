@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from snoopy.analysis.text_forensics import (
+from rosette.analysis.text_forensics import (
     TorturedPhraseMatch,
     TorturedPhraseResult,
     detect_tortured_phrases,
@@ -18,7 +18,7 @@ _TEST_PHRASES = {
 
 def _mock_phrases():
     """Patch _load_phrases so tests don't depend on the data file."""
-    return patch("snoopy.analysis.text_forensics._load_phrases", return_value=_TEST_PHRASES)
+    return patch("rosette.analysis.text_forensics._load_phrases", return_value=_TEST_PHRASES)
 
 
 class TestTorturedPhrasesDetection:

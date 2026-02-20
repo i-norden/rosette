@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.analysis.statistical import grimmer_test, GRIMMERResult
+from rosette.analysis.statistical import grimmer_test, GRIMMERResult
 
 
 class TestGRIMMERConsistent:

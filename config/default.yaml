@@ -72,7 +72,7 @@ analysis:
   min_figure_height: 50
 
 storage:
-  database_url: sqlite:///snoopy.db
+  database_url: sqlite:///rosette.db
   pdf_dir: data/pdfs
   figures_dir: data/figures
   reports_dir: data/reports

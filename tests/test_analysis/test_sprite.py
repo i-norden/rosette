@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.analysis.sprite import SPRITEResult, sprite_test
+from rosette.analysis.sprite import SPRITEResult, sprite_test
 
 
 class TestSpriteConsistent:

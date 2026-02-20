@@ -1,4 +1,4 @@
-"""Shared test fixtures for snoopy tests."""
+"""Shared test fixtures for rosette tests."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.config import SnoopyConfig
-from snoopy.db.session import init_db, get_session
+from rosette.config import RosetteConfig
+from rosette.db.session import init_db, get_session
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def tmp_dir(tmp_path):
 def test_config(tmp_path):
     """Provide a test configuration with temp paths."""
     db_path = tmp_path / "test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),

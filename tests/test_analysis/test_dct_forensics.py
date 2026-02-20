@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.analysis.image_forensics import DCTResult, dct_analysis
+from rosette.analysis.image_forensics import DCTResult, dct_analysis
 
 
 class TestDCTCleanImage:

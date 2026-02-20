@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 
-from snoopy.llm.cache import LLMCache
+from rosette.llm.cache import LLMCache
 
 
 class TestLLMCacheBasic:

@@ -1,4 +1,4 @@
-# Snoopy
+# Rosette
 
 Academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and (optionally) LLM-based analysis.
 
@@ -15,13 +15,13 @@ pip install -e ".[dev]"
 Run the demo (downloads test fixtures, runs forensics, prints results):
 
 ```bash
-snoopy demo
+rosette demo
 ```
 
 ## Architecture
 
 ```
-snoopy/
+rosette/
 ├── analysis/          # Detection methods
 │   ├── image_forensics.py   # ELA, clone detection, noise, DCT, JPEG ghost, FFT
 │   ├── statistical.py       # GRIM test, Benford's law, p-value checks
@@ -56,26 +56,26 @@ snoopy/
 ## CLI Commands
 
 ```
-snoopy discover    Search academic APIs for papers to analyze
-snoopy analyze     Analyze a single paper by DOI or local PDF
-snoopy batch       Process top-priority pending papers
-snoopy report      Display a paper's analysis report
-snoopy status      Show pipeline status and queue depth
-snoopy demo        Run demo with test fixtures and pretty output
-snoopy serve       Start the REST API server
-snoopy config      Show current configuration
-snoopy db          Database migration commands (upgrade/downgrade/current)
+rosette discover    Search academic APIs for papers to analyze
+rosette analyze     Analyze a single paper by DOI or local PDF
+rosette batch       Process top-priority pending papers
+rosette report      Display a paper's analysis report
+rosette status      Show pipeline status and queue depth
+rosette demo        Run demo with test fixtures and pretty output
+rosette serve       Start the REST API server
+rosette config      Show current configuration
+rosette db          Database migration commands (upgrade/downgrade/current)
 
-snoopy campaign create     Create a new investigation campaign
-snoopy campaign run        Start or resume a campaign
-snoopy campaign pause      Pause a running campaign
-snoopy campaign status     Show campaign progress
-snoopy campaign list       List all campaigns
-snoopy campaign dashboard  Generate HTML dashboard
-snoopy campaign export     Export evidence packages
+rosette campaign create     Create a new investigation campaign
+rosette campaign run        Start or resume a campaign
+rosette campaign pause      Pause a running campaign
+rosette campaign status     Show campaign progress
+rosette campaign list       List all campaigns
+rosette campaign dashboard  Generate HTML dashboard
+rosette campaign export     Export evidence packages
 ```
 
-### snoopy demo
+### rosette demo
 
 End-to-end showcase of the forensic analysis pipeline. Downloads ~3 GB of test fixtures across six categories, runs multi-method analysis on each, and generates an interactive HTML dashboard that opens in your browser.
 
@@ -96,37 +96,37 @@ End-to-end showcase of the forensic analysis pipeline. Downloads ~3 GB of test f
 - **LLM (opt-in):** Claude vision screening and detailed analysis
 
 ```bash
-snoopy demo                        # Full demo (no LLM)
-snoopy demo --download-only        # Only download fixtures
-snoopy demo --use-llm              # Enable LLM analysis (needs ANTHROPIC_API_KEY)
-snoopy demo --output-dir ./out     # Custom report output directory
-snoopy demo --download-rsiil       # Also download full RSIIL dataset (~57 GB)
+rosette demo                        # Full demo (no LLM)
+rosette demo --download-only        # Only download fixtures
+rosette demo --use-llm              # Enable LLM analysis (needs ANTHROPIC_API_KEY)
+rosette demo --output-dir ./out     # Custom report output directory
+rosette demo --download-rsiil       # Also download full RSIIL dataset (~57 GB)
 ```
 
-### snoopy analyze
+### rosette analyze
 
 ```bash
-snoopy analyze --doi 10.1234/example
-snoopy analyze --pdf path/to/paper.pdf
+rosette analyze --doi 10.1234/example
+rosette analyze --pdf path/to/paper.pdf
 ```
 
-### snoopy campaign
+### rosette campaign
 
 Large-scale investigation across multiple papers. Three investigation modes:
 
 ```bash
 # Network expansion: follow co-author networks from suspicious papers
-snoopy campaign create --mode network_expansion --name "Dana-Farber follow-up" \
+rosette campaign create --mode network_expansion --name "Dana-Farber follow-up" \
   --seed-doi 10.1234/suspicious1 --seed-doi 10.1234/suspicious2 \
   --max-depth 2 --max-papers 500 --llm-budget 50
-snoopy campaign run <campaign-id>
+rosette campaign run <campaign-id>
 
 # Domain scan: systematic sweep of a research field
-snoopy campaign create --mode domain_scan --name "Stem cell survey" \
+rosette campaign create --mode domain_scan --name "Stem cell survey" \
   --field "stem cell" --min-citations 100 --max-papers 200
 
 # Paper mill detection: follow image reuse connectivity
-snoopy campaign create --mode paper_mill --name "Mill cluster" \
+rosette campaign create --mode paper_mill --name "Mill cluster" \
   --seed-doi 10.1234/mill1 --max-papers 1000
 ```
 
@@ -162,8 +162,8 @@ Findings from multiple methods are aggregated in `evidence.py`. Converging evide
 Copy and edit `config/default.yaml`, or override with environment variables:
 
 ```bash
-export SNOOPY__LLM__PROVIDER=claude
-export SNOOPY__STORAGE__DATABASE_URL=sqlite:///my.db
+export ROSETTE__LLM__PROVIDER=claude
+export ROSETTE__STORAGE__DATABASE_URL=sqlite:///my.db
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -223,7 +223,7 @@ The script is idempotent -- it skips already-downloaded files.
 ## Project Layout
 
 ```
-snoopy/             # Main package (installed via pip)
+rosette/             # Main package (installed via pip)
 scripts/             # Standalone scripts (demo, fixture download)
 tests/               # Test suite
   test_analysis/     #   Analysis + author network tests
@@ -244,11 +244,11 @@ data/                # Runtime data (PDFs, figures, reports, DB)
 
 ## API Server
 
-`snoopy serve` starts a FastAPI server for submitting papers programmatically. Papers are queued for background analysis via the pipeline orchestrator; clients poll for results.
+`rosette serve` starts a FastAPI server for submitting papers programmatically. Papers are queued for background analysis via the pipeline orchestrator; clients poll for results.
 
 ```bash
-snoopy serve                       # Start on 0.0.0.0:8000
-snoopy serve --host 127.0.0.1 --port 9000
+rosette serve                       # Start on 0.0.0.0:8000
+rosette serve --host 127.0.0.1 --port 9000
 ```
 
 Endpoints:

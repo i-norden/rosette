@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.analysis.cross_reference import (
+from rosette.analysis.cross_reference import (
     build_hash_index,
     compute_phash,
     find_cross_paper_duplicates,
     hash_distance,
 )
-from snoopy.db.models import Figure, Paper
-from snoopy.db.session import get_session, init_db
+from rosette.db.models import Figure, Paper
+from rosette.db.session import get_session, init_db
 
 
 class TestComputePhash:

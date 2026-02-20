@@ -1,4 +1,4 @@
-"""Tests for snoopy.forge_world — forge-world protocol implementations.
+"""Tests for rosette.forge_world — forge-world protocol implementations.
 
 Verifies protocol conformance, seed-aware dataset behavior, and factory functions.
 """
@@ -20,11 +20,11 @@ from forge_world.core.protocols import (
     Severity,
 )
 
-from snoopy.forge_world import (
-    SnoopyAggregator,
-    SnoopyDataset,
-    SnoopyPipeline,
-    SnoopyRules,
+from rosette.forge_world import (
+    RosetteAggregator,
+    RosetteDataset,
+    RosettePipeline,
+    RosetteRules,
     create_aggregator,
     create_dataset,
     create_pipeline,
@@ -33,7 +33,7 @@ from snoopy.forge_world import (
 
 
 class TestProtocolConformance:
-    """Verify that snoopy.forge_world classes satisfy forge-world protocols."""
+    """Verify that rosette.forge_world classes satisfy forge-world protocols."""
 
     def test_pipeline_is_protocol(self):
         p = create_pipeline()
@@ -55,47 +55,47 @@ class TestProtocolConformance:
 class TestFactoryFunctions:
     def test_create_pipeline(self):
         p = create_pipeline()
-        assert isinstance(p, SnoopyPipeline)
+        assert isinstance(p, RosettePipeline)
         assert p.get_config() is not None
         assert isinstance(p.get_config_schema(), dict)
 
     def test_create_aggregator(self):
         a = create_aggregator()
-        assert isinstance(a, SnoopyAggregator)
+        assert isinstance(a, RosetteAggregator)
 
     def test_create_dataset(self):
         d = create_dataset()
-        assert isinstance(d, SnoopyDataset)
+        assert isinstance(d, RosetteDataset)
 
     def test_create_rules(self):
         r = create_rules()
-        assert isinstance(r, SnoopyRules)
+        assert isinstance(r, RosetteRules)
 
 
-class TestSnoopyRules:
+class TestRosetteRules:
     def test_findings_rule(self):
-        r = SnoopyRules()
+        r = RosetteRules()
         rule = r.get_rule("findings")
         assert rule.min_risk_for_pass == Severity.MEDIUM
         assert rule.max_risk_for_pass is None
 
     def test_clean_rule(self):
-        r = SnoopyRules()
+        r = RosetteRules()
         rule = r.get_rule("clean")
         assert rule.max_risk_for_pass == Severity.MEDIUM
         assert rule.min_risk_for_pass is None
 
     def test_informational_rule(self):
-        r = SnoopyRules()
+        r = RosetteRules()
         rule = r.get_rule("informational")
         assert rule.min_risk_for_pass is None
         assert rule.max_risk_for_pass is None
 
 
-class TestSnoopyDataset:
+class TestRosetteDataset:
     def test_fixed_items_no_seed(self):
         """Without seed, only fixed items are returned (no Zenodo)."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items = d.items(seed=None)
         # All items should be from fixture directories, not Zenodo
         for item in items:
@@ -104,7 +104,7 @@ class TestSnoopyDataset:
             )
 
     def test_items_returns_labeled_items(self):
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items = d.items()
         assert isinstance(items, list)
         for item in items:
@@ -114,7 +114,7 @@ class TestSnoopyDataset:
             assert item.expected_label in ("findings", "clean", "informational")
 
     def test_categories_returns_list(self):
-        d = SnoopyDataset()
+        d = RosetteDataset()
         cats = d.categories()
         assert isinstance(cats, list)
         # Should include Zenodo categories in the list
@@ -123,7 +123,7 @@ class TestSnoopyDataset:
 
     def test_seed_items_include_zenodo(self):
         """With seed, Zenodo items are included (if data exists)."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items_no_seed = d.items(seed=None)
         items_with_seed = d.items(seed=42)
 
@@ -133,7 +133,7 @@ class TestSnoopyDataset:
 
     def test_different_seeds_different_items(self):
         """Different seeds should produce different Zenodo samples."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items_42 = d.items(seed=42)
         items_137 = d.items(seed=137)
 
@@ -146,7 +146,7 @@ class TestSnoopyDataset:
 
     def test_sample_size_limits_zenodo(self):
         """sample_size should limit how many Zenodo items are sampled."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items_full = d.items(seed=42)
         items_limited = d.items(seed=42, sample_size=5)
 
@@ -159,7 +159,7 @@ class TestSnoopyDataset:
 
     def test_fixed_items_cached(self):
         """Fixed items should be loaded once and cached internally."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items1 = d.items()
         items2 = d.items()
         # items() returns a copy each time (since seed items may be appended),
@@ -171,14 +171,14 @@ class TestSnoopyDataset:
 
     def test_seed_none_same_as_no_args(self):
         """items(seed=None) should return same items as items()."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items_default = d.items()
         items_none = d.items(seed=None)
         assert len(items_default) == len(items_none)
 
     def test_zenodo_items_have_metadata(self):
         """Zenodo items should include seed in metadata."""
-        d = SnoopyDataset()
+        d = RosetteDataset()
         items = d.items(seed=42)
         zenodo_items = [i for i in items if i.id.startswith("zenodo_")]
         for item in zenodo_items:

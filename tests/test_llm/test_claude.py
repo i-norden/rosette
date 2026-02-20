@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.llm.claude import (
+from rosette.llm.claude import (
     ClaudeProvider,
     _detect_media_type,
     _read_image_b64,

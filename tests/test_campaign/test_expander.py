@@ -1,4 +1,4 @@
-"""Tests for snoopy.campaign.expander module.
+"""Tests for rosette.campaign.expander module.
 
 Tests network expansion from flagged papers via co-author traversal,
 with mocked OpenAlex and retraction watch APIs.
@@ -11,16 +11,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from snoopy.campaign.expander import NetworkExpander
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import Author, Campaign, CampaignPaper, Paper
-from snoopy.db.session import get_session, init_async_db, init_db
+from rosette.campaign.expander import NetworkExpander
+from rosette.config import RosetteConfig
+from rosette.db.models import Author, Campaign, CampaignPaper, Paper
+from rosette.db.session import get_session, init_async_db, init_db
 
 
 @pytest.fixture
-def expander_config(tmp_path) -> SnoopyConfig:
+def expander_config(tmp_path) -> RosetteConfig:
     db_path = tmp_path / "expander_test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),
@@ -116,12 +116,12 @@ class TestExpandFromPaper:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works",
+            "rosette.discovery.openalex.search_works",
             new_callable=AsyncMock,
             return_value=mock_works,
         ):
             with patch(
-                "snoopy.discovery.retraction_watch.check_author_retractions",
+                "rosette.discovery.retraction_watch.check_author_retractions",
                 new_callable=AsyncMock,
                 return_value=_make_mock_retraction_result(),
             ):
@@ -164,12 +164,12 @@ class TestExpandFromPaper:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works",
+            "rosette.discovery.openalex.search_works",
             new_callable=AsyncMock,
             return_value=mock_works,
         ):
             with patch(
-                "snoopy.discovery.retraction_watch.check_author_retractions",
+                "rosette.discovery.retraction_watch.check_author_retractions",
                 new_callable=AsyncMock,
                 return_value=_make_mock_retraction_result(),
             ):
@@ -188,12 +188,12 @@ class TestExpandFromPaper:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works",
+            "rosette.discovery.openalex.search_works",
             new_callable=AsyncMock,
             return_value=mock_works,
         ):
             with patch(
-                "snoopy.discovery.retraction_watch.check_author_retractions",
+                "rosette.discovery.retraction_watch.check_author_retractions",
                 new_callable=AsyncMock,
                 return_value=_make_mock_retraction_result(),
             ):
@@ -244,12 +244,12 @@ class TestExpandDepth:
         ]
 
         with patch(
-            "snoopy.discovery.openalex.search_works",
+            "rosette.discovery.openalex.search_works",
             new_callable=AsyncMock,
             return_value=mock_works,
         ):
             with patch(
-                "snoopy.discovery.retraction_watch.check_author_retractions",
+                "rosette.discovery.retraction_watch.check_author_retractions",
                 new_callable=AsyncMock,
                 return_value=_make_mock_retraction_result(),
             ):
@@ -296,7 +296,7 @@ class TestCheckAuthorHistory:
         retraction_result = _make_mock_retraction_result(total=3)
 
         with patch(
-            "snoopy.discovery.retraction_watch.check_author_retractions",
+            "rosette.discovery.retraction_watch.check_author_retractions",
             new_callable=AsyncMock,
             return_value=retraction_result,
         ):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.analysis.statistical import terminal_digit_test, TerminalDigitResult
+from rosette.analysis.statistical import terminal_digit_test, TerminalDigitResult
 
 
 class TestTerminalDigitUniform:

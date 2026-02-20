@@ -1,8 +1,8 @@
-"""Tests for snoopy.calibration.metrics module."""
+"""Tests for rosette.calibration.metrics module."""
 
 from __future__ import annotations
 
-from snoopy.calibration.metrics import (
+from rosette.calibration.metrics import (
     CalibrationReport,
     ClassificationMetrics,
     ConfusionMatrix,

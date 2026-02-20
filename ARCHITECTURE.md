@@ -1,13 +1,13 @@
-# Snoopy Architecture
+# Rosette Architecture
 
 ## Overview
 
-Snoopy is an academic integrity analysis system that detects image manipulation, statistical fabrication, and data recycling in scientific papers. It operates in two modes:
+Rosette is an academic integrity analysis system that detects image manipulation, statistical fabrication, and data recycling in scientific papers. It operates in two modes:
 
 - **Without AI** (default, `--skip-llm`): Runs all deterministic/CV-based methods
 - **With AI** (`--use-llm` + `ANTHROPIC_API_KEY`): Adds LLM vision screening and statistical analysis
 
-There are three execution paths: the **demo pipeline** (`snoopy demo`) for benchmarking against known fixtures, the **production pipeline** (`snoopy analyze`/`snoopy batch`) for real papers with full DB persistence, and the **campaign investigation system** (`snoopy campaign`) for large-scale multi-paper investigations across co-author networks and research domains.
+There are three execution paths: the **demo pipeline** (`rosette demo`) for benchmarking against known fixtures, the **production pipeline** (`rosette analyze`/`rosette batch`) for real papers with full DB persistence, and the **campaign investigation system** (`rosette campaign`) for large-scale multi-paper investigations across co-author networks and research domains.
 
 ---
 
@@ -444,7 +444,7 @@ For standalone images (not from PDFs), all per-figure image methods apply (ELA, 
 ## Module Map
 
 ```
-snoopy/
+rosette/
 ├── cli.py                    # Click CLI: demo, analyze, batch, discover, status, config, serve, db
 ├── cli_campaign.py           # Campaign CLI: create, run, pause, status, list, dashboard, export
 ├── config.py                 # Pydantic config: LLM, analysis weights, storage, discovery, campaign
@@ -604,7 +604,7 @@ SQLAlchemy models in `db/models.py`:
 
 ### DB / Alembic Migrations
 
-Schema migrations are managed via Alembic under `db/alembic/`. Run migrations with `snoopy db upgrade` / `snoopy db downgrade`.
+Schema migrations are managed via Alembic under `db/alembic/`. Run migrations with `rosette db upgrade` / `rosette db downgrade`.
 
 ---
 

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from snoopy.analysis.image_forensics import (
+from rosette.analysis.image_forensics import (
     clone_detection,
     error_level_analysis,
     noise_analysis,
@@ -184,7 +184,7 @@ class TestCleanControls:
         if not pdfs:
             pytest.skip("No clean control PDFs found")
 
-        from snoopy.extraction.figure_extractor import extract_figures
+        from rosette.extraction.figure_extractor import extract_figures
 
         false_positives = []
         for pdf_path in pdfs[:2]:  # Test first 2 to keep test time reasonable
@@ -230,7 +230,7 @@ class TestPDFExtraction:
         if not pdfs:
             pytest.skip("Survey PDF not found")
 
-        from snoopy.extraction.pdf_parser import extract_text
+        from rosette.extraction.pdf_parser import extract_text
 
         pages = extract_text(str(pdfs[0]))
         assert len(pages) > 0, "No pages extracted from survey paper"
@@ -243,7 +243,7 @@ class TestPDFExtraction:
         if not pdfs:
             pytest.skip("Survey PDF not found")
 
-        from snoopy.extraction.figure_extractor import extract_figures
+        from rosette.extraction.figure_extractor import extract_figures
 
         figures = extract_figures(str(pdfs[0]), str(tmp_path / "figures"))
         # The Bik survey paper contains example figures of manipulation types
@@ -260,7 +260,7 @@ class TestPDFExtraction:
         if not pdfs:
             pytest.skip("No retracted PDFs found")
 
-        from snoopy.extraction.pdf_parser import extract_text
+        from rosette.extraction.pdf_parser import extract_text
 
         for pdf_path in pdfs[:2]:
             pages = extract_text(str(pdf_path))

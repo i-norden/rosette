@@ -2,7 +2,7 @@
 
 import pytest
 
-from snoopy.analysis.evidence import (
+from rosette.analysis.evidence import (
     aggregate_findings,
     compute_figure_severity,
     compute_overall_confidence,

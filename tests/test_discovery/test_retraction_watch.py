@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from snoopy.discovery.retraction_watch import (
+from rosette.discovery.retraction_watch import (
     check_author_retractions,
     check_retraction_status,
 )
@@ -51,7 +51,7 @@ class TestCheckRetractionStatus:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -78,7 +78,7 @@ class TestCheckRetractionStatus:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -105,7 +105,7 @@ class TestCheckRetractionStatus:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -126,7 +126,7 @@ class TestCheckRetractionStatus:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -148,7 +148,7 @@ class TestCheckRetractionStatus:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -162,7 +162,7 @@ class TestCheckRetractionStatus:
         response = _make_response(404)
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -174,7 +174,7 @@ class TestCheckRetractionStatus:
     async def test_http_error(self):
         mock_client = _make_client(get_side_effect=httpx.HTTPError("timeout"))
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -217,7 +217,7 @@ class TestCheckAuthorRetractions:
 
         mock_client = _make_client(get_side_effect=_mock_get)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -233,7 +233,7 @@ class TestCheckAuthorRetractions:
         response = _make_response(200, {"message": {"items": []}})
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -246,7 +246,7 @@ class TestCheckAuthorRetractions:
     async def test_http_error_returns_empty(self):
         mock_client = _make_client(get_side_effect=httpx.HTTPError("network error"))
 
-        with patch("snoopy.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.retraction_watch.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 

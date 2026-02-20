@@ -19,7 +19,7 @@ COPY requirements.lock pyproject.toml ./
 RUN pip install --no-cache-dir --prefix=/install -r requirements.lock
 
 # Copy source and install the package itself
-COPY snoopy/ snoopy/
+COPY rosette/ rosette/
 COPY config/ config/
 RUN pip install --no-cache-dir --no-deps --prefix=/install .
 
@@ -46,20 +46,20 @@ WORKDIR /app
 COPY config/ config/
 
 # Create data directories and non-root user
-RUN useradd --create-home --shell /bin/bash snoopy \
+RUN useradd --create-home --shell /bin/bash rosette \
     && mkdir -p /data/pdfs /data/figures /data/reports \
-    && chown -R snoopy:snoopy /data /app
+    && chown -R rosette:rosette /data /app
 
-USER snoopy
+USER rosette
 
 # Declare volumes for persistent data
 VOLUME ["/data/pdfs", "/data/figures", "/data/reports"]
 
 # Default environment variables (DATABASE_URL must be provided at runtime)
-ENV SNOOPY__STORAGE__PDF_DIR="/data/pdfs" \
-    SNOOPY__STORAGE__FIGURES_DIR="/data/figures" \
-    SNOOPY__STORAGE__REPORTS_DIR="/data/reports" \
-    SNOOPY__LLM__PROVIDER="claude" \
+ENV ROSETTE__STORAGE__PDF_DIR="/data/pdfs" \
+    ROSETTE__STORAGE__FIGURES_DIR="/data/figures" \
+    ROSETTE__STORAGE__REPORTS_DIR="/data/reports" \
+    ROSETTE__LLM__PROVIDER="claude" \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8000
@@ -67,5 +67,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=15s \
     CMD curl -f http://localhost:8000/health || exit 1
 
-ENTRYPOINT ["snoopy"]
+ENTRYPOINT ["rosette"]
 CMD ["serve"]

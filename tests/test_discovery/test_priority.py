@@ -1,6 +1,6 @@
 """Tests for priority scoring algorithm."""
 
-from snoopy.discovery.priority import (
+from rosette.discovery.priority import (
     PaperMetadata,
     check_institution_in_top100,
     compute_priority,

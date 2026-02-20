@@ -1,6 +1,6 @@
 """Tests for statistical value extraction from text."""
 
-from snoopy.extraction.stats_extractor import (
+from rosette.extraction.stats_extractor import (
     extract_means_and_ns,
     extract_numerical_values,
     extract_p_values,

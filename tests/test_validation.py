@@ -1,10 +1,10 @@
-"""Tests for snoopy.validation module."""
+"""Tests for rosette.validation module."""
 
 from __future__ import annotations
 
 import pytest
 
-from snoopy.validation import validate_doi
+from rosette.validation import validate_doi
 
 
 class TestValidateDoi:

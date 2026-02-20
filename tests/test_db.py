@@ -3,9 +3,9 @@
 import pytest
 from sqlalchemy import select
 
-from snoopy.db.migrations import check_schema, create_all_tables, get_paper_counts, reset_database
-from snoopy.db.models import Base, Finding, Figure, Paper, Report
-from snoopy.db.session import get_engine, get_session, init_async_db, init_db, reset_db
+from rosette.db.migrations import check_schema, create_all_tables, get_paper_counts, reset_database
+from rosette.db.models import Base, Finding, Figure, Paper, Report
+from rosette.db.session import get_engine, get_session, init_async_db, init_db, reset_db
 
 
 class TestDatabaseInit:

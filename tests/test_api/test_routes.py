@@ -8,17 +8,17 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from snoopy.api.app import create_app
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import Paper
-from snoopy.db.session import get_session, init_async_db, init_db
+from rosette.api.app import create_app
+from rosette.config import RosetteConfig
+from rosette.db.models import Paper
+from rosette.db.session import get_session, init_async_db, init_db
 
 
 @pytest.fixture
 def app(tmp_path):
     """Create a test FastAPI app with a temporary database."""
     db_path = tmp_path / "test.db"
-    config = SnoopyConfig(
+    config = RosetteConfig(
         require_authentication=False,
         storage={
             "database_url": f"sqlite:///{db_path}",
@@ -159,7 +159,7 @@ class TestSubmitPaper:
         """PDF exceeding 100MB should be rejected with 422."""
         # Mock base64.b64decode to return oversized content without actually
         # sending 100MB+ over the wire
-        import snoopy.api.routes as routes_module
+        import rosette.api.routes as routes_module
 
         def _mock_b64decode(data, validate=False):
             # Return oversized content with PDF magic bytes
@@ -292,7 +292,7 @@ class TestApiKeyAuth:
     def test_require_auth_default_rejects_when_no_keys(self, tmp_path):
         """When require_authentication=true (default) and no keys, return 500."""
         db_path = tmp_path / "auth_test.db"
-        config = SnoopyConfig(
+        config = RosetteConfig(
             require_authentication=True,
             storage={
                 "database_url": f"sqlite:///{db_path}",
@@ -303,7 +303,7 @@ class TestApiKeyAuth:
         )
         init_db(config.storage.database_url)
         init_async_db(config.storage.database_url)
-        from snoopy.api.app import create_app
+        from rosette.api.app import create_app
 
         app = create_app(config)
         test_client = TestClient(app)
@@ -317,7 +317,7 @@ class TestApiKeyAuth:
     def test_no_auth_when_require_auth_false(self, client):
         """When require_authentication=false and no keys, requests pass."""
         # The default fixture has require_authentication=True by default,
-        # but the fixture creates SnoopyConfig with defaults which now has
+        # but the fixture creates RosetteConfig with defaults which now has
         # require_authentication=True. We need to explicitly set it false.
         client.app.state.config.require_authentication = False
         response = client.get("/health")
@@ -365,7 +365,7 @@ class TestCorsConfiguration:
     def test_wildcard_cors_disables_credentials(self, tmp_path):
         """When cors_origins includes '*', allow_credentials should be disabled."""
         db_path = tmp_path / "cors_test.db"
-        config = SnoopyConfig(
+        config = RosetteConfig(
             require_authentication=False,
             cors_origins=["*"],
             storage={

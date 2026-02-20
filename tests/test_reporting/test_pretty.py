@@ -7,7 +7,7 @@ from io import StringIO
 from rich.console import Console
 from rich.text import Text
 
-from snoopy.reporting import pretty
+from rosette.reporting import pretty
 
 
 def _capture_console() -> tuple[Console, StringIO]:

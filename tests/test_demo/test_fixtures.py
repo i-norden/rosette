@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from snoopy.demo.fixtures import (
+from rosette.demo.fixtures import (
     CLEAN_PAPERS,
     RETRACTED_PAPERS,
     RSIIL_BASE,
@@ -93,7 +93,7 @@ class TestDownloadFile:
         dest = tmp_path / "fail.pdf"
         client = MagicMock()
         client.get.side_effect = httpx.RequestError("connection failed")
-        with patch("snoopy.demo.fixtures.console"):
+        with patch("rosette.demo.fixtures.console"):
             result = _download_file("https://example.com/test.pdf", dest, client)
         assert result is False
 
@@ -114,8 +114,8 @@ class TestCountFiles:
 
 class TestGenerateSyntheticForgeries:
     def test_generates_images(self, tmp_path):
-        with patch("snoopy.demo.fixtures.FIXTURES_DIR", tmp_path):
-            with patch("snoopy.demo.fixtures.create_progress") as mock_progress:
+        with patch("rosette.demo.fixtures.FIXTURES_DIR", tmp_path):
+            with patch("rosette.demo.fixtures.create_progress") as mock_progress:
                 mock_progress.return_value.__enter__ = MagicMock(
                     return_value=MagicMock(add_task=MagicMock(return_value=0), advance=MagicMock())
                 )
@@ -137,8 +137,8 @@ class TestDownloadPmcPapers:
         client = MagicMock()
         client.get.return_value = mock_resp
 
-        with patch("snoopy.demo.fixtures.FIXTURES_DIR", tmp_path):
-            with patch("snoopy.demo.fixtures.create_progress") as mock_progress:
+        with patch("rosette.demo.fixtures.FIXTURES_DIR", tmp_path):
+            with patch("rosette.demo.fixtures.create_progress") as mock_progress:
                 mock_progress.return_value.__enter__ = MagicMock(
                     return_value=MagicMock(add_task=MagicMock(return_value=0), advance=MagicMock())
                 )

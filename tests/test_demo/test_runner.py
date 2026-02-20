@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from snoopy.demo.runner import (
+from rosette.demo.runner import (
     _build_result,
     _collect_methods,
     _determine_pass_fail_expected_clean,
@@ -160,7 +160,7 @@ class TestAnalyzePdfTextAnalyses:
 
     def test_analyze_pdf_produces_statistical_findings(self, tmp_path):
         """_analyze_pdf produces GRIMMER, SPRITE, and tortured phrase findings."""
-        from snoopy.demo.runner import _analyze_pdf
+        from rosette.demo.runner import _analyze_pdf
 
         pdf_path = tmp_path / "test.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
@@ -202,57 +202,57 @@ class TestAnalyzePdfTextAnalyses:
             "evidence": {},
         }
 
-        from snoopy.extraction.stats_extractor import MeanReport
+        from rosette.extraction.stats_extractor import MeanReport
 
         mean_report = MeanReport(mean=3.5, sd=1.2, n=10, context="test")
 
         with (
             patch(
-                "snoopy.extraction.figure_extractor.extract_figures",
+                "rosette.extraction.figure_extractor.extract_figures",
                 return_value=[],
             ),
             patch(
-                "snoopy.extraction.pdf_parser.extract_text",
+                "rosette.extraction.pdf_parser.extract_text",
                 return_value=[mock_page],
             ),
             patch(
-                "snoopy.analysis.statistical.grim_test",
+                "rosette.analysis.statistical.grim_test",
                 return_value=type("R", (), {"consistent": True})(),
             ),
             patch(
-                "snoopy.extraction.stats_extractor.extract_means_and_ns",
+                "rosette.extraction.stats_extractor.extract_means_and_ns",
                 return_value=[],
             ),
             patch(
-                "snoopy.extraction.stats_extractor.extract_test_statistics",
+                "rosette.extraction.stats_extractor.extract_test_statistics",
                 return_value=[],
             ),
             patch(
-                "snoopy.extraction.stats_extractor.extract_numerical_values",
+                "rosette.extraction.stats_extractor.extract_numerical_values",
                 return_value=[],
             ),
             patch(
-                "snoopy.extraction.stats_extractor.extract_p_values",
+                "rosette.extraction.stats_extractor.extract_p_values",
                 return_value=[],
             ),
             patch(
-                "snoopy.extraction.table_extractor.extract_tables",
+                "rosette.extraction.table_extractor.extract_tables",
                 return_value=[],
             ),
             patch(
-                "snoopy.analysis.run_analysis.run_statistical_tests",
+                "rosette.analysis.run_analysis.run_statistical_tests",
                 return_value=[grimmer_finding],
             ),
             patch(
-                "snoopy.extraction.stats_extractor.extract_means_sds_and_ns",
+                "rosette.extraction.stats_extractor.extract_means_sds_and_ns",
                 return_value=[mean_report],
             ),
             patch(
-                "snoopy.analysis.run_analysis.run_sprite_analysis",
+                "rosette.analysis.run_analysis.run_sprite_analysis",
                 return_value=[sprite_finding],
             ),
             patch(
-                "snoopy.analysis.run_analysis.run_tortured_phrases",
+                "rosette.analysis.run_analysis.run_tortured_phrases",
                 return_value=[tp_finding],
             ),
         ):
@@ -283,19 +283,19 @@ class TestRunDemo:
         (rsiil_data / "test" / "dummy.png").write_bytes(b"\x89PNG")
 
         with (
-            patch("snoopy.demo.runner.FIXTURES_DIR", tmp_path),
-            patch("snoopy.demo.runner.console"),
-            patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path),
-            patch("snoopy.demo.fixtures.FIXTURES_DIR", tmp_path),
-            patch("snoopy.demo.fixtures.RSIIL_DATA_DIR", rsiil_data),
+            patch("rosette.demo.runner.FIXTURES_DIR", tmp_path),
+            patch("rosette.demo.runner.console"),
+            patch("rosette.demo.runner._PACKAGE_DIR", tmp_path),
+            patch("rosette.demo.fixtures.FIXTURES_DIR", tmp_path),
+            patch("rosette.demo.fixtures.RSIIL_DATA_DIR", rsiil_data),
         ):
             # Create expected directories to avoid download
             for d in ["synthetic", "rsiil", "retracted", "survey", "retraction_watch", "clean"]:
                 (tmp_path / d).mkdir(exist_ok=True)
 
-            from snoopy.demo.runner import run_demo
+            from rosette.demo.runner import run_demo
 
-            with patch("snoopy.demo.fixtures.download_all"):
+            with patch("rosette.demo.fixtures.download_all"):
                 results = run_demo(download_only=True, output_dir=str(tmp_path / "reports"))
 
         assert results == []

@@ -10,13 +10,13 @@ format:  ## Run ruff formatter
 	ruff format .
 
 test:  ## Run unit tests with coverage
-	pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=75
+	pytest -m "not integration" --tb=short --cov=rosette --cov-report=term-missing --cov-fail-under=75
 
 test-integration:  ## Run integration tests only
 	pytest -m integration --tb=short
 
 typecheck:  ## Run mypy type checker
-	mypy snoopy
+	mypy rosette
 
 check-all: lint typecheck test  ## Run all checks
 
@@ -30,4 +30,4 @@ docker-up:  ## Start containers
 	docker compose up -d
 
 db-migrate:  ## Run database migrations
-	python -c "from snoopy.db.session import init_db; from snoopy.config import load_config; c = load_config(); init_db(c.storage.database_url); from snoopy.db.migrations import create_all_tables; create_all_tables()"
+	python -c "from rosette.db.session import init_db; from rosette.config import load_config; c = load_config(); init_db(c.storage.database_url); from rosette.db.migrations import create_all_tables; create_all_tables()"

@@ -6,17 +6,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import Paper, ProcessingLog
-from snoopy.db.session import get_session, init_async_db, init_db
-from snoopy.pipeline.orchestrator import PipelineOrchestrator
+from rosette.config import RosetteConfig
+from rosette.db.models import Paper, ProcessingLog
+from rosette.db.session import get_session, init_async_db, init_db
+from rosette.pipeline.orchestrator import PipelineOrchestrator
 
 
 @pytest.fixture
-def orchestrator_config(tmp_path) -> SnoopyConfig:
+def orchestrator_config(tmp_path) -> RosetteConfig:
     """Configuration pointing at an in-memory-like temp SQLite DB."""
     db_path = tmp_path / "orch_test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),
@@ -59,7 +59,7 @@ def _mock_all_stages():
         patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
         patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
         patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
-        patch("snoopy.pipeline.orchestrator.ClaudeProvider"),
+        patch("rosette.pipeline.orchestrator.ClaudeProvider"),
     )
 
 
@@ -104,7 +104,7 @@ class TestProcessPaperFullPipeline:
             patch.object(
                 PipelineOrchestrator, "_run_report", new_callable=AsyncMock
             ) as mock_report,
-            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
 
@@ -146,7 +146,7 @@ class TestStageLogging:
             patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
-            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
@@ -190,7 +190,7 @@ class TestStageLogging:
 class TestBuildMethodWeights:
     def test_build_method_weights(self, orchestrator_config) -> None:
         """Verify the weights dict is built correctly from config."""
-        with patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude:
+        with patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude:
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
 
@@ -227,7 +227,7 @@ class TestStageFailureAndResumability:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("Text extraction failed"),
             ),
-            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
@@ -254,7 +254,7 @@ class TestStageFailureAndResumability:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("boom"),
             ),
-            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
@@ -278,7 +278,7 @@ class TestStageFailureAndResumability:
             patch.object(PipelineOrchestrator, "_run_analyze_stats", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_aggregate", new_callable=AsyncMock),
             patch.object(PipelineOrchestrator, "_run_report", new_callable=AsyncMock),
-            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)
@@ -306,7 +306,7 @@ class TestStageFailureAndResumability:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("extraction error"),
             ),
-            patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
         ):
             mock_claude.return_value = MagicMock()
             orchestrator = PipelineOrchestrator(orchestrator_config)

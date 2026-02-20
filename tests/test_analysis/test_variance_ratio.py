@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.analysis.statistical import variance_ratio_test, VarianceRatioResult
+from rosette.analysis.statistical import variance_ratio_test, VarianceRatioResult
 
 
 class TestVarianceRatioRealistic:

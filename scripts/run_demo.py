@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Run snoopy demo. Thin wrapper around snoopy.demo.runner.
+"""Run rosette demo. Thin wrapper around rosette.demo.runner.
 
-Usage: python -m scripts.run_demo   (from project root with snoopy installed)
+Usage: python -m scripts.run_demo   (from project root with rosette installed)
 """
 
 import argparse
 import logging
 
-from snoopy.demo.runner import run_demo
+from rosette.demo.runner import run_demo
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run snoopy demo with test fixtures")
+    parser = argparse.ArgumentParser(description="Run rosette demo with test fixtures")
     parser.add_argument("--download-only", action="store_true", help="Only download fixtures")
     parser.add_argument("--skip-llm", action="store_true", default=True, help="Skip LLM analysis")
     parser.add_argument("--output-dir", default=None, help="Output directory for HTML reports")

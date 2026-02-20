@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrity Report: {{ paper.title }}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.6; }
+        h1 { color: #1a1a2e; border-bottom: 2px solid #e94560; padding-bottom: 10px; }
+        h2 { color: #16213e; margin-top: 30px; }
+        h3 { color: #0f3460; }
+        .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        .summary { background: #f8f9fa; border-left: 4px solid #0f3460; padding: 15px; margin: 20px 0; }
+        .assessment { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }
+        .metric { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        .metric .value { font-size: 1.5em; font-weight: bold; }
+        .risk-critical { color: #dc3545; }
+        .risk-high { color: #fd7e14; }
+        .risk-medium { color: #ffc107; }
+        .risk-low { color: #28a745; }
+        .risk-clean { color: #17a2b8; }
+        .finding { border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .finding.critical { border-left: 4px solid #dc3545; }
+        .finding.high { border-left: 4px solid #fd7e14; }
+        .finding.medium { border-left: 4px solid #ffc107; }
+        .finding.low { border-left: 4px solid #28a745; }
+        .finding.info { border-left: 4px solid #17a2b8; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; color: white; }
+        .badge-critical { background: #dc3545; }
+        .badge-high { background: #fd7e14; }
+        .badge-medium { background: #ffc107; color: #333; }
+        .badge-low { background: #28a745; }
+        .badge-info { background: #17a2b8; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #dee2e6; }
+        th { background: #f8f9fa; font-weight: 600; }
+        .limitations { background: #fff3cd; border-radius: 8px; padding: 15px; margin: 20px 0; }
+        .footer { color: #999; font-size: 0.8em; margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Integrity Analysis Report</h1>
+    <h2 style="margin-top: 5px; font-weight: normal; font-size: 1.1em;">{{ paper.title }}</h2>
+
+    <div class="meta">
+        <strong>DOI:</strong> {{ paper.doi or "N/A" }} |
+        <strong>Journal:</strong> {{ paper.journal or "N/A" }} |
+        <strong>Citations:</strong> {{ paper.citation_count or 0 }} |
+        <strong>Priority Score:</strong> {{ "%.1f"|format(paper.priority_score or 0) }}<br>
+        <strong>Authors:</strong> {{ paper.authors_display }}<br>
+        <strong>Publication Year:</strong> {{ paper.publication_year or "N/A" }}
+    </div>
+
+    <div class="summary">
+        <h2 style="margin-top: 0;">Executive Summary</h2>
+        <p>{{ summary }}</p>
+    </div>
+
+    <h2>Overall Assessment</h2>
+    <div class="assessment">
+        <div class="metric">
+            <div>Risk Level</div>
+            <div class="value risk-{{ overall_risk }}">{{ overall_risk | upper }}</div>
+        </div>
+        <div class="metric">
+            <div>Confidence</div>
+            <div class="value">{{ "%.0f"|format(overall_confidence * 100) }}%</div>
+        </div>
+        <div class="metric">
+            <div>Converging Evidence</div>
+            <div class="value">{{ "Yes" if converging_evidence else "No" }}</div>
+        </div>
+        <div class="metric">
+            <div>Total Findings</div>
+            <div class="value">{{ findings | length }}</div>
+        </div>
+        <div class="metric">
+            <div>Critical</div>
+            <div class="value risk-critical">{{ critical_count }}</div>
+        </div>
+    </div>
+
+    <h2>Findings</h2>
+    {% for finding in findings %}
+    <div class="finding {{ finding.severity }}">
+        <h3>
+            Finding {{ loop.index }}: {{ finding.title }}
+            <span class="badge badge-{{ finding.severity }}">{{ finding.severity | upper }}</span>
+        </h3>
+        <p><strong>Analysis Type:</strong> {{ finding.analysis_type }} |
+           <strong>Confidence:</strong> {{ "%.0f"|format(finding.confidence * 100) }}%
+           {% if finding.figure_label %}| <strong>Figure:</strong> {{ finding.figure_label }}{% endif %}
+        </p>
+        <p>{{ finding.description }}</p>
+        {% if finding.evidence_details %}
+        <details>
+            <summary>Evidence Details</summary>
+            <pre>{{ finding.evidence_details }}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if not findings %}
+    <p><em>No findings were identified during analysis.</em></p>
+    {% endif %}
+
+    <h2>Methods Applied</h2>
+    <table>
+        <thead>
+            <tr><th>Method</th><th>Figures Analyzed</th><th>Issues Found</th></tr>
+        </thead>
+        <tbody>
+        {% for method in methods_summary %}
+            <tr><td>{{ method.name }}</td><td>{{ method.figures_analyzed }}</td><td>{{ method.issues_found }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="limitations">
+        <h2 style="margin-top: 0;">Limitations</h2>
+        <ul>
+            <li>This analysis is automated and may contain false positives</li>
+            <li>Findings should be independently verified by domain experts</li>
+            <li>Image compression artifacts can mimic manipulation signatures</li>
+            <li>Statistical tests may flag legitimate rounding or reporting conventions</li>
+            <li>LLM-based analysis reflects model judgment and should not be treated as definitive</li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        Report generated by Rosette v{{ version }} on {{ generated_at }}
+    </div>
+</body>
+</html>

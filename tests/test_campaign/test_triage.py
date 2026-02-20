@@ -1,4 +1,4 @@
-"""Tests for snoopy.campaign.triage module.
+"""Tests for rosette.campaign.triage module.
 
 Tests the two-tier triage funnel: auto risk scoring, promotion logic,
 and LLM tier execution with mocked pipeline stages.
@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from snoopy.campaign.triage import RISK_WEIGHTS, TriagePipeline
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import (
+from rosette.campaign.triage import RISK_WEIGHTS, TriagePipeline
+from rosette.config import RosetteConfig
+from rosette.db.models import (
     Campaign,
     CampaignPaper,
     Figure,
@@ -21,13 +21,13 @@ from snoopy.db.models import (
     Paper,
     Report,
 )
-from snoopy.db.session import get_session, init_async_db, init_db
+from rosette.db.session import get_session, init_async_db, init_db
 
 
 @pytest.fixture
-def campaign_config(tmp_path) -> SnoopyConfig:
+def campaign_config(tmp_path) -> RosetteConfig:
     db_path = tmp_path / "triage_test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),
@@ -339,7 +339,7 @@ class TestRunAutoTier:
         campaign_id, paper_id = seeded_campaign
 
         with patch.object(TriagePipeline, "_check_external_signals", new_callable=AsyncMock):
-            with patch("snoopy.campaign.triage.PipelineOrchestrator") as MockOrch:
+            with patch("rosette.campaign.triage.PipelineOrchestrator") as MockOrch:
                 mock_orch = MockOrch.return_value
                 mock_orch.process_paper_stages = AsyncMock()
 
@@ -390,7 +390,7 @@ class TestRunLlmTier:
             cp.triage_status = "auto_done"
             cp.llm_promoted = True
 
-        with patch("snoopy.campaign.triage.PipelineOrchestrator") as MockOrch:
+        with patch("rosette.campaign.triage.PipelineOrchestrator") as MockOrch:
             mock_orch = MockOrch.return_value
             mock_orch.process_paper_stages = AsyncMock()
 
@@ -430,7 +430,7 @@ class TestRunLlmTier:
             )
             session.add(report)
 
-        with patch("snoopy.campaign.triage.PipelineOrchestrator") as MockOrch:
+        with patch("rosette.campaign.triage.PipelineOrchestrator") as MockOrch:
             mock_orch = MockOrch.return_value
             mock_orch.process_paper_stages = AsyncMock()
 

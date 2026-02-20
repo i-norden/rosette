@@ -1,4 +1,4 @@
-"""Tests for snoopy.demo.runner helper functions."""
+"""Tests for rosette.demo.runner helper functions."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 from PIL import Image
 
-from snoopy.demo.runner import (
+from rosette.demo.runner import (
     _analyze_image,
     _analyze_pdf,
     _build_result,
@@ -277,9 +277,9 @@ class TestFullAnalysisPipeline:
         assert result["phash"] is not None
         assert result["ahash"] is not None
 
-    @patch("snoopy.extraction.table_extractor.extract_tables")
-    @patch("snoopy.extraction.pdf_parser.extract_text")
-    @patch("snoopy.extraction.figure_extractor.extract_figures")
+    @patch("rosette.extraction.table_extractor.extract_tables")
+    @patch("rosette.extraction.pdf_parser.extract_text")
+    @patch("rosette.extraction.figure_extractor.extract_figures")
     def test_analyze_pdf_runs_statistical_extraction(
         self,
         mock_extract_figures: MagicMock,
@@ -296,7 +296,7 @@ class TestFullAnalysisPipeline:
         mock_extract_figures.return_value = []
 
         # Mock text extraction
-        from snoopy.extraction.pdf_parser import PageText
+        from rosette.extraction.pdf_parser import PageText
 
         mock_extract_text.return_value = [
             PageText(page_number=1, text="M = 3.45, N = 120", word_count=5)
@@ -309,9 +309,9 @@ class TestFullAnalysisPipeline:
         assert "phash_matches" in result
         assert isinstance(result["findings"], list)
 
-    @patch("snoopy.extraction.table_extractor.extract_tables")
-    @patch("snoopy.extraction.pdf_parser.extract_text")
-    @patch("snoopy.extraction.figure_extractor.extract_figures")
+    @patch("rosette.extraction.table_extractor.extract_tables")
+    @patch("rosette.extraction.pdf_parser.extract_text")
+    @patch("rosette.extraction.figure_extractor.extract_figures")
     def test_analyze_pdf_runs_table_extraction(
         self,
         mock_extract_figures: MagicMock,
@@ -327,12 +327,12 @@ class TestFullAnalysisPipeline:
 
         mock_extract_figures.return_value = []
 
-        from snoopy.extraction.pdf_parser import PageText
+        from rosette.extraction.pdf_parser import PageText
 
         mock_extract_text.return_value = [PageText(page_number=1, text="some text", word_count=2)]
 
         # Mock tables with suspicious duplicate values
-        from snoopy.extraction.table_extractor import TableInfo
+        from rosette.extraction.table_extractor import TableInfo
 
         mock_extract_tables.return_value = [
             TableInfo(
@@ -377,9 +377,9 @@ class TestRunDemoGeneratesDashboard:
         img = Image.fromarray(arr)
         img.save(str(syn_dir / "test_img.png"))
 
-    @patch("snoopy.demo.fixtures.sample_rsiil_images", return_value=([], []))
-    @patch("snoopy.demo.runner.webbrowser.open")
-    @patch("snoopy.demo.runner.FIXTURES_DIR")
+    @patch("rosette.demo.fixtures.sample_rsiil_images", return_value=([], []))
+    @patch("rosette.demo.runner.webbrowser.open")
+    @patch("rosette.demo.runner.FIXTURES_DIR")
     def test_run_demo_creates_index_html(
         self,
         mock_fixtures_dir: MagicMock,
@@ -387,7 +387,7 @@ class TestRunDemoGeneratesDashboard:
         mock_sample_rsiil: MagicMock,
         tmp_path: Path,
     ) -> None:
-        from snoopy.demo.runner import run_demo
+        from rosette.demo.runner import run_demo
 
         fixtures_dir = tmp_path / "fixtures"
         self._make_synthetic_fixture(fixtures_dir)
@@ -399,9 +399,9 @@ class TestRunDemoGeneratesDashboard:
         report_dir = tmp_path / "reports"
 
         with (
-            patch("snoopy.demo.runner.FIXTURES_DIR", fixtures_dir),
-            patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path),
-            patch("snoopy.demo.fixtures.download_all"),
+            patch("rosette.demo.runner.FIXTURES_DIR", fixtures_dir),
+            patch("rosette.demo.runner._PACKAGE_DIR", tmp_path),
+            patch("rosette.demo.fixtures.download_all"),
         ):
             results = run_demo(output_dir=str(report_dir))
 
@@ -410,14 +410,14 @@ class TestRunDemoGeneratesDashboard:
         assert index_html.exists(), "index.html dashboard was not generated"
 
         html = index_html.read_text()
-        assert "Snoopy Demo Results" in html
+        assert "Rosette Demo Results" in html
         assert "Synthetic Forgeries" in html
 
         # Browser should have been called
         mock_browser_open.assert_called_once()
 
         # sample_rsiil_images should have been called
-        mock_sample_rsiil.assert_called_once_with(50)
+        mock_sample_rsiil.assert_called_once_with(50, seed=42)
 
         # Results should be returned
         assert isinstance(results, list)
@@ -431,11 +431,11 @@ class TestRunDemoGeneratesDashboard:
             assert "methods_used" in r
             assert isinstance(r["methods_used"], list)
 
-    @patch("snoopy.demo.runner.webbrowser.open")
+    @patch("rosette.demo.runner.webbrowser.open")
     def test_run_demo_includes_rsiil_zenodo_results(
         self, mock_browser_open: MagicMock, tmp_path: Path
     ) -> None:
-        from snoopy.demo.runner import run_demo
+        from rosette.demo.runner import run_demo
 
         fixtures_dir = tmp_path / "fixtures"
         self._make_synthetic_fixture(fixtures_dir)
@@ -459,11 +459,11 @@ class TestRunDemoGeneratesDashboard:
         report_dir = tmp_path / "reports"
 
         with (
-            patch("snoopy.demo.runner.FIXTURES_DIR", fixtures_dir),
-            patch("snoopy.demo.runner._PACKAGE_DIR", tmp_path),
-            patch("snoopy.demo.fixtures.download_all"),
+            patch("rosette.demo.runner.FIXTURES_DIR", fixtures_dir),
+            patch("rosette.demo.runner._PACKAGE_DIR", tmp_path),
+            patch("rosette.demo.fixtures.download_all"),
             patch(
-                "snoopy.demo.fixtures.sample_rsiil_images",
+                "rosette.demo.fixtures.sample_rsiil_images",
                 return_value=(pristine_paths, tampered_paths),
             ),
         ):
