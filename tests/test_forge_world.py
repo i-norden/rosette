@@ -5,23 +5,21 @@ Verifies protocol conformance, seed-aware dataset behavior, and factory function
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import patch
-
 import pytest
 
-from forge_world.core.protocols import (
+forge_world = pytest.importorskip("forge_world", reason="forge-world not installed")
+
+from forge_world.core.protocols import (  # noqa: E402
     Aggregator,
     LabeledDataset,
     LabeledItem,
-    PassFailRule,
     PassFailRuleSet,
     Pipeline,
     Severity,
     TieredDataset,
 )
 
-from rosette.forge_world import (
+from rosette.forge_world import (  # noqa: E402
     RosetteAggregator,
     RosetteDataset,
     RosettePipeline,
