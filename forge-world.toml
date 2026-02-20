@@ -1,3 +1,8 @@
 [forge-world]
 module = "rosette.forge_world"
 sample_size = 50
+
+[forge-world.evolve]
+agent_command = "claude -p 'Read {context_file} and improve the detection pipeline. Maintain FPR=0.'"
+max_iterations = 10
+hard_constraints = [{metric = "fpr", op = "<=", value = 0}]

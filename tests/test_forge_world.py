@@ -18,6 +18,7 @@ from forge_world.core.protocols import (
     PassFailRuleSet,
     Pipeline,
     Severity,
+    TieredDataset,
 )
 
 from rosette.forge_world import (
@@ -184,3 +185,50 @@ class TestRosetteDataset:
         for item in zenodo_items:
             assert item.metadata.get("source") == "zenodo"
             assert item.metadata.get("seed") == 42
+
+
+class TestRosetteDatasetTiers:
+    def test_dataset_satisfies_tiered_protocol(self):
+        d = RosetteDataset()
+        assert isinstance(d, TieredDataset)
+
+    def test_tiers_returns_dict(self):
+        d = RosetteDataset()
+        tiers = d.tiers()
+        assert isinstance(tiers, dict)
+        assert "smoke" in tiers
+        assert "standard" in tiers
+        assert "full" in tiers
+
+    def test_smoke_tier_only_synthetic(self):
+        d = RosetteDataset()
+        tiers = d.tiers()
+        assert tiers["smoke"] == ["synthetic"]
+
+    def test_standard_tier_categories(self):
+        d = RosetteDataset()
+        tiers = d.tiers()
+        standard = tiers["standard"]
+        assert "synthetic" in standard
+        assert "rsiil" in standard
+        assert "clean" in standard
+        # Zenodo not in standard
+        assert "rsiil_zenodo" not in standard
+
+    def test_full_tier_includes_zenodo(self):
+        d = RosetteDataset()
+        tiers = d.tiers()
+        full = tiers["full"]
+        assert "rsiil_zenodo" in full
+        assert "rsiil_zenodo_clean" in full
+
+    def test_all_fixed_categories_in_standard(self):
+        """All fixed-item categories should be in the standard tier."""
+        d = RosetteDataset()
+        tiers = d.tiers()
+        standard = set(tiers["standard"])
+        items = d.items(seed=None)
+        for item in items:
+            assert item.category in standard, (
+                f"Fixed item category '{item.category}' not in standard tier"
+            )

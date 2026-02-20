@@ -340,6 +340,25 @@ class RosetteDataset:
         cats.update(["rsiil_zenodo", "rsiil_zenodo_clean"])
         return sorted(cats)
 
+    def tiers(self) -> dict[str, list[str]]:
+        """Return tier definitions for tiered evaluation.
+
+        Smoke: ~15 items, ~30s.  Standard: ~68 items, ~3 min.
+        Full: all categories including Zenodo, ~168 items, ~25 min.
+        """
+        return {
+            "smoke": ["synthetic"],
+            "standard": [
+                "synthetic", "rsiil", "rsiil_clean", "retracted",
+                "survey", "retraction_watch", "clean",
+            ],
+            "full": [
+                "synthetic", "rsiil", "rsiil_clean", "retracted",
+                "survey", "retraction_watch", "clean",
+                "rsiil_zenodo", "rsiil_zenodo_clean",
+            ],
+        }
+
 
 class RosetteRules:
     """Pass/fail rules matching rosette's demo runner logic.
