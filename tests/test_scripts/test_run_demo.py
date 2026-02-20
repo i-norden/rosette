@@ -398,10 +398,18 @@ class TestRunDemoGeneratesDashboard:
         # Point FIXTURES_DIR to our tmp fixtures
         report_dir = tmp_path / "reports"
 
+        # Create fake RSIIL data dirs so auto-download is not triggered
+        rsiil_dir = tmp_path / "data" / "rsiil"
+        (rsiil_dir / "pristine").mkdir(parents=True)
+        (rsiil_dir / "test").mkdir(parents=True)
+        (rsiil_dir / "pristine" / "dummy.png").touch()
+        (rsiil_dir / "test" / "dummy.png").touch()
+
         with (
             patch("rosette.demo.runner.FIXTURES_DIR", fixtures_dir),
             patch("rosette.demo.runner._PACKAGE_DIR", tmp_path),
             patch("rosette.demo.fixtures.download_all"),
+            patch("rosette.demo.fixtures.RSIIL_DATA_DIR", rsiil_dir),
         ):
             results = run_demo(output_dir=str(report_dir))
 
@@ -458,10 +466,18 @@ class TestRunDemoGeneratesDashboard:
 
         report_dir = tmp_path / "reports"
 
+        # Create fake RSIIL data dirs so auto-download is not triggered
+        rsiil_dir = tmp_path / "data" / "rsiil"
+        (rsiil_dir / "pristine").mkdir(parents=True)
+        (rsiil_dir / "test").mkdir(parents=True)
+        (rsiil_dir / "pristine" / "dummy.png").touch()
+        (rsiil_dir / "test" / "dummy.png").touch()
+
         with (
             patch("rosette.demo.runner.FIXTURES_DIR", fixtures_dir),
             patch("rosette.demo.runner._PACKAGE_DIR", tmp_path),
             patch("rosette.demo.fixtures.download_all"),
+            patch("rosette.demo.fixtures.RSIIL_DATA_DIR", rsiil_dir),
             patch(
                 "rosette.demo.fixtures.sample_rsiil_images",
                 return_value=(pristine_paths, tampered_paths),
