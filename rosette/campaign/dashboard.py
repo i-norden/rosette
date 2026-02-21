@@ -193,17 +193,17 @@ def _collect_dashboard_data(campaign_id: str) -> dict:
         match_papers: dict[str, Paper] = {}
         match_figures: dict[str, Figure] = {}
         if match_paper_ids:
-            fetched = (
+            fetched_papers = (
                 session.execute(select(Paper).where(Paper.id.in_(match_paper_ids))).scalars().all()
             )
-            match_papers = {str(p.id): p for p in fetched}
+            match_papers = {str(p.id): p for p in fetched_papers}
         if match_figure_ids:
-            fetched = (
+            fetched_figures = (
                 session.execute(select(Figure).where(Figure.id.in_(match_figure_ids)))
                 .scalars()
                 .all()
             )
-            match_figures = {str(f.id): f for f in fetched}
+            match_figures = {str(f.id): f for f in fetched_figures}
 
         hash_matches = []
         for m in hash_matches_query:
