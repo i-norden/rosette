@@ -23,3 +23,8 @@ build/
 
 rosette.db
 *.db
+
+.coverage
+htmlcov/
+scripts/
+.forge-world/

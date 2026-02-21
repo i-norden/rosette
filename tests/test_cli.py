@@ -192,7 +192,8 @@ class TestAnalyzeCommand:
         runner = CliRunner()
         result = runner.invoke(main, ["analyze", "--doi", "10.1234/test.paper"])
         # Should succeed or at least attempt processing
-        assert "10.1234/test.paper" in result.output or result.exit_code == 0
+        assert result.exit_code == 0
+        assert "10.1234/test.paper" in result.output
 
 
 class TestStatusCommand:
