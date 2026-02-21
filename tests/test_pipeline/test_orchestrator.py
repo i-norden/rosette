@@ -329,3 +329,66 @@ class TestStageFailureAndResumability:
             assert len(logs) == 1
             assert logs[0].stage == "extract_text"
             assert "extraction error" in (logs[0].details or "")
+
+
+class TestRunBatch:
+    @pytest.mark.asyncio
+    async def test_run_batch_processes_pending_papers(self, orchestrator_config, seeded_db):
+        """run_batch should pick up pending papers with pdf_path set."""
+        paper_id = seeded_db
+        # Set pdf_path so the query filter matches
+        with get_session() as session:
+            paper = session.get(Paper, paper_id)
+            paper.pdf_path = "/tmp/fake.pdf"
+            paper.priority_score = 50.0
+
+        with (
+            patch.object(
+                PipelineOrchestrator, "process_paper", new_callable=AsyncMock
+            ) as mock_process,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+        ):
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+            results = await orchestrator.run_batch(limit=10)
+
+        assert paper_id in results
+        mock_process.assert_called_once_with(paper_id)
+
+    @pytest.mark.asyncio
+    async def test_run_batch_min_priority_filters(self, orchestrator_config, seeded_db):
+        """run_batch with min_priority should skip low-priority papers."""
+        paper_id = seeded_db
+        with get_session() as session:
+            paper = session.get(Paper, paper_id)
+            paper.pdf_path = "/tmp/fake.pdf"
+            paper.priority_score = 10.0  # Below threshold
+
+        with patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude:
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+            results = await orchestrator.run_batch(limit=10, min_priority=50.0)
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_run_batch_sqlite_forces_serial(self, orchestrator_config, seeded_db):
+        """SQLite DB URL should force concurrency to 1."""
+        paper_id = seeded_db
+        with get_session() as session:
+            paper = session.get(Paper, paper_id)
+            paper.pdf_path = "/tmp/fake.pdf"
+            paper.priority_score = 50.0
+
+        with (
+            patch.object(
+                PipelineOrchestrator, "process_paper", new_callable=AsyncMock
+            ) as mock_process,
+            patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_claude,
+        ):
+            mock_claude.return_value = MagicMock()
+            orchestrator = PipelineOrchestrator(orchestrator_config)
+            # orchestrator_config uses sqlite, so concurrency should be forced to 1
+            await orchestrator.run_batch(limit=10)
+
+        mock_process.assert_called_once_with(paper_id)

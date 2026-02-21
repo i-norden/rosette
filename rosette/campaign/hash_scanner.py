@@ -221,15 +221,24 @@ class CampaignHashScanner:
     async def _persist_matches(self, matches: list[ImageHashMatch]) -> None:
         """Save hash matches to database, skipping duplicates."""
         async with get_async_session() as session:
-            for match in matches:
-                # Check for existing match
-                existing = await session.execute(
-                    select(ImageHashMatch).where(
-                        ImageHashMatch.figure_id_a == match.figure_id_a,
-                        ImageHashMatch.figure_id_b == match.figure_id_b,
+            # Batch-query existing matches to avoid N+1
+            all_pairs = [(m.figure_id_a, m.figure_id_b) for m in matches]
+            existing_pairs: set[tuple[str, str]] = set()
+            if all_pairs:
+                from sqlalchemy import tuple_
+
+                existing_result = await session.execute(
+                    select(ImageHashMatch.figure_id_a, ImageHashMatch.figure_id_b).where(
+                        tuple_(ImageHashMatch.figure_id_a, ImageHashMatch.figure_id_b).in_(
+                            all_pairs
+                        )
                     )
                 )
-                if not existing.scalars().first():
+                existing_pairs = {(str(r[0]), str(r[1])) for r in existing_result.all()}
+
+            # Bulk-insert new matches
+            for match in matches:
+                if (match.figure_id_a, match.figure_id_b) not in existing_pairs:
                     session.add(match)
 
             # Update campaign flagged count if applicable
@@ -242,17 +251,16 @@ class CampaignHashScanner:
                         paper_ids_with_matches.add(str(m.paper_id_a))
                         paper_ids_with_matches.add(str(m.paper_id_b))
 
-                    # Update flagged count for campaign papers
-                    for pid in paper_ids_with_matches:
+                    # Batch-fetch campaign papers for these paper IDs
+                    if paper_ids_with_matches:
                         cp_result = await session.execute(
                             select(CampaignPaper)
                             .where(CampaignPaper.campaign_id == self.campaign_id)
-                            .where(CampaignPaper.paper_id == pid)
+                            .where(CampaignPaper.paper_id.in_(paper_ids_with_matches))
                         )
-                        cp = cp_result.scalars().first()
-                        if cp and not cp.llm_promoted:
-                            # Hash match may trigger re-scoring
-                            pass
+                        for cp in cp_result.scalars().all():
+                            if not cp.llm_promoted:
+                                cp.auto_risk_score = (cp.auto_risk_score or 0) + 30.0
 
     def _nearby_prefixes(self, prefix: str) -> list[str]:
         """Get hash prefixes within Hamming distance 1 of the given prefix.

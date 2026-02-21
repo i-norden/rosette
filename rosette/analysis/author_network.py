@@ -290,9 +290,10 @@ def run_network_analysis() -> NetworkAnalysisResult:
     with get_session() as session:
         authors = session.execute(select(Author)).scalars().all()
         total_authors = len(authors)
+        author_ids = [str(a.id) for a in authors]
 
-    for author in authors:
-        risk = compute_author_risk(str(author.id))
+    for author_id in author_ids:
+        risk = compute_author_risk(author_id)
         if risk and risk.risk_score > 20:
             high_risk_authors.append(risk)
 
