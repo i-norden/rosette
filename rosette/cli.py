@@ -256,7 +256,7 @@ def batch(ctx: click.Context, limit: int, min_priority: float) -> None:
 
         orchestrator = PipelineOrchestrator(config)
         click.echo(f"Processing up to {limit} papers with priority >= {min_priority}...")
-        results = await orchestrator.run_batch(limit=limit)
+        results = await orchestrator.run_batch(limit=limit, min_priority=min_priority)
         click.echo(f"Processed {len(results)} papers.")
 
     asyncio.run(_run())

@@ -15,11 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from rosette import __version__ as _VERSION
 from rosette.analysis.evidence import AggregatedEvidence
 
 logger = logging.getLogger(__name__)
-
-_VERSION = "0.1.0"
 
 
 def _file_sha256(path: str) -> str:

@@ -119,22 +119,38 @@ def _collect_dashboard_data(campaign_id: str) -> dict:
             .all()
         )
 
-        top_findings = []
-        for cp in top_papers_query:
-            paper = session.get(Paper, str(cp.paper_id))
-            if not paper:
-                continue
+        # Batch-fetch papers and reports for top findings
+        top_paper_ids = [str(cp.paper_id) for cp in top_papers_query]
+        papers_by_id: dict[str, Paper] = {}
+        reports_by_paper: dict[str, Report] = {}
+        if top_paper_ids:
+            fetched_papers = (
+                session.execute(select(Paper).where(Paper.id.in_(top_paper_ids))).scalars().all()
+            )
+            papers_by_id = {str(p.id): p for p in fetched_papers}
 
-            # Get report summary
-            report = (
+            # Get latest report per paper
+            all_reports = (
                 session.execute(
                     select(Report)
-                    .where(Report.paper_id == str(cp.paper_id))
+                    .where(Report.paper_id.in_(top_paper_ids))
                     .order_by(Report.created_at.desc())
                 )
                 .scalars()
-                .first()
+                .all()
             )
+            for rpt in all_reports:
+                pid = str(rpt.paper_id)
+                if pid not in reports_by_paper:
+                    reports_by_paper[pid] = rpt
+
+        top_findings = []
+        for cp in top_papers_query:
+            paper = papers_by_id.get(str(cp.paper_id))
+            if not paper:
+                continue
+
+            report = reports_by_paper.get(str(cp.paper_id))
 
             top_findings.append(
                 {
@@ -165,12 +181,36 @@ def _collect_dashboard_data(campaign_id: str) -> dict:
             .all()
         )
 
+        # Batch-fetch all papers and figures referenced by hash matches
+        match_paper_ids: set[str] = set()
+        match_figure_ids: set[str] = set()
+        for m in hash_matches_query:
+            match_paper_ids.add(str(m.paper_id_a))
+            match_paper_ids.add(str(m.paper_id_b))
+            match_figure_ids.add(str(m.figure_id_a))
+            match_figure_ids.add(str(m.figure_id_b))
+
+        match_papers: dict[str, Paper] = {}
+        match_figures: dict[str, Figure] = {}
+        if match_paper_ids:
+            fetched_papers = (
+                session.execute(select(Paper).where(Paper.id.in_(match_paper_ids))).scalars().all()
+            )
+            match_papers = {str(p.id): p for p in fetched_papers}
+        if match_figure_ids:
+            fetched_figures = (
+                session.execute(select(Figure).where(Figure.id.in_(match_figure_ids)))
+                .scalars()
+                .all()
+            )
+            match_figures = {str(f.id): f for f in fetched_figures}
+
         hash_matches = []
         for m in hash_matches_query:
-            paper_a = session.get(Paper, str(m.paper_id_a))
-            paper_b = session.get(Paper, str(m.paper_id_b))
-            fig_a = session.get(Figure, str(m.figure_id_a))
-            fig_b = session.get(Figure, str(m.figure_id_b))
+            paper_a = match_papers.get(str(m.paper_id_a))
+            paper_b = match_papers.get(str(m.paper_id_b))
+            fig_a = match_figures.get(str(m.figure_id_a))
+            fig_b = match_figures.get(str(m.figure_id_b))
 
             hash_matches.append(
                 {

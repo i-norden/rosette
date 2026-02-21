@@ -856,16 +856,19 @@ class PipelineOrchestrator:
             (reports_dir / f"{paper_id}.md").write_text(markdown)
             (reports_dir / f"{paper_id}.html").write_text(html)
 
-    async def run_batch(self, limit: int = 100) -> list[str]:
+    async def run_batch(self, limit: int = 100, min_priority: float = 0.0) -> list[str]:
         """Process top-priority pending papers."""
         async with get_async_session() as session:
-            result = await session.execute(
+            query = (
                 select(Paper)
                 .where(Paper.status == "pending")
                 .where(Paper.pdf_path.isnot(None))
                 .order_by(Paper.priority_score.desc())
                 .limit(limit)
             )
+            if min_priority > 0:
+                query = query.where(Paper.priority_score >= min_priority)
+            result = await session.execute(query)
             papers = result.scalars().all()
             paper_ids = [str(p.id) for p in papers]
 

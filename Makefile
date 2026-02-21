@@ -18,7 +18,10 @@ test-integration:  ## Run integration tests only
 typecheck:  ## Run mypy type checker
 	mypy rosette
 
-check-all: lint typecheck test  ## Run all checks
+format-check:  ## Check code formatting
+	ruff format --check .
+
+check-all: lint format-check typecheck test  ## Run all checks
 
 clean:  ## Remove build artifacts and caches
 	rm -rf build/ dist/ *.egg-info .mypy_cache .pytest_cache .ruff_cache __pycache__
@@ -30,4 +33,4 @@ docker-up:  ## Start containers
 	docker compose up -d
 
 db-migrate:  ## Run database migrations
-	python -c "from rosette.db.session import init_db; from rosette.config import load_config; c = load_config(); init_db(c.storage.database_url); from rosette.db.migrations import create_all_tables; create_all_tables()"
+	alembic upgrade head

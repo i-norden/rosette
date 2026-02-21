@@ -47,7 +47,13 @@ async def _verify_api_key(request: Request) -> None:
         )
         return
     key = request.headers.get("X-API-Key")
-    if not key or not any(hmac.compare_digest(key, k) for k in api_keys):
+    if not key:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    # Iterate all keys without short-circuit to avoid timing side channel
+    matched = False
+    for k in api_keys:
+        matched |= hmac.compare_digest(key, k)
+    if not matched:
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 

@@ -14,7 +14,8 @@ class TestFFTNaturalImage:
         arr = np.zeros((256, 256, 3), dtype=np.uint8)
         for i in range(256):
             arr[i, :, :] = int(i / 256 * 255)
-        noise = np.random.randint(-20, 20, arr.shape, dtype=np.int16)
+        rng = np.random.RandomState(10)
+        noise = rng.randint(-20, 20, arr.shape, dtype=np.int16)
         arr = np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8)
         path = str(tmp_path / "natural.png")
         Image.fromarray(arr).save(path, "PNG")
@@ -31,7 +32,8 @@ class TestFFTNaturalImage:
                 arr[i, j, 0] = int(i / 256 * 200)
                 arr[i, j, 1] = int(j / 256 * 200)
                 arr[i, j, 2] = 100
-        noise = np.random.randint(-15, 15, arr.shape, dtype=np.int16)
+        rng = np.random.RandomState(11)
+        noise = rng.randint(-15, 15, arr.shape, dtype=np.int16)
         arr = np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8)
         path = str(tmp_path / "natural2.png")
         Image.fromarray(arr).save(path, "PNG")
@@ -46,7 +48,8 @@ class TestFFTResampledImage:
 
     def test_resampled_image_has_positive_anomaly_score(self, tmp_path):
         # Create an image with fine detail
-        arr = np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8)
+        rng = np.random.RandomState(12)
+        arr = rng.randint(0, 255, (512, 512, 3), dtype=np.uint8)
         img = Image.fromarray(arr)
 
         # Downsample then upsample to introduce interpolation artifacts
@@ -62,7 +65,8 @@ class TestFFTResampledImage:
         assert result.spectral_anomaly_score >= 0.0
 
     def test_resampled_image_periodic_peaks_is_list(self, tmp_path):
-        arr = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
+        rng = np.random.RandomState(13)
+        arr = rng.randint(0, 255, (256, 256, 3), dtype=np.uint8)
         img = Image.fromarray(arr)
 
         small = img.resize((64, 64), Image.BILINEAR)
@@ -113,7 +117,8 @@ class TestFFTSmallImage:
     """Very small images (16x16) should not crash."""
 
     def test_small_image_does_not_crash(self, tmp_path):
-        arr = np.random.randint(0, 255, (16, 16, 3), dtype=np.uint8)
+        rng = np.random.RandomState(14)
+        arr = rng.randint(0, 255, (16, 16, 3), dtype=np.uint8)
         path = str(tmp_path / "tiny.png")
         Image.fromarray(arr).save(path, "PNG")
 
@@ -122,7 +127,8 @@ class TestFFTSmallImage:
         assert isinstance(result, FFTResult)
 
     def test_small_image_returns_valid_fields(self, tmp_path):
-        arr = np.random.randint(0, 255, (16, 16, 3), dtype=np.uint8)
+        rng = np.random.RandomState(15)
+        arr = rng.randint(0, 255, (16, 16, 3), dtype=np.uint8)
         path = str(tmp_path / "tiny_valid.png")
         Image.fromarray(arr).save(path, "PNG")
 
@@ -154,7 +160,8 @@ class TestFFTResultFields:
         assert hasattr(result, "details")
 
     def test_field_types(self, tmp_path):
-        arr = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        rng = np.random.RandomState(16)
+        arr = rng.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         path = str(tmp_path / "type_check.png")
         Image.fromarray(arr).save(path, "PNG")
 
@@ -167,7 +174,8 @@ class TestFFTResultFields:
         assert isinstance(result.details, str)
 
     def test_periodic_peaks_elements_are_floats(self, tmp_path):
-        arr = np.random.randint(0, 255, (200, 200, 3), dtype=np.uint8)
+        rng = np.random.RandomState(17)
+        arr = rng.randint(0, 255, (200, 200, 3), dtype=np.uint8)
         path = str(tmp_path / "peaks_types.png")
         Image.fromarray(arr).save(path, "PNG")
 
@@ -177,7 +185,8 @@ class TestFFTResultFields:
             assert isinstance(peak, float)
 
     def test_custom_anomaly_threshold(self, tmp_path):
-        arr = np.random.randint(0, 255, (200, 200, 3), dtype=np.uint8)
+        rng = np.random.RandomState(18)
+        arr = rng.randint(0, 255, (200, 200, 3), dtype=np.uint8)
         path = str(tmp_path / "threshold.png")
         Image.fromarray(arr).save(path, "PNG")
 

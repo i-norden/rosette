@@ -121,6 +121,7 @@ class AnalysisConfig(BaseModel):
     weight_benford: float = Field(default=0.30, ge=0.0, le=1.0)
     weight_duplicate_check: float = Field(default=0.25, ge=0.0, le=1.0)
     weight_llm_vision: float = Field(default=0.70, ge=0.0, le=1.0)
+    weight_metadata_forensics: float = Field(default=0.3, ge=0.0, le=1.0)
 
     # Convergence thresholds
     convergence_confidence_threshold: float = 0.60
@@ -171,7 +172,7 @@ class AnalysisConfig(BaseModel):
             "dct_analysis": self.weight_dct_analysis,
             "jpeg_ghost": self.weight_jpeg_ghost,
             "fft_analysis": self.weight_fft_analysis,
-            "metadata_forensics": 0.3,
+            "metadata_forensics": self.weight_metadata_forensics,
             "phash": self.weight_phash,
             "grim": self.weight_grim,
             "pvalue_check": self.weight_pvalue_check,

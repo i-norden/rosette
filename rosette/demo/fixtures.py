@@ -418,14 +418,16 @@ def _extract_7z(archive_path: Path, target_dir: Path) -> None:
 
 
 def download_rsiil_zenodo(client: httpx.Client) -> dict[str, int]:
-    """Download and extract the full RSIIL dataset from Zenodo.
+    """Download and extract RSIIL test + pristine images from Zenodo.
 
-    Downloads three archive files, extracts them into ``data/rsiil/``, and
-    deletes the archives afterward.  Idempotent: skips extraction if target
-    directories already contain files.
+    Downloads two archive files (pristine source images and the test set),
+    extracts them into ``data/rsiil/``, and deletes the archives afterward.
+    The training set (~37 GB) is skipped since we only need test samples for
+    demo evaluation.  Idempotent: skips extraction if target directories
+    already contain files.
 
     Returns a dict with per-split file counts, e.g.
-    ``{"pristine": 2923, "train": 26496, "test": 12927}``.
+    ``{"pristine": 2923, "test": 12927}``.
     """
     import zipfile
 
@@ -747,7 +749,7 @@ def download_all() -> dict[str, int]:
     # Per-category summary with expected vs actual counts
     expected_counts: dict[str, int] = {
         "rsiil": len(RSIIL_FORGERY_IMAGES) + len(RSIIL_CLEAN_IMAGES),
-        "synthetic": 10,
+        "synthetic": 15,
         "retracted": len(RETRACTED_PAPERS),
         "survey": 1,
         "retraction_watch": len(RETRACTION_WATCH_PAPERS),
