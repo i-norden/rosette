@@ -1,8 +1,8 @@
 # Rosette
 
-Academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers using computer vision, statistical tests, and (optionally) LLM-based analysis.
+Academic integrity analyzer. Detects image manipulation, statistical anomalies, and figure duplication in scientific papers.
 
-The analysis pipeline was iteratively refined using an agentic evolutionary metaprogramming harness and a dataset of known manipulated papers, retracted papers, and clean controls.
+This project also serves as an experimental test subject for benchmark-driven pipeline optimization tools like [forge-world](https://github.com/i-norden/forge-world).
 
 ## Quick Start
 
@@ -12,11 +12,22 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Run the demo (downloads test fixtures, runs forensics, prints results):
+Analyze a paper:
+
+```bash
+rosette analyze --doi 10.1234/example
+rosette analyze --pdf path/to/paper.pdf
+```
+
+Run the demo to see how it performs (downloads test fixtures, runs forensics, prints results):
 
 ```bash
 rosette demo
 ```
+
+Warning: this downloads and extracts RSIIL test + pristine images from Zenodo (~20 GB) on first run.  
+Warning: even once the assets are downloaded and extracted, the data processing pipeline takes a long time to run on the default number of RSIIL images (100 total) + everything else.
+
 
 ## Architecture
 
@@ -77,18 +88,18 @@ rosette campaign export     Export evidence packages
 
 ### rosette demo
 
-End-to-end showcase of the forensic analysis pipeline. Downloads ~3 GB of test fixtures across six categories, runs multi-method analysis on each, and generates an interactive HTML dashboard that opens in your browser.
+End-to-end showcase of the forensic analysis pipeline. Downloads test fixtures across six categories, plus RSIIL test + pristine images from Zenodo (~20 GB) on first run. Runs multi-method analysis on each item and generates an interactive HTML dashboard that opens in your browser.
 
 **Fixture categories:**
 
-| Category | Count | Source | Purpose |
-|----------|-------|--------|---------|
-| Synthetic forgeries | 10 images | Generated locally | Copy-move, splicing, retouching |
-| RSIIL benchmark | 3 images | RSIIL GitHub | Known manipulations with ground truth |
-| Retracted papers | 10 PDFs | PMC Open Access | Papers retracted for image issues |
-| Bik survey | 1 PDF | PMC Open Access | Reference study on image duplication |
-| Retraction Watch | 2 PDFs | PMC Open Access | Papers flagged for manipulation |
-| Clean controls | 21 PDFs | PMC Open Access | Landmark papers (false positive control) |
+| Category | Count     | Source | Purpose |
+|----------|-----------|--------|---------|
+| Synthetic forgeries | 15 images | Generated locally | Copy-move, splicing, retouching |
+| RSIIL benchmark | 50/category (100 total) | RSIIL Zenodo | Known manipulations with ground truth |
+| Retracted papers | 15 PDFs   | PMC Open Access | Papers retracted for image issues |
+| Bik survey | 1 PDF     | PMC Open Access | Reference study on image duplication |
+| Retraction Watch | 5 PDFs    | PMC Open Access | Papers flagged for manipulation |
+| Clean controls | 26 PDFs   | PMC Open Access | Landmark papers (false positive control) |
 
 **Analysis applied per item:**
 - **Images:** ELA, clone detection (ORB + SIFT), block-based clone detection, noise analysis, DCT analysis, JPEG ghost detection, FFT frequency analysis, metadata forensics, perceptual hashing
@@ -100,14 +111,9 @@ rosette demo                        # Full demo (no LLM)
 rosette demo --download-only        # Only download fixtures
 rosette demo --use-llm              # Enable LLM analysis (needs ANTHROPIC_API_KEY)
 rosette demo --output-dir ./out     # Custom report output directory
-rosette demo --download-rsiil       # Also download full RSIIL dataset (~57 GB)
-```
-
-### rosette analyze
-
-```bash
-rosette analyze --doi 10.1234/example
-rosette analyze --pdf path/to/paper.pdf
+rosette demo --download-rsiil       # Force re-download of RSIIL Zenodo data (~20 GB)
+rosette demo --seed 123             # Custom random seed for RSIIL sampling (default: 42)
+rosette demo --sample-size 25       # Sample 25 RSIIL images per category (default: 50)
 ```
 
 ### rosette campaign

@@ -135,7 +135,7 @@ There are three execution paths: the **demo pipeline** (`rosette demo`) for benc
      │                                                            │
      │  - Group findings by figure_id                             │
      │  - Detect converging evidence (>=2 methods,                │
-│  -   conf >= 0.6 AND method weight >= 0.3)                │
+     │      conf >= 0.6 AND method weight >= 0.3)                │
      │  - Downgrade single-method high/critical → medium          │
      │  - Boost severity when methods converge (+1 level)         │
      │  - Compute weighted confidence (avg + convergence bonus)   │
@@ -387,7 +387,7 @@ The detection pipeline runs all applicable methods on each input, then aggregate
          │                                     │
          │  2. Per-figure:                     │
          │     - Count methods w/ conf>=0.6    │
-│       AND weight >= 0.3            │
+         │       AND weight >= 0.3            │
          │     - Converging = 2+ methods       │
          │     - Compute severity (max + boost │
          │       if converging)                │
