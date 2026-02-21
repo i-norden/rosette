@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "rosette"
 version = "0.1.0"
 description = "LLM-powered academic integrity analyzer"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic~=0.40",
