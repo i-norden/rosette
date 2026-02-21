@@ -59,7 +59,7 @@ jobs:
           pip install ".[dev]"
 
       - name: Run tests (skip integration) with coverage
-        run: pytest -m "not integration" --tb=short --cov=snoopy --cov-report=term-missing --cov-fail-under=75
+        run: pytest -m "not integration" --tb=short --cov=rosette --cov-report=term-missing --cov-fail-under=75
 
   type-check:
     name: Type Check
@@ -79,7 +79,7 @@ jobs:
         run: pip install ".[dev]"
 
       - name: Run mypy
-        run: mypy snoopy
+        run: mypy rosette
 
   security:
     name: Security Scan
@@ -99,7 +99,7 @@ jobs:
         run: pip-audit
 
       - name: Run bandit SAST
-        run: bandit -r snoopy -ll
+        run: bandit -r rosette -ll
 
   secret-scan:
     name: Secret Scanning

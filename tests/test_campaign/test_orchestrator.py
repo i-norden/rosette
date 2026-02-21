@@ -1,4 +1,4 @@
-"""Tests for snoopy.campaign.orchestrator module.
+"""Tests for rosette.campaign.orchestrator module.
 
 Tests the top-level campaign coordinator: mode dispatching,
 state transitions, pause/resume, and batch processing.
@@ -11,16 +11,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from snoopy.campaign.orchestrator import CampaignOrchestrator
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import Campaign, CampaignPaper, Paper
-from snoopy.db.session import get_session, init_async_db, init_db
+from rosette.campaign.orchestrator import CampaignOrchestrator
+from rosette.config import RosetteConfig
+from rosette.db.models import Campaign, CampaignPaper, Paper
+from rosette.db.session import get_session, init_async_db, init_db
 
 
 @pytest.fixture
-def orch_config(tmp_path) -> SnoopyConfig:
+def orch_config(tmp_path) -> RosetteConfig:
     db_path = tmp_path / "campaign_orch_test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),
@@ -35,7 +35,7 @@ def orch_config(tmp_path) -> SnoopyConfig:
 
 
 def _seed_campaign(
-    config: SnoopyConfig,
+    config: RosetteConfig,
     mode: str,
     campaign_id: str = "test-campaign-001",
     status: str = "created",
@@ -341,7 +341,7 @@ class TestProcessBatchAuto:
 
         paper_ids = [f"batch-paper-{i}" for i in range(3)]
 
-        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
+        with patch("rosette.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_auto_tier = AsyncMock(side_effect=[10.0, 40.0, 80.0])
 
@@ -377,7 +377,7 @@ class TestProcessBatchAuto:
                 )
             )
 
-        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
+        with patch("rosette.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_auto_tier = AsyncMock(return_value=50.0)
 
@@ -412,7 +412,7 @@ class TestProcessBatchAuto:
                 )
             )
 
-        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
+        with patch("rosette.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_auto_tier = AsyncMock(side_effect=RuntimeError("fail"))
 
@@ -452,7 +452,7 @@ class TestProcessBatchLlm:
                 )
             )
 
-        with patch("snoopy.campaign.orchestrator.TriagePipeline") as MockTriage:
+        with patch("rosette.campaign.orchestrator.TriagePipeline") as MockTriage:
             mock_triage = MockTriage.return_value
             mock_triage.run_llm_tier = AsyncMock()
 

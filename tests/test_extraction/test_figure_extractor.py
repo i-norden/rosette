@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.extraction.figure_extractor import (
+from rosette.extraction.figure_extractor import (
     FigureInfo,
     _ALLOWED_EXTENSIONS,
     _MAX_HEIGHT,

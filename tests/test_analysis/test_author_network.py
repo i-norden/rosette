@@ -1,4 +1,4 @@
-"""Tests for snoopy.analysis.author_network module.
+"""Tests for rosette.analysis.author_network module.
 
 Tests graph construction and community detection logic using mocked DB sessions.
 """
@@ -12,7 +12,7 @@ import pytest
 community = pytest.importorskip("community", reason="python-louvain not installed")
 nx = pytest.importorskip("networkx", reason="networkx not installed")
 
-from snoopy.analysis.author_network import (  # noqa: E402
+from rosette.analysis.author_network import (  # noqa: E402
     AuthorRisk,
     FraudCluster,
     NetworkAnalysisResult,
@@ -61,7 +61,7 @@ class TestNetworkAnalysisResult:
 
 
 class TestDetectFraudClusters:
-    @patch("snoopy.analysis.author_network.get_session")
+    @patch("rosette.analysis.author_network.get_session")
     def test_empty_graph_returns_empty(self, mock_get_session):
         """No author links -> no clusters."""
         mock_session = MagicMock()

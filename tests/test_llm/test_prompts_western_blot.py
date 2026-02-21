@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.llm.prompts_western_blot import (
+from rosette.llm.prompts_western_blot import (
     PROMPT_WESTERN_BLOT_DETAILED,
     PROMPT_WESTERN_BLOT_SCREEN,
     SYSTEM_WESTERN_BLOT_ANALYST,

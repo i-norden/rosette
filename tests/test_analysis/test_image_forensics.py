@@ -3,7 +3,7 @@
 import numpy as np
 from PIL import Image
 
-from snoopy.analysis.image_forensics import (
+from rosette.analysis.image_forensics import (
     BlockCloneResult,
     DCTResult,
     JPEGGhostResult,

@@ -11,9 +11,9 @@ import json
 import pytest
 from click.testing import CliRunner
 
-from snoopy.cli import main
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import (
+from rosette.cli import main
+from rosette.config import RosetteConfig
+from rosette.db.models import (
     Campaign,
     CampaignPaper,
     Figure,
@@ -22,13 +22,13 @@ from snoopy.db.models import (
     Paper,
     Report,
 )
-from snoopy.db.session import get_session, init_db
+from rosette.db.session import get_session, init_db
 
 
 @pytest.fixture
-def cli_config(tmp_path) -> SnoopyConfig:
+def cli_config(tmp_path) -> RosetteConfig:
     db_path = tmp_path / "cli_test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),
@@ -39,7 +39,7 @@ def cli_config(tmp_path) -> SnoopyConfig:
 
 
 @pytest.fixture
-def cli_db(cli_config) -> SnoopyConfig:
+def cli_db(cli_config) -> RosetteConfig:
     """Initialize DB and return config."""
     init_db(cli_config.storage.database_url)
     return cli_config
@@ -52,7 +52,7 @@ def runner():
 
 class TestCampaignCreate:
     def test_create_network_expansion(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(
             main,
@@ -82,7 +82,7 @@ class TestCampaignCreate:
         assert "Seeds: 2 DOIs" in result.output
 
     def test_create_domain_scan(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(
             main,
@@ -102,7 +102,7 @@ class TestCampaignCreate:
         assert "Campaign created:" in result.output
 
     def test_create_network_expansion_requires_seed(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(
             main,
@@ -120,7 +120,7 @@ class TestCampaignCreate:
         assert "--seed-doi is required" in result.output
 
     def test_create_domain_scan_requires_field(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(
             main,
@@ -140,14 +140,14 @@ class TestCampaignCreate:
 
 class TestCampaignList:
     def test_list_empty(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(main, ["campaign", "list"])
         assert result.exit_code == 0
         assert "No campaigns found" in result.output
 
     def test_list_with_campaigns(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         with get_session() as session:
             session.add(
@@ -168,7 +168,7 @@ class TestCampaignList:
 
 class TestCampaignStatus:
     def test_status_specific_campaign(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         with get_session() as session:
             session.add(
@@ -192,7 +192,7 @@ class TestCampaignStatus:
         assert "20" in result.output
 
     def test_status_not_found(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(main, ["campaign", "status", "nonexistent"])
         assert result.exit_code != 0
@@ -201,7 +201,7 @@ class TestCampaignStatus:
 
 class TestCampaignPause:
     def test_pause_campaign(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         with get_session() as session:
             session.add(
@@ -222,7 +222,7 @@ class TestCampaignPause:
             assert campaign.status == "paused"
 
     def test_pause_not_found(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         result = runner.invoke(main, ["campaign", "pause", "nonexistent"])
         assert result.exit_code != 0
@@ -232,7 +232,7 @@ class TestCampaignPause:
 class TestDashboardGeneration:
     def test_collect_dashboard_data(self, cli_db):
         """Test the dashboard data collection with real DB data."""
-        from snoopy.campaign.dashboard import _collect_dashboard_data
+        from rosette.campaign.dashboard import _collect_dashboard_data
 
         campaign_id = "cam-dashboard-001"
         with get_session() as session:
@@ -322,14 +322,14 @@ class TestDashboardGeneration:
         assert len(data["expansion_tree"]) >= 1
 
     def test_collect_dashboard_nonexistent_campaign(self, cli_db):
-        from snoopy.campaign.dashboard import _collect_dashboard_data
+        from rosette.campaign.dashboard import _collect_dashboard_data
 
         with pytest.raises(ValueError, match="not found"):
             _collect_dashboard_data("nonexistent-id")
 
     def test_generate_dashboard_html(self, cli_db):
         """Test full HTML rendering."""
-        from snoopy.campaign.dashboard import generate_campaign_dashboard
+        from rosette.campaign.dashboard import generate_campaign_dashboard
 
         campaign_id = "cam-html-001"
         with get_session() as session:
@@ -349,7 +349,7 @@ class TestDashboardGeneration:
 
     def test_dashboard_with_hash_matches(self, cli_db):
         """Test dashboard includes hash match data."""
-        from snoopy.campaign.dashboard import _collect_dashboard_data
+        from rosette.campaign.dashboard import _collect_dashboard_data
 
         campaign_id = "cam-hash-dash-001"
         with get_session() as session:
@@ -424,7 +424,7 @@ class TestDashboardGeneration:
 
 class TestCampaignExport:
     def test_export_filters_by_risk(self, cli_db, runner, monkeypatch):
-        monkeypatch.setattr("snoopy.cli.load_config", lambda *a, **kw: cli_db)
+        monkeypatch.setattr("rosette.cli.load_config", lambda *a, **kw: cli_db)
 
         campaign_id = "cam-export-001"
         with get_session() as session:

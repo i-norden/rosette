@@ -1,8 +1,8 @@
-"""Tests for snoopy.pipeline.stages module."""
+"""Tests for rosette.pipeline.stages module."""
 
 from __future__ import annotations
 
-from snoopy.pipeline.stages import PIPELINE_STAGES, get_next_stage, get_remaining_stages
+from rosette.pipeline.stages import PIPELINE_STAGES, get_next_stage, get_remaining_stages
 
 
 class TestGetNextStage:

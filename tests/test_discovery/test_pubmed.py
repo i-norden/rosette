@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from snoopy.discovery.pubmed import (
+from rosette.discovery.pubmed import (
     _parse_article_xml,
     fetch_details,
     search_pubmed,

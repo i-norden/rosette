@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.extraction.table_extractor import (
+from rosette.extraction.table_extractor import (
     TableInfo,
     _clean_cell,
     _table_to_raw_text,

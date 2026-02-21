@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.discovery.semantic_scholar import (
+from rosette.discovery.semantic_scholar import (
     S2PaperResult,
     _parse_author,
     _parse_paper,

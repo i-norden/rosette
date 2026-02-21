@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaign Dashboard: {{ overview.name }}</title>
+<style>
+:root {
+  --critical: #d32f2f;
+  --high: #f57c00;
+  --medium: #fbc02d;
+  --low: #388e3c;
+  --clean: #1976d2;
+  --bg: #f5f5f5;
+  --card: #ffffff;
+  --text: #212121;
+  --muted: #757575;
+  --border: #e0e0e0;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 1.75rem; margin-bottom: 4px; }
+h2 { font-size: 1.25rem; margin: 24px 0 12px; border-bottom: 2px solid var(--border); padding-bottom: 6px; }
+h3 { font-size: 1rem; margin: 12px 0 8px; }
+.header { background: var(--card); border-bottom: 3px solid var(--critical); padding: 20px; margin-bottom: 20px; border-radius: 4px; }
+.header .subtitle { color: var(--muted); font-size: 0.9rem; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+.badge-critical { background: var(--critical); }
+.badge-high { background: var(--high); }
+.badge-medium { background: var(--medium); color: #333; }
+.badge-low { background: var(--low); }
+.badge-clean { background: var(--clean); }
+.badge-status { background: #9e9e9e; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 16px; margin-bottom: 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.stat-box { text-align: center; padding: 12px; }
+.stat-box .value { font-size: 2rem; font-weight: 700; }
+.stat-box .label { font-size: 0.85rem; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th { background: #f0f0f0; text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--border); }
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: #fafafa; }
+.bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin: 12px 0; }
+.bar { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.bar-fill { width: 100%; border-radius: 3px 3px 0 0; min-height: 4px; transition: height 0.3s; }
+.bar-label { font-size: 0.75rem; color: var(--muted); margin-top: 4px; text-align: center; }
+.bar-value { font-size: 0.8rem; font-weight: 600; margin-bottom: 2px; }
+.funnel { display: flex; flex-direction: column; gap: 4px; margin: 12px 0; }
+.funnel-step { display: flex; align-items: center; gap: 12px; }
+.funnel-bar { height: 28px; border-radius: 3px; display: flex; align-items: center; padding: 0 10px; color: #fff; font-weight: 600; font-size: 0.85rem; min-width: 40px; }
+.funnel-label { font-size: 0.85rem; min-width: 140px; }
+.meta { font-size: 0.8rem; color: var(--muted); margin-top: 20px; text-align: center; }
+.truncate { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Header -->
+<div class="header">
+  <h1>{{ overview.name }}</h1>
+  <div class="subtitle">
+    <span class="badge badge-status">{{ overview.status }}</span>
+    Mode: <strong>{{ overview.mode }}</strong> |
+    Created: {{ overview.created_at[:19] if overview.created_at else 'N/A' }}
+    {% if overview.config %}
+      {% if overview.config.field %} | Field: <strong>{{ overview.config.field }}</strong>{% endif %}
+      {% if overview.config.journal %} | Journal: <strong>{{ overview.config.journal }}</strong>{% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Funnel Overview -->
+<h2>Investigation Funnel</h2>
+<div class="card">
+  <div class="grid-4">
+    <div class="stat-box">
+      <div class="value">{{ funnel.papers_discovered }}</div>
+      <div class="label">Discovered</div>
+    </div>
+    <div class="stat-box">
+      <div class="value">{{ funnel.papers_triaged }}</div>
+      <div class="label">Auto-Triaged</div>
+    </div>
+    <div class="stat-box">
+      <div class="value">{{ funnel.papers_flagged }}</div>
+      <div class="label">Flagged</div>
+    </div>
+    <div class="stat-box">
+      <div class="value">{{ funnel.papers_llm_analyzed }}</div>
+      <div class="label">LLM Analyzed</div>
+    </div>
+  </div>
+  {% set max_val = funnel.papers_discovered if funnel.papers_discovered > 0 else 1 %}
+  <div class="funnel">
+    <div class="funnel-step">
+      <div class="funnel-label">Discovered</div>
+      <div class="funnel-bar" style="width: 100%; background: var(--clean);">{{ funnel.papers_discovered }}</div>
+    </div>
+    <div class="funnel-step">
+      <div class="funnel-label">Auto-Triaged</div>
+      <div class="funnel-bar" style="width: {{ (funnel.papers_triaged / max_val * 100)|int }}%; background: #7cb342;">{{ funnel.papers_triaged }}</div>
+    </div>
+    <div class="funnel-step">
+      <div class="funnel-label">Flagged</div>
+      <div class="funnel-bar" style="width: {{ (funnel.papers_flagged / max_val * 100)|int }}%; background: var(--high);">{{ funnel.papers_flagged }}</div>
+    </div>
+    <div class="funnel-step">
+      <div class="funnel-label">LLM Analyzed</div>
+      <div class="funnel-bar" style="width: {{ (funnel.papers_llm_analyzed / max_val * 100)|int }}%; background: var(--critical);">{{ funnel.papers_llm_analyzed }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Risk Distribution -->
+<h2>Risk Distribution</h2>
+<div class="card">
+  <div class="grid-2">
+    <div>
+      {% set risk_order = ['critical', 'high', 'medium', 'low', 'clean'] %}
+      {% set risk_colors = {'critical': 'var(--critical)', 'high': 'var(--high)', 'medium': 'var(--medium)', 'low': 'var(--low)', 'clean': 'var(--clean)'} %}
+      {% set risk_total = risk_distribution.values()|sum if risk_distribution else 1 %}
+      {% for level in risk_order %}
+        {% set count = risk_distribution.get(level, 0) %}
+        {% if count > 0 %}
+        <div style="display: flex; align-items: center; margin: 6px 0;">
+          <span class="badge badge-{{ level }}" style="min-width: 70px; text-align: center;">{{ level }}</span>
+          <div style="flex: 1; margin: 0 10px; background: #eee; height: 20px; border-radius: 3px; overflow: hidden;">
+            <div style="width: {{ (count / risk_total * 100)|int }}%; height: 100%; background: {{ risk_colors[level] }};"></div>
+          </div>
+          <span style="font-weight: 600; min-width: 30px;">{{ count }}</span>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div>
+      <h3>Triage Breakdown</h3>
+      <table>
+        <tr><th>Status</th><th>Count</th></tr>
+        {% for status, count in triage_breakdown.items() %}
+        <tr><td>{{ status }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Top Findings -->
+{% if top_findings %}
+<h2>Top Findings</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Risk</th>
+        <th>Score</th>
+        <th>Title</th>
+        <th>Journal</th>
+        <th>Source</th>
+        <th>Depth</th>
+        <th>Findings</th>
+        <th>LLM</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in top_findings %}
+      <tr>
+        <td><span class="badge badge-{{ p.final_risk or 'clean' }}">{{ p.final_risk or 'pending' }}</span></td>
+        <td>{{ '%.0f'|format(p.auto_risk_score or 0) }}</td>
+        <td class="truncate" title="{{ p.title }}">
+          {% if p.doi %}<a href="https://doi.org/{{ p.doi }}" target="_blank">{{ p.title }}</a>{% else %}{{ p.title }}{% endif %}
+        </td>
+        <td>{{ p.journal or '' }}</td>
+        <td>{{ p.source }}</td>
+        <td>{{ p.depth }}</td>
+        <td>{{ p.auto_findings_count or 0 }}</td>
+        <td>{{ 'Yes' if p.llm_promoted else '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Cross-Paper Image Matches -->
+{% if hash_matches %}
+<h2>Cross-Paper Image Matches</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Paper A</th>
+        <th>Figure A</th>
+        <th>Paper B</th>
+        <th>Figure B</th>
+        <th>Distance</th>
+        <th>Type</th>
+        <th>Verified</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in hash_matches %}
+      <tr>
+        <td class="truncate" title="{{ m.paper_a_title }}">
+          {% if m.paper_a_doi %}<a href="https://doi.org/{{ m.paper_a_doi }}" target="_blank">{{ m.paper_a_title }}</a>{% else %}{{ m.paper_a_title }}{% endif %}
+        </td>
+        <td>{{ m.figure_a_label or 'fig' }}</td>
+        <td class="truncate" title="{{ m.paper_b_title }}">
+          {% if m.paper_b_doi %}<a href="https://doi.org/{{ m.paper_b_doi }}" target="_blank">{{ m.paper_b_title }}</a>{% else %}{{ m.paper_b_title }}{% endif %}
+        </td>
+        <td>{{ m.figure_b_label or 'fig' }}</td>
+        <td>{{ m.hash_distance }}</td>
+        <td>{{ m.hash_type }}</td>
+        <td>{{ 'Yes' if m.verified == true else ('No' if m.verified == false else 'Pending') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Expansion Tree (network_expansion mode) -->
+{% if expansion_tree %}
+<h2>Expansion Tree</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Depth</th><th>Papers</th><th>Flagged</th><th>Flag Rate</th></tr>
+    </thead>
+    <tbody>
+      {% for d in expansion_tree %}
+      <tr>
+        <td>{{ d.depth }}{% if d.depth == 0 %} (seeds){% endif %}</td>
+        <td>{{ d.papers }}</td>
+        <td>{{ d.flagged }}</td>
+        <td>{{ '%.0f'|format(d.flagged / d.papers * 100 if d.papers > 0 else 0) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Method Breakdown -->
+{% if method_breakdown %}
+<h2>Analysis Method Breakdown</h2>
+<div class="card">
+  {% set max_method = method_breakdown[0].count if method_breakdown else 1 %}
+  <div class="bar-chart">
+    {% for m in method_breakdown %}
+    <div class="bar">
+      <div class="bar-value">{{ m.count }}</div>
+      <div class="bar-fill" style="height: {{ (m.count / max_method * 100)|int }}%; background: var(--clean);"></div>
+      <div class="bar-label">{{ m.name }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="meta">
+  Generated by Rosette v{{ version }} on {{ generated_at }}
+</div>
+
+</div>
+</body>
+</html>

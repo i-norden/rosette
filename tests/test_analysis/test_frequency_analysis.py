@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image
 
-from snoopy.analysis.image_forensics import FFTResult, frequency_analysis
+from rosette.analysis.image_forensics import FFTResult, frequency_analysis
 
 
 class TestFFTNaturalImage:

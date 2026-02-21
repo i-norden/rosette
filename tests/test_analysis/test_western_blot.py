@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.analysis.western_blot import (
+from rosette.analysis.western_blot import (
     BandProfile,
     WesternBlotResult,
     _compare_profiles,

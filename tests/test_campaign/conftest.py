@@ -14,6 +14,6 @@ import pytest
 @pytest.fixture(autouse=True)
 def mock_claude_provider():
     """Globally mock ClaudeProvider for all campaign tests."""
-    with patch("snoopy.pipeline.orchestrator.ClaudeProvider") as mock_cls:
+    with patch("rosette.pipeline.orchestrator.ClaudeProvider") as mock_cls:
         mock_cls.return_value = MagicMock()
         yield mock_cls

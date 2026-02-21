@@ -1,13 +1,13 @@
-"""Tests for snoopy.calibration.benchmark module."""
+"""Tests for rosette.calibration.benchmark module."""
 
 from __future__ import annotations
 
-from snoopy.calibration.benchmark import (
+from rosette.calibration.benchmark import (
     LabeledSample,
     auto_tune_thresholds,
     load_labeled_samples,
 )
-from snoopy.calibration.metrics import (
+from rosette.calibration.metrics import (
     CalibrationReport,
     ClassificationMetrics,
     ConfusionMatrix,

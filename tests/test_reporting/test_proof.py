@@ -1,9 +1,9 @@
-"""Tests for snoopy.reporting.proof module."""
+"""Tests for rosette.reporting.proof module."""
 
 from __future__ import annotations
 
-import snoopy
-from snoopy.reporting.proof import (
+import rosette
+from rosette.reporting.proof import (
     _compute_methods_summary,
     _prepare_findings,
     _prepare_paper_context,
@@ -174,7 +174,7 @@ class TestGenerateReports:
         assert "<!DOCTYPE html>" in html
         assert "Test Paper" in html
         assert "Executive summary" in html
-        assert snoopy.__version__ in html
+        assert rosette.__version__ in html
 
     def test_markdown_report_contains_structure(self):
         md = generate_markdown_report(
@@ -187,4 +187,4 @@ class TestGenerateReports:
             converging_evidence=False,
         )
         assert "Summary here" in md
-        assert snoopy.__version__ in md
+        assert rosette.__version__ in md

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from snoopy.discovery.pubpeer import check_pubpeer
+from rosette.discovery.pubpeer import check_pubpeer
 
 
 def _make_response(status_code: int, json_data: dict | None = None) -> MagicMock:
@@ -59,7 +59,7 @@ class TestCheckPubpeer:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -77,7 +77,7 @@ class TestCheckPubpeer:
         response = _make_response(200, {"data": []})
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -92,7 +92,7 @@ class TestCheckPubpeer:
         response = _make_response(404)
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -105,7 +105,7 @@ class TestCheckPubpeer:
         response = _make_response(500)
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -118,7 +118,7 @@ class TestCheckPubpeer:
     async def test_http_error(self):
         mock_client = _make_client(get_side_effect=httpx.HTTPError("connection failed"))
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -131,7 +131,7 @@ class TestCheckPubpeer:
     async def test_unexpected_error(self):
         mock_client = _make_client(get_side_effect=ValueError("unexpected"))
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -165,7 +165,7 @@ class TestCheckPubpeer:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -197,7 +197,7 @@ class TestCheckPubpeer:
         )
         mock_client = _make_client(get_return=response)
 
-        with patch("snoopy.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.discovery.pubpeer.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 

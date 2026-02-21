@@ -27,4 +27,4 @@ repos:
           - types-PyYAML
         args: [--ignore-missing-imports]
         pass_filenames: false
-        entry: mypy snoopy
+        entry: mypy rosette

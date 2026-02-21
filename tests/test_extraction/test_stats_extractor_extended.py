@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from snoopy.extraction.stats_extractor import MeanReport, extract_means_sds_and_ns
+from rosette.extraction.stats_extractor import MeanReport, extract_means_sds_and_ns
 
 
 class TestExtractMeanSDN:

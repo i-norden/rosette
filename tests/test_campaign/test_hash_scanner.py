@@ -1,4 +1,4 @@
-"""Tests for snoopy.campaign.hash_scanner module.
+"""Tests for rosette.campaign.hash_scanner module.
 
 Tests prefix-bucketed hash matching, incremental scanning,
 and match persistence.
@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.campaign.hash_scanner import CampaignHashScanner, _DEFAULT_PREFIX_LEN
-from snoopy.config import SnoopyConfig
-from snoopy.db.models import Campaign, CampaignPaper, Figure, ImageHashMatch, Paper
-from snoopy.db.session import get_session, init_async_db, init_db
+from rosette.campaign.hash_scanner import CampaignHashScanner, _DEFAULT_PREFIX_LEN
+from rosette.config import RosetteConfig
+from rosette.db.models import Campaign, CampaignPaper, Figure, ImageHashMatch, Paper
+from rosette.db.session import get_session, init_async_db, init_db
 
 
 @pytest.fixture
-def scanner_config(tmp_path) -> SnoopyConfig:
+def scanner_config(tmp_path) -> RosetteConfig:
     db_path = tmp_path / "scanner_test.db"
-    return SnoopyConfig(
+    return RosetteConfig(
         storage={
             "database_url": f"sqlite:///{db_path}",
             "pdf_dir": str(tmp_path / "pdfs"),

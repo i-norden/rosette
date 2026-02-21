@@ -3,12 +3,12 @@
 import pytest
 from pydantic import ValidationError
 
-from snoopy.config import (
+from rosette.config import (
     AnalysisConfig,
     CloneConfig,
     ELAConfig,
     NoiseConfig,
-    SnoopyConfig,
+    RosetteConfig,
     StatisticalConfig,
     WesternBlotConfig,
     load_config,
@@ -17,15 +17,15 @@ from snoopy.config import (
 
 class TestConfigDefaults:
     def test_default_config(self):
-        config = SnoopyConfig()
+        config = RosetteConfig()
         assert config.llm.provider == "claude"
         assert config.llm.model_screen == "claude-haiku-4-5-20251001"
-        assert config.storage.database_url == "sqlite:///snoopy.db"
+        assert config.storage.database_url == "sqlite:///rosette.db"
         assert config.analysis.ela.quality == 80
         assert config.priority.min_citations == 50
 
     def test_custom_config(self):
-        config = SnoopyConfig(
+        config = RosetteConfig(
             llm={"provider": "custom", "max_concurrent_requests": 10},
             storage={"database_url": "sqlite:///custom.db"},
         )
@@ -177,4 +177,4 @@ llm:
         config_file.write_text("")
         config = load_config(str(config_file))
         assert config.llm.provider == "claude"
-        assert config.storage.database_url == "sqlite:///snoopy.db"
+        assert config.storage.database_url == "sqlite:///rosette.db"

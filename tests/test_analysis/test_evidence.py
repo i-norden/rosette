@@ -2,7 +2,7 @@
 
 import pytest
 
-from snoopy.analysis.evidence import (
+from rosette.analysis.evidence import (
     aggregate_findings,
     compute_figure_severity,
     compute_overall_confidence,
@@ -91,12 +91,21 @@ class TestConvergingEvidence:
         result = aggregate_findings(findings)
         assert result.paper_risk == "high"
 
-
     def test_multiple_figures_single_method_not_high(self):
         """Multiple figures flagged by a single method → not "high" (requires convergence)."""
         findings = [
-            {"figure_id": "fig1", "method": "noise_analysis", "confidence": 0.8, "severity": "medium"},
-            {"figure_id": "fig2", "method": "noise_analysis", "confidence": 0.8, "severity": "medium"},
+            {
+                "figure_id": "fig1",
+                "method": "noise_analysis",
+                "confidence": 0.8,
+                "severity": "medium",
+            },
+            {
+                "figure_id": "fig2",
+                "method": "noise_analysis",
+                "confidence": 0.8,
+                "severity": "medium",
+            },
         ]
         result = aggregate_findings(findings)
         # Without convergence, 2 figures flagged should not reach "high"
@@ -109,7 +118,9 @@ class TestSeverity:
         assert compute_figure_severity([]) == "clean"
 
     def test_single_finding(self):
-        result = compute_figure_severity([{"severity": "medium", "method": "ela", "confidence": 0.7}])
+        result = compute_figure_severity(
+            [{"severity": "medium", "method": "ela", "confidence": 0.7}]
+        )
         assert result == "medium"
 
     def test_boosted_with_multiple_methods(self):

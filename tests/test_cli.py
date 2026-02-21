@@ -1,4 +1,4 @@
-"""Tests for the snoopy CLI, focusing on the demo command."""
+"""Tests for the rosette CLI, focusing on the demo command."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from snoopy.cli import main
+from rosette.cli import main
 
 
 class TestDemoCommand:
-    """Tests for the `snoopy demo` CLI command."""
+    """Tests for the `rosette demo` CLI command."""
 
     def test_demo_help(self) -> None:
         runner = CliRunner()
@@ -23,10 +23,10 @@ class TestDemoCommand:
         assert "--download-rsiil" in result.output
         assert "--seed" in result.output
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
-    @patch("snoopy.demo.runner.run_demo")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
+    @patch("rosette.demo.runner.run_demo")
     def test_demo_invokes_run_demo(
         self,
         mock_run_demo: MagicMock,
@@ -45,12 +45,13 @@ class TestDemoCommand:
             output_dir=None,
             download_rsiil=False,
             seed=42,
+            sample_size=50,
         )
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
-    @patch("snoopy.demo.runner.run_demo")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
+    @patch("rosette.demo.runner.run_demo")
     def test_demo_download_only_flag(
         self,
         mock_run_demo: MagicMock,
@@ -69,12 +70,13 @@ class TestDemoCommand:
             output_dir=None,
             download_rsiil=False,
             seed=42,
+            sample_size=50,
         )
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
-    @patch("snoopy.demo.runner.run_demo")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
+    @patch("rosette.demo.runner.run_demo")
     def test_demo_output_dir_option(
         self,
         mock_run_demo: MagicMock,
@@ -93,6 +95,7 @@ class TestDemoCommand:
             output_dir="/tmp/reports",
             download_rsiil=False,
             seed=42,
+            sample_size=50,
         )
 
 
@@ -112,9 +115,9 @@ class TestMainGroup:
         assert "config" in result.output
         assert "serve" in result.output
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
     def test_config_command(
         self, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
     ) -> None:
@@ -128,7 +131,7 @@ class TestMainGroup:
 
 
 class TestAnalyzeCommand:
-    """Tests for the `snoopy analyze` CLI command."""
+    """Tests for the `rosette analyze` CLI command."""
 
     def test_analyze_help(self) -> None:
         runner = CliRunner()
@@ -138,9 +141,9 @@ class TestAnalyzeCommand:
         assert "--pdf" in result.output
         assert "--from-stage" in result.output
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
     def test_analyze_requires_doi_or_pdf(
         self, mock_load_config: MagicMock, mock_init_db: MagicMock, mock_init_async_db: MagicMock
     ) -> None:
@@ -151,11 +154,11 @@ class TestAnalyzeCommand:
         assert result.exit_code != 0
         assert "provide either" in result.output.lower() or result.exit_code == 1
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
-    @patch("snoopy.pipeline.orchestrator.PipelineOrchestrator")
-    @patch("snoopy.cli.get_session")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
+    @patch("rosette.pipeline.orchestrator.PipelineOrchestrator")
+    @patch("rosette.cli.get_session")
     def test_analyze_with_doi(
         self,
         mock_get_session: MagicMock,
@@ -193,7 +196,7 @@ class TestAnalyzeCommand:
 
 
 class TestStatusCommand:
-    """Tests for the `snoopy status` CLI command."""
+    """Tests for the `rosette status` CLI command."""
 
     def test_status_help(self) -> None:
         runner = CliRunner()
@@ -201,10 +204,10 @@ class TestStatusCommand:
         assert result.exit_code == 0
         assert "status" in result.output.lower()
 
-    @patch("snoopy.cli.init_async_db")
-    @patch("snoopy.cli.init_db")
-    @patch("snoopy.cli.load_config")
-    @patch("snoopy.cli.get_session")
+    @patch("rosette.cli.init_async_db")
+    @patch("rosette.cli.init_db")
+    @patch("rosette.cli.load_config")
+    @patch("rosette.cli.get_session")
     def test_status_shows_totals(
         self,
         mock_get_session: MagicMock,
@@ -240,7 +243,7 @@ class TestStatusCommand:
 
 
 class TestServeCommand:
-    """Tests for the `snoopy serve` CLI command."""
+    """Tests for the `rosette serve` CLI command."""
 
     def test_serve_help(self) -> None:
         runner = CliRunner()

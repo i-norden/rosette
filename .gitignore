@@ -25,6 +25,10 @@ htmlcov/
 .ruff_cache/
 .idea/
 
+# forge-world cache (not committed, unlike snapshots)
+.forge-world/cache/
+.forge-world/evolution-context.md
+
 # Environment variables (secrets)
 .env
 

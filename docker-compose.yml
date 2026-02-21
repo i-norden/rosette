@@ -1,5 +1,5 @@
 services:
-  snoopy:
+  rosette:
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,17 +11,17 @@ services:
       - "8000:8000"
     environment:
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
-      SNOOPY__STORAGE__DATABASE_URL: "postgresql://snoopy:${POSTGRES_PASSWORD}@postgres:5432/snoopy"
-      SNOOPY__STORAGE__PDF_DIR: "/data/pdfs"
-      SNOOPY__STORAGE__FIGURES_DIR: "/data/figures"
-      SNOOPY__STORAGE__REPORTS_DIR: "/data/reports"
-      SNOOPY__LLM__PROVIDER: "${SNOOPY__LLM__PROVIDER:-claude}"
+      ROSETTE__STORAGE__DATABASE_URL: "postgresql://rosette:${POSTGRES_PASSWORD}@postgres:5432/rosette"
+      ROSETTE__STORAGE__PDF_DIR: "/data/pdfs"
+      ROSETTE__STORAGE__FIGURES_DIR: "/data/figures"
+      ROSETTE__STORAGE__REPORTS_DIR: "/data/reports"
+      ROSETTE__LLM__PROVIDER: "${ROSETTE__LLM__PROVIDER:-claude}"
     volumes:
       - pdf-data:/data/pdfs
       - figure-data:/data/figures
       - report-data:/data/reports
     networks:
-      - snoopy-net
+      - rosette-net
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -50,13 +50,13 @@ services:
   postgres:
     image: postgres:16-alpine@sha256:b89a4e92591810eac1fbce6107485d7c6b9449df51c1ccfcfed514a7fdd69955
     environment:
-      POSTGRES_USER: snoopy
+      POSTGRES_USER: rosette
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      POSTGRES_DB: snoopy
+      POSTGRES_DB: rosette
     volumes:
       - pg-data:/var/lib/postgresql/data
     networks:
-      - snoopy-net
+      - rosette-net
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -78,7 +78,7 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U snoopy"]
+      test: ["CMD-SHELL", "pg_isready -U rosette"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -90,5 +90,5 @@ volumes:
   pg-data:
 
 networks:
-  snoopy-net:
+  rosette-net:
     driver: bridge

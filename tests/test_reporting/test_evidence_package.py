@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from snoopy.analysis.evidence import AggregatedEvidence
-from snoopy.reporting.evidence_package import (
+from rosette.analysis.evidence import AggregatedEvidence
+from rosette.reporting.evidence_package import (
     _file_sha256,
     _generate_executive_summary,
     generate_evidence_package,

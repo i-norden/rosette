@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.discovery.crossref import _normalize_doi, check_retraction, get_work
+from rosette.discovery.crossref import _normalize_doi, check_retraction, get_work
 
 
 class TestNormalizeDoi:

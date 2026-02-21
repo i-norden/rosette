@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.llm.base import LLMProvider, LLMResponse
+from rosette.llm.base import LLMProvider, LLMResponse
 
 
 class TestLLMResponse:

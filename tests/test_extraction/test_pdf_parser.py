@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.extraction.pdf_parser import (
+from rosette.extraction.pdf_parser import (
     PageText,
     download_pdf,
     extract_metadata,
@@ -103,7 +103,7 @@ class TestDownloadPdf:
         mock_client = AsyncMock()
         mock_client.stream.side_effect = httpx.HTTPError("connection failed")
 
-        with patch("snoopy.extraction.pdf_parser.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.extraction.pdf_parser.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -130,7 +130,7 @@ class TestDownloadPdf:
         mock_client = AsyncMock()
         mock_client.stream = _mock_stream
 
-        with patch("snoopy.extraction.pdf_parser.httpx.AsyncClient") as mock_cls:
+        with patch("rosette.extraction.pdf_parser.httpx.AsyncClient") as mock_cls:
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 

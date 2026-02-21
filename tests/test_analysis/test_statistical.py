@@ -1,6 +1,6 @@
 """Tests for statistical integrity checks."""
 
-from snoopy.analysis.statistical import (
+from rosette.analysis.statistical import (
     benford_test,
     duplicate_value_check,
     grim_test,

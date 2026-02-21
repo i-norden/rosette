@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from snoopy.analysis.metadata_forensics import MetadataForensicsResult, analyze_metadata
+from rosette.analysis.metadata_forensics import MetadataForensicsResult, analyze_metadata
 
 
 class TestAnalyzeMetadataClean:

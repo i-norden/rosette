@@ -1,6 +1,6 @@
 """Tests for LLM prompt templates."""
 
-from snoopy.llm.prompts import (
+from rosette.llm.prompts import (
     PROMPT_ANALYZE_FIGURE,
     PROMPT_FIGURE_CLASSIFY,
     PROMPT_SCREEN_FIGURE,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.discovery.openalex import (
+from rosette.discovery.openalex import (
     PaperResult,
     _parse_work,
     _reconstruct_abstract,

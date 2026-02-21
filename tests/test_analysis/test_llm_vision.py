@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from snoopy.analysis.llm_vision import (
+from rosette.analysis.llm_vision import (
     DetailedAnalysisResult,
     ScreeningResult,
     _parse_json_response,

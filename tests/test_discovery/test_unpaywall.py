@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from snoopy.discovery.unpaywall import get_pdf_url
+from rosette.discovery.unpaywall import get_pdf_url
 
 
 class TestGetPdfUrl:

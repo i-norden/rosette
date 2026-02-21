@@ -1,4 +1,4 @@
-"""Tests for snoopy.demo.fixtures (fixture download/generation)."""
+"""Tests for rosette.demo.fixtures (fixture download/generation)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import httpx
 
-from snoopy.demo.fixtures import (
+from rosette.demo.fixtures import (
     _count_files,
     _download_file,
     _download_streaming,
@@ -15,7 +15,7 @@ from snoopy.demo.fixtures import (
     generate_synthetic_forgeries,
     sample_rsiil_images,
 )
-import snoopy.demo.fixtures as fixtures_mod
+import rosette.demo.fixtures as fixtures_mod
 
 
 class TestPmcPdfUrl:

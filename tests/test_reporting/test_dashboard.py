@@ -1,10 +1,10 @@
-"""Tests for snoopy.reporting.dashboard."""
+"""Tests for rosette.reporting.dashboard."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from snoopy.reporting.dashboard import generate_dashboard
+from rosette.reporting.dashboard import generate_dashboard
 
 
 def _make_results() -> list[dict]:
@@ -80,7 +80,7 @@ class TestGenerateDashboard:
         results = _make_results()
         generate_dashboard(results, tmp_path)
         html = (tmp_path / "index.html").read_text()
-        assert "Snoopy Demo Results" in html
+        assert "Rosette Demo Results" in html
 
     def test_html_contains_category_names(self, tmp_path: Path) -> None:
         results = _make_results()
@@ -115,7 +115,7 @@ class TestGenerateDashboard:
         out = generate_dashboard([], tmp_path)
         assert out.exists()
         html = out.read_text()
-        assert "Snoopy Demo Results" in html
+        assert "Rosette Demo Results" in html
 
     def test_creates_report_dir_if_missing(self, tmp_path: Path) -> None:
         out_dir = tmp_path / "sub" / "dir"
